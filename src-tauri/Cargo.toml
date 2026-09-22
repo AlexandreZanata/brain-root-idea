@@ -1,6 +1,6 @@
 [package]
 name = "brainroot"
-version = "0.0.1-alpha.4"
+version = "0.0.1-alpha.5"
 description = "BrainRoot experimental Linux shell"
 authors = ["BrainRoot contributors"]
 license = "Apache-2.0"
