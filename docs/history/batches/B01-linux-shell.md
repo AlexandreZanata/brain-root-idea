@@ -4,12 +4,13 @@
 
 ## Header
 
-- Status: Ready to merge
+- Status: Released
 - Objective: BrainRoot opens a minimal Linux window and exits cleanly on the frozen reference environment, with a typed core/UI health contract, deterministic repository-owned check scripts, a first measured performance baseline, and reproducible CI — still without project opening, provider, chat, terminal, or second WebView.
-- Branch: `batch/b01-linux-shell`
+- Branch: `batch/b01-linux-shell` (deleted after merge)
 - Draft/final PR: [#9](https://github.com/AlexandreZanata/brain-root-idea/pull/9)
+- Merge commit: `4cbfe140da294c2b2c9867cb325d9ae7e2a722b6`
 - Baseline commit: `cd35efb8904de5156f7b97b097a65e9e5d4ff55f`
-- Target/resulting version: `0.0.1-alpha.2` (annotated tag on the merge commit; pre-release)
+- Target/resulting version: `0.0.1-alpha.2` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1-alpha.2))
 - Started/completed: 2026-09-22 / —
 - Supported test environment: Pop!_OS 24.04 LTS, kernel `7.1.5-76070105-generic`, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 (pinned), Node.js v26.3.1, pnpm 11.13.0, TypeScript 7.0.2 via `@typescript/native`
 
@@ -29,7 +30,7 @@
 | B01-S04 | [#12](https://github.com/AlexandreZanata/brain-root-idea/issues/12) | `check-fast` and `check-full-linux` entry points with a deliberate fixture; version check extended to `src-tauri/Cargo.toml`; CI pinned to Rust 1.96.0 and running the full gate | `01d0993`, `f4eeee8` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/12#issuecomment-5777671123), [correction](https://github.com/AlexandreZanata/brain-root-idea/issues/12#issuecomment-5778139141) | Release build lacked the CLI-managed `custom-protocol` feature (dev semantics); corrected to `pnpm tauri build --no-bundle` after reopening | Closed |
 | B01-S05 | [#13](https://github.com/AlexandreZanata/brain-root-idea/issues/13) | Production smoke test: readiness marker, exactly one web and one network process, SIGTERM shutdown, zero leftovers or listeners; readiness line added to `health()` | `f629231` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/13#issuecomment-5778314455) | Baseline guard rewritten to `/proc/<pid>/exe`; cleanup kills the process group; UI automation not approved (limitation recorded) | Closed |
 | B01-S06 | [#14](https://github.com/AlexandreZanata/brain-root-idea/issues/14) | First MEASURED baseline: startup p50 0.282 s, idle CPU median 0.172 %, memory 198.5 MB PSS / 418.9 MB VmRSS, bundle sizes, 3 clean cycles | `9625d89` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/14#issuecomment-5778564138) | Memory TARGET fails and is recorded as failing; CPU stays a warn after one 1.310 % window | Closed |
-| B01-S07 | [#15](https://github.com/AlexandreZanata/brain-root-idea/issues/15) | Version `0.0.1-alpha.2` synchronized across `VERSION`, `Cargo.toml`, `package.json`, and the lockfile; changelog release section; full CI on the latest head; PR merged with the documented administrator exception; annotated tag and pre-release | `<merge>` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/15) | Ecosystem copies added to the allowlist to satisfy the version policy; final links land in the post-merge record commit | Ready |
+| B01-S07 | [#15](https://github.com/AlexandreZanata/brain-root-idea/issues/15) | Version `0.0.1-alpha.2` synchronized across `VERSION`, `Cargo.toml`, `package.json`, and the lockfile; changelog release section; full CI green on the latest head; PR merged with the documented administrator exception; annotated tag and pre-release | `4cbfe14` (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/15#issuecomment-5778871758) | Ecosystem copies added to the allowlist to satisfy the version policy; this record finalized in the post-merge commit | Closed |
 
 ## Decisions and changed assumptions
 
@@ -51,7 +52,7 @@
 
 ## Final gates
 
-- Full CI: `check-full-linux` on the batch head and the post-merge `push` run on `main` — recorded in issue #15
+- Full CI: [`check-full-linux` success on the batch head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35742910658) (6 m 44 s) and [`push` run success on `main`](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35743854461)
 - Review: single-maintainer exception; merged with the documented administrator bypass
 - Security/privacy: secret-pattern scans in the gates, manual diff review, zero IPC permissions, no new destination
 - Performance: [first baseline](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/specs/performance-reports/b01-linux-baseline.md) — startup and idle CPU within target; memory target fails and is recorded
@@ -61,4 +62,6 @@
 
 ## Result and next batch
 
-In progress. Next microstep: B01-S07 finalization. Batch merges only after every B01 issue closes with evidence, full Linux CI is green on the latest head, and this record matches the Wiki batch page.
+Batch B01 is released as [`v0.0.1-alpha.2`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1-alpha.2) on merge commit `4cbfe14`: the minimal measured Linux shell with a typed health contract, deterministic gates, production CI, and a MEASURED performance baseline whose memory target fails and is recorded. Rollback: delete the tag and pre-release, restore `VERSION` to `0.0.1-alpha.1` and the previous changelog state, and revert this record and the Wiki pages; the merge commit stays unless a maintainer explicitly reverts it. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, tag, and CI URLs cannot exist before the merge.
+
+Next batch: B02 — provider-neutral contract and deterministic fake (`batch/b02-provider-contract`), starting with the provider-neutral MVP-0 types.
