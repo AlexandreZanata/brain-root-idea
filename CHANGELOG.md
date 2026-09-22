@@ -8,6 +8,12 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 ## Unreleased
 
+No unreleased changes yet.
+
+## 0.0.1
+
+Batch B05 (Linux MVP-0 hardening and release) is tracked by [pull/44](https://github.com/AlexandreZanata/brain-root-idea/pull/44) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B05-Linux-MVP0-Release).
+
 Batch B05 (Linux MVP-0 hardening and release) is tracked by [pull/44](https://github.com/AlexandreZanata/brain-root-idea/pull/44) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B05-Linux-MVP0-Release).
 
 ### Added

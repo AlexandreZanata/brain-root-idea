@@ -11,10 +11,11 @@ BUNDLE_DIR="$ROOT/src-tauri/target/release/bundle/deb"
 
 if [ -z "${BRAINROOT_PACKAGE_SKIP_BUILD:-}" ]; then
   echo "[package] building the Debian bundle (pnpm tauri build --bundles deb)"
+  rm -f "$BUNDLE_DIR"/*.deb
   (cd "$ROOT" && pnpm tauri build --bundles deb)
 fi
 
-DEB="$(ls "$BUNDLE_DIR"/*.deb 2>/dev/null | head -1)"
+DEB="$(ls -t "$BUNDLE_DIR"/*.deb 2>/dev/null | head -1)"
 [ -n "$DEB" ] || { printf 'FAIL: no .deb found in %s\n' "$BUNDLE_DIR" >&2; exit 1; }
 
 echo "[package] artifact: ${DEB#"$ROOT/"}"
