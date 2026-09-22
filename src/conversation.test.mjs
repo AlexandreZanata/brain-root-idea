@@ -7,6 +7,7 @@ import {
   appendChunk,
   beginTurn,
   boundConversation,
+  cancelTurn,
   isConversationEnvelope,
   renderedHistoryBytes,
   settleTurn
@@ -49,6 +50,16 @@ test("turn helpers append streamed text without mutating prior snapshots", () =>
   assert.equal(active[0].response, "");
   assert.equal(streamed[0].response, "Hello");
   assert.equal(settled[0].status, "succeeded");
+});
+
+test("cancelTurn marks only the cancelled turn and never carries an error", () => {
+  const first = settleTurn(beginTurn([], 1, "First"), 1, "succeeded");
+  const active = beginTurn(first, 2, "Second");
+  const cancelled = cancelTurn(active, 2);
+
+  assert.equal(cancelled[0].status, "succeeded");
+  assert.equal(cancelled[1].status, "cancelled");
+  assert.equal(cancelled[1].error, "");
 });
 
 test("long output stays inside both rendered limits and preserves newest UTF-8", () => {

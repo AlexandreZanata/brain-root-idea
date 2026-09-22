@@ -6,6 +6,7 @@
     CONVERSATION_CONTRACT_VERSION,
     appendChunk,
     beginTurn,
+    cancelTurn,
     isConversationEnvelope,
     settleTurn,
     type ConversationEnvelope,
@@ -26,6 +27,11 @@
   let activeTurnId: number | null = null;
 
   let isBusy = $derived(
+    conversationState === "sending" ||
+      conversationState === "streaming" ||
+      conversationState === "cancelling"
+  );
+  let isCancellable = $derived(
     conversationState === "sending" || conversationState === "streaming"
   );
   let canSend = $derived(
@@ -128,9 +134,24 @@
         failActive(envelope.event.error.message);
         break;
       case "cancelled":
-        failActive("The request was cancelled.");
+        turns = cancelTurn(turns, turnId);
         conversationState = "ready";
+        activeTurnId = null;
         break;
+    }
+  }
+
+  async function onCancel() {
+    if (!isCancellable) {
+      return;
+    }
+    conversationState = "cancelling";
+    try {
+      await invoke("conversation_cancel");
+    } catch (error) {
+      if (conversationState === "cancelling") {
+        failActive(errorMessage(error));
+      }
     }
   }
 
@@ -178,6 +199,8 @@
           Starting…
         {:else if conversationState === "streaming"}
           Building…
+        {:else if conversationState === "cancelling"}
+          Cancelling…
         {:else if conversationState === "succeeded"}
           Done
         {:else if conversationState === "failed"}
@@ -196,7 +219,9 @@
               <p class="message-label">BrainRoot</p>
               <p class="message assistant-message">{turn.response}</p>
             {/if}
-            {#if turn.error.length > 0}
+            {#if turn.status === "cancelled"}
+              <p class="turn-cancelled">Cancelled.</p>
+            {:else if turn.error.length > 0}
               <p class="turn-error" role="alert">{turn.error}</p>
             {/if}
           </article>
@@ -206,7 +231,17 @@
       <form class="prompt" onsubmit={onPromptSubmit}>
         <label for="prompt">What do you want to build?</label>
         <textarea id="prompt" name="prompt" rows="4" bind:value={prompt}></textarea>
-        <button class="send" type="submit" disabled={!canSend}>Send</button>
+        <div class="actions">
+          <button class="send" type="submit" disabled={!canSend}>Send</button>
+          <button
+            class="cancel"
+            type="button"
+            disabled={!isCancellable}
+            onclick={onCancel}
+          >
+            Cancel
+          </button>
+        </div>
       </form>
     </section>
 
@@ -320,7 +355,8 @@
 
   .message-label,
   .message,
-  .turn-error {
+  .turn-error,
+  .turn-cancelled {
     margin: 0;
   }
 
@@ -331,7 +367,8 @@
   }
 
   .message,
-  .turn-error {
+  .turn-error,
+  .turn-cancelled {
     overflow-wrap: anywhere;
     font-size: 0.875rem;
     line-height: 1.45;
@@ -344,6 +381,10 @@
 
   .turn-error {
     color: #ffb4ab;
+  }
+
+  .turn-cancelled {
+    color: #9aa7b4;
   }
 
   .prompt {
@@ -370,8 +411,12 @@
     line-height: 1.4;
   }
 
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
   .send {
-    align-self: flex-start;
     padding: 0.5rem 1rem;
     border: 1px solid transparent;
     border-radius: 0.5rem;
@@ -390,6 +435,27 @@
 
   .send:disabled {
     background: #39424d;
+    color: #9aa7b4;
+    cursor: not-allowed;
+  }
+
+  .cancel {
+    padding: 0.5rem 1rem;
+    border: 1px solid #2a323c;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: #e8eef5;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .cancel:hover:not(:disabled) {
+    background: #232a33;
+  }
+
+  .cancel:disabled {
     color: #9aa7b4;
     cursor: not-allowed;
   }

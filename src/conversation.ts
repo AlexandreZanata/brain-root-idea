@@ -7,6 +7,7 @@ export type ConversationState =
   | "ready"
   | "sending"
   | "streaming"
+  | "cancelling"
   | "succeeded"
   | "failed";
 
@@ -40,7 +41,7 @@ export type ConversationTurn = {
   prompt: string;
   response: string;
   error: string;
-  status: "active" | "succeeded" | "failed";
+  status: "active" | "succeeded" | "failed" | "cancelled";
 };
 
 const encoder = new TextEncoder();
@@ -137,6 +138,15 @@ export function settleTurn(
 ): ConversationTurn[] {
   return boundConversation(
     turns.map((turn) => (turn.id === id ? { ...turn, status, error } : turn))
+  );
+}
+
+export function cancelTurn(
+  turns: readonly ConversationTurn[],
+  id: number
+): ConversationTurn[] {
+  return boundConversation(
+    turns.map((turn) => (turn.id === id ? { ...turn, status: "cancelled", error: "" } : turn))
   );
 }
 

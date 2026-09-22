@@ -7,6 +7,7 @@
 
 use std::io::Read;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Instant;
@@ -16,14 +17,14 @@ use tauri::{AppHandle, Emitter};
 
 use crate::conversation::{ConversationEvent, ConversationState};
 use crate::provider::contract::{
-    self, ConversationId, ErrorCode, ModelId, NormalizedError, ProviderRequest, StreamEvent,
-    UserMessage, PROVIDER_CONTRACT_VERSION,
+    self, Cancellation, CancellationReason, ConversationId, ErrorCode, ModelId, NormalizedError,
+    ProviderRequest, StreamEvent, UserMessage, PROVIDER_CONTRACT_VERSION,
 };
 use crate::provider::credential::{CredentialError, CredentialStatus, ProviderState};
 use crate::provider::discovery::{
     CatalogState, DiscoveredModel, DiscoveryClient, ModelCache, ProtocolEndpoint, UreqTransport,
 };
-use crate::provider::execution::DEFAULT_TOTAL_TIMEOUT;
+use crate::provider::execution::{CancellationToken, DEFAULT_TOTAL_TIMEOUT};
 use crate::provider::failure::GoFailure;
 use crate::provider::go::{
     headers, ChatStreamParser, GoConfig, GoTransport, SessionId, UreqGoTransport, DEFAULT_MODEL_ID,
@@ -63,7 +64,12 @@ pub struct ConversationEnvelope {
 
 trait ProviderRunner: Send + Sync {
     fn model(&self) -> ModelId;
-    fn stream(&self, request: &ProviderRequest, emit: &mut dyn FnMut(StreamEvent));
+    fn stream(
+        &self,
+        request: &ProviderRequest,
+        cancel: &CancellationToken,
+        emit: &mut dyn FnMut(StreamEvent),
+    );
 }
 
 struct LiveGoRunner {
@@ -110,9 +116,14 @@ impl LiveGoRunner {
     fn run_live(
         &self,
         request: &ProviderRequest,
+        cancel: &CancellationToken,
         emit: &mut dyn FnMut(StreamEvent),
     ) -> Result<(), NormalizedError> {
         let credential = self.credential()?;
+        if cancel.is_cancelled() {
+            emit(cancelled_event(&request.conversation));
+            return Ok(());
+        }
         let now = self.started_at.elapsed();
         let cached = self
             .catalog
@@ -157,6 +168,10 @@ impl LiveGoRunner {
         let mut received = 0usize;
 
         while !parser.is_finished() {
+            if cancel.is_cancelled() {
+                emit(cancelled_event(&request.conversation));
+                return Ok(());
+            }
             let count = reader.read(&mut buffer).map_err(|_| {
                 normalized_error(
                     ErrorCode::ProviderUnavailable,
@@ -174,6 +189,10 @@ impl LiveGoRunner {
                 ));
             }
             for event in parser.push(&buffer[..count]).map_err(go_error)? {
+                if cancel.is_cancelled() {
+                    emit(cancelled_event(&request.conversation));
+                    return Ok(());
+                }
                 emit(event);
             }
         }
@@ -190,8 +209,13 @@ impl ProviderRunner for LiveGoRunner {
         ModelId::new(DEFAULT_MODEL_ID).expect("static default model is valid")
     }
 
-    fn stream(&self, request: &ProviderRequest, emit: &mut dyn FnMut(StreamEvent)) {
-        if let Err(error) = self.run_live(request, emit) {
+    fn stream(
+        &self,
+        request: &ProviderRequest,
+        cancel: &CancellationToken,
+        emit: &mut dyn FnMut(StreamEvent),
+    ) {
+        if let Err(error) = self.run_live(request, cancel, emit) {
             emit(StreamEvent::Failed { error });
         }
     }
@@ -206,11 +230,16 @@ impl ProviderRunner for FakeRunner {
         ModelId::new("fake-streaming").expect("static fake model is valid")
     }
 
-    fn stream(&self, request: &ProviderRequest, emit: &mut dyn FnMut(StreamEvent)) {
+    fn stream(
+        &self,
+        request: &ProviderRequest,
+        cancel: &CancellationToken,
+        emit: &mut dyn FnMut(StreamEvent),
+    ) {
         let mut owner = RequestOwner::start(
             FakeProvider.script(FakeScenario::Success),
             ExecutionLimits::default(),
-            crate::provider::execution::CancellationToken::new(),
+            cancel.clone(),
         );
         let mut normalizer = StreamNormalizer::new(request.conversation.clone());
         for execution_event in owner.advance(std::time::Duration::ZERO) {
@@ -236,6 +265,8 @@ impl ProviderRunner for FakeRunner {
 struct SessionInner {
     conversation: ConversationId,
     state: Mutex<ConversationState>,
+    active: AtomicBool,
+    cancel: Mutex<Option<CancellationToken>>,
 }
 
 #[derive(Clone)]
@@ -260,6 +291,8 @@ impl ConversationSession {
                 conversation: ConversationId::new(uuid::Uuid::new_v4().to_string())
                     .expect("UUID conversation is valid"),
                 state: Mutex::new(ConversationState::Empty),
+                active: AtomicBool::new(false),
+                cancel: Mutex::new(None),
             }),
             runner,
         }
@@ -304,14 +337,58 @@ impl ConversationSession {
                 .map_err(|error| normalized_error(ErrorCode::InvalidState, &error.message()))?;
         }
 
+        let token = CancellationToken::new();
+        *self
+            .inner
+            .cancel
+            .lock()
+            .expect("cancel slot lock is not poisoned") = Some(token.clone());
+        self.inner.active.store(true, Ordering::SeqCst);
+
         let accepted = ConversationAccepted {
             contract_version: PROVIDER_CONTRACT_VERSION,
             conversation: self.inner.conversation.clone(),
         };
         let inner = Arc::clone(&self.inner);
         let runner = Arc::clone(&self.runner);
-        let handle = std::thread::spawn(move || run_request(inner, runner, request, emit));
+        let handle = std::thread::spawn(move || run_request(inner, runner, request, token, emit));
         Ok((accepted, handle))
+    }
+
+    /// Moves the conversation to `CANCELLING` immediately and signals the
+    /// active request. A second cancel or a cancel without an active request
+    /// is rejected.
+    pub(crate) fn cancel(&self) -> Result<ConversationState, NormalizedError> {
+        let next = {
+            let mut state = self
+                .inner
+                .state
+                .lock()
+                .expect("conversation state lock is not poisoned");
+            let next = state.next(&ConversationEvent::Cancel).map_err(|_| {
+                normalized_error(
+                    ErrorCode::InvalidState,
+                    "There is no active request to cancel.",
+                )
+            })?;
+            *state = next;
+            next
+        };
+
+        let token = self
+            .inner
+            .cancel
+            .lock()
+            .expect("cancel slot lock is not poisoned")
+            .clone();
+        if let Some(token) = token {
+            token.cancel(CancellationReason::UserRequested);
+        }
+        Ok(next)
+    }
+
+    pub(crate) fn is_active(&self) -> bool {
+        self.inner.active.load(Ordering::SeqCst)
     }
 
     #[cfg(test)]
@@ -328,13 +405,14 @@ fn run_request<F>(
     inner: Arc<SessionInner>,
     runner: Arc<dyn ProviderRunner>,
     request: ProviderRequest,
+    cancel: CancellationToken,
     mut emit: F,
 ) where
     F: FnMut(ConversationEnvelope),
 {
     let mut terminal = false;
     let outcome = catch_unwind(AssertUnwindSafe(|| {
-        runner.stream(&request, &mut |event| {
+        runner.stream(&request, &cancel, &mut |event| {
             if terminal {
                 return;
             }
@@ -350,11 +428,15 @@ fn run_request<F>(
     }));
 
     if outcome.is_err() || !terminal {
-        let event = StreamEvent::Failed {
-            error: normalized_error(
-                ErrorCode::ProviderUnavailable,
-                "The provider request ended before a complete answer was received.",
-            ),
+        let event = if current_state(&inner) == ConversationState::Cancelling {
+            cancelled_event(&inner.conversation)
+        } else {
+            StreamEvent::Failed {
+                error: normalized_error(
+                    ErrorCode::ProviderUnavailable,
+                    "The provider request ended before a complete answer was received.",
+                ),
+            }
         };
         if apply_stream_event(&inner, &event) {
             emit(ConversationEnvelope {
@@ -364,6 +446,28 @@ fn run_request<F>(
             });
         }
     }
+
+    inner.active.store(false, Ordering::SeqCst);
+    *inner
+        .cancel
+        .lock()
+        .expect("cancel slot lock is not poisoned") = None;
+}
+
+fn cancelled_event(conversation: &ConversationId) -> StreamEvent {
+    StreamEvent::Cancelled {
+        cancellation: Cancellation {
+            conversation: conversation.clone(),
+            reason: CancellationReason::UserRequested,
+        },
+    }
+}
+
+fn current_state(inner: &SessionInner) -> ConversationState {
+    *inner
+        .state
+        .lock()
+        .expect("conversation state lock is not poisoned")
 }
 
 fn apply_stream_event(inner: &SessionInner, event: &StreamEvent) -> bool {
@@ -449,6 +553,17 @@ pub fn conversation_send(
     Ok(accepted)
 }
 
+#[tauri::command]
+pub fn conversation_cancel(
+    state: tauri::State<'_, ConversationSession>,
+) -> Result<ConversationAccepted, NormalizedError> {
+    state.cancel()?;
+    Ok(ConversationAccepted {
+        contract_version: PROVIDER_CONTRACT_VERSION,
+        conversation: state.inner.conversation.clone(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -529,6 +644,7 @@ mod tests {
             Some(StreamEvent::Completed { .. })
         ));
         assert_eq!(session.state(), ConversationState::Succeeded);
+        assert!(!session.is_active());
 
         let (_, second_worker) = session
             .start(input("Build another example"), |_| {})
@@ -546,7 +662,44 @@ mod tests {
             ModelId::new("blocking-test").expect("valid model")
         }
 
-        fn stream(&self, request: &ProviderRequest, emit: &mut dyn FnMut(StreamEvent)) {
+        fn stream(
+            &self,
+            request: &ProviderRequest,
+            cancel: &CancellationToken,
+            emit: &mut dyn FnMut(StreamEvent),
+        ) {
+            emit(StreamEvent::Started);
+            self.entered.send(()).expect("test receiver remains open");
+            self.release.wait();
+            if cancel.is_cancelled() {
+                emit(cancelled_event(&request.conversation));
+            } else {
+                emit(StreamEvent::Completed {
+                    completion: Completion {
+                        conversation: request.conversation.clone(),
+                        stop_reason: StopReason::EndTurn,
+                    },
+                });
+            }
+        }
+    }
+
+    struct IgnoringCancelRunner {
+        entered: mpsc::Sender<()>,
+        release: Arc<Barrier>,
+    }
+
+    impl ProviderRunner for IgnoringCancelRunner {
+        fn model(&self) -> ModelId {
+            ModelId::new("ignoring-cancel-test").expect("valid model")
+        }
+
+        fn stream(
+            &self,
+            request: &ProviderRequest,
+            _cancel: &CancellationToken,
+            emit: &mut dyn FnMut(StreamEvent),
+        ) {
             emit(StreamEvent::Started);
             self.entered.send(()).expect("test receiver remains open");
             self.release.wait();
@@ -580,6 +733,124 @@ mod tests {
         release.wait();
         worker.join().expect("worker completes");
         assert_eq!(session.state(), ConversationState::Succeeded);
+        assert!(!session.is_active());
+    }
+
+    #[test]
+    fn cancel_moves_to_cancelling_and_emits_one_cancelled_terminal() {
+        let (entered_sender, entered_receiver) = mpsc::channel();
+        let release = Arc::new(Barrier::new(2));
+        let session = ConversationSession::with_runner(Arc::new(BlockingRunner {
+            entered: entered_sender,
+            release: Arc::clone(&release),
+        }));
+        let (sender, receiver) = mpsc::channel();
+        let (_, worker) = session
+            .start(input("Cancel me"), move |envelope| {
+                sender.send(envelope).expect("receiver remains open");
+            })
+            .expect("request accepted");
+        entered_receiver.recv().expect("worker started");
+
+        let state = session.cancel().expect("cancel accepted");
+        assert_eq!(state, ConversationState::Cancelling);
+        assert!(session.is_active());
+
+        release.wait();
+        worker.join().expect("worker completes");
+        let events: Vec<_> = receiver.try_iter().collect();
+
+        assert_eq!(
+            events
+                .iter()
+                .filter(|envelope| matches!(&envelope.event, StreamEvent::Cancelled { .. }))
+                .count(),
+            1
+        );
+        assert!(matches!(
+            events.last().map(|envelope| &envelope.event),
+            Some(StreamEvent::Cancelled { .. })
+        ));
+        assert_eq!(session.state(), ConversationState::Ready);
+        assert!(!session.is_active());
+
+        let (_, next_worker) = session
+            .start(input("Next request"), |_| {})
+            .expect("cancel releases ownership");
+        release.wait();
+        next_worker.join().expect("next worker completes");
+    }
+
+    #[test]
+    fn late_completion_after_cancel_never_emits_completed_or_failed() {
+        let (entered_sender, entered_receiver) = mpsc::channel();
+        let release = Arc::new(Barrier::new(2));
+        let session = ConversationSession::with_runner(Arc::new(IgnoringCancelRunner {
+            entered: entered_sender,
+            release: Arc::clone(&release),
+        }));
+        let (sender, receiver) = mpsc::channel();
+        let (_, worker) = session
+            .start(input("Ignore the cancel"), move |envelope| {
+                sender.send(envelope).expect("receiver remains open");
+            })
+            .expect("request accepted");
+        entered_receiver.recv().expect("worker started");
+        session.cancel().expect("cancel accepted");
+
+        release.wait();
+        worker.join().expect("worker completes");
+        let events: Vec<_> = receiver.try_iter().collect();
+
+        assert!(events.iter().all(|envelope| !matches!(
+            &envelope.event,
+            StreamEvent::Completed { .. } | StreamEvent::Failed { .. }
+        )));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|envelope| matches!(&envelope.event, StreamEvent::Cancelled { .. }))
+                .count(),
+            1
+        );
+        assert_eq!(session.state(), ConversationState::Ready);
+        assert!(!session.is_active());
+    }
+
+    #[test]
+    fn cancel_without_an_active_request_is_rejected() {
+        let session = ConversationSession::debug_fake();
+        let error = session.cancel().expect_err("nothing to cancel");
+        assert_eq!(error.code, ErrorCode::InvalidState);
+
+        let (_, worker) = session
+            .start(input("Finish first"), |_| {})
+            .expect("request accepted");
+        worker.join().expect("worker completes");
+        let error = session.cancel().expect_err("no active request");
+        assert_eq!(error.code, ErrorCode::InvalidState);
+    }
+
+    #[test]
+    fn second_cancel_while_cancelling_is_rejected() {
+        let (entered_sender, entered_receiver) = mpsc::channel();
+        let release = Arc::new(Barrier::new(2));
+        let session = ConversationSession::with_runner(Arc::new(BlockingRunner {
+            entered: entered_sender,
+            release: Arc::clone(&release),
+        }));
+        let (_, worker) = session
+            .start(input("Cancel twice"), |_| {})
+            .expect("request accepted");
+        entered_receiver.recv().expect("worker started");
+
+        session.cancel().expect("first cancel accepted");
+        let error = session.cancel().expect_err("second cancel rejected");
+        assert_eq!(error.code, ErrorCode::InvalidState);
+
+        release.wait();
+        worker.join().expect("worker completes");
+        assert!(!session.is_active());
     }
 
     #[test]

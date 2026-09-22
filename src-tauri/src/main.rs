@@ -26,10 +26,20 @@ fn main() {
     tauri::Builder::default()
         .manage(provider_state)
         .manage(conversation_session)
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                use tauri::Manager;
+                let session = window.state::<session::ConversationSession>();
+                if session.is_active() {
+                    let _ = session.cancel();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             health::health,
             provider::credential::provider_status,
-            session::conversation_send
+            session::conversation_send,
+            session::conversation_cancel
         ])
         .run(tauri::generate_context!())
         .expect("error while running BrainRoot");
