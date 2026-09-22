@@ -12,6 +12,8 @@ pub mod discovery;
 #[allow(dead_code)]
 pub mod execution;
 #[allow(dead_code)]
+pub mod failure;
+#[allow(dead_code)]
 pub mod fake;
 #[allow(dead_code)]
 pub mod go;

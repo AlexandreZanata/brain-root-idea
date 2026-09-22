@@ -4,7 +4,8 @@
 //! be the documented `https://opencode.ai/zen/go/v1/chat/completions`, the
 //! model comes from the contract, `x-opencode-session` is a random nonsecret
 //! UUID per conversation, and the SSE stream is parsed into neutral events.
-//! There is no fallback to another model, protocol, endpoint, or balance.
+//! Status and transport failures are classified by [`GoFailure`]. There is no
+//! fallback to another model, protocol, endpoint, or balance.
 
 use std::io::Read;
 
@@ -16,6 +17,7 @@ use super::contract::{
 };
 use super::credential::{AuthorizationHeader, CredentialValue};
 use super::discovery::BRAINROOT_USER_AGENT;
+use super::failure::GoFailure;
 
 pub const GO_CHAT_COMPLETIONS_ENDPOINT: &str = "https://opencode.ai/zen/go/v1/chat/completions";
 pub const DEFAULT_MODEL_ID: &str = "glm-5.3-flash";
@@ -75,7 +77,7 @@ impl GoConfig {
         &self.model
     }
 
-    pub fn build_request_body(&self, message: &UserMessage) -> Result<String, GoStreamError> {
+    pub fn build_request_body(&self, message: &UserMessage) -> Result<String, GoFailure> {
         let request = ChatRequest {
             model: self.model.as_str(),
             messages: vec![ChatMessage {
@@ -84,7 +86,7 @@ impl GoConfig {
             }],
             stream: true,
         };
-        serde_json::to_string(&request).map_err(|_| GoStreamError::MalformedResponse)
+        serde_json::to_string(&request).map_err(|_| GoFailure::MalformedResponse)
     }
 }
 
@@ -136,54 +138,13 @@ struct ChatMessage<'a> {
     content: &'a str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum GoStreamError {
-    Unauthorized,
-    TransportUnavailable,
-    HttpFailure { status: u16 },
-    MalformedResponse,
-}
-
-impl GoStreamError {
-    pub fn code(&self) -> ErrorCode {
-        match self {
-            GoStreamError::Unauthorized => ErrorCode::AuthenticationFailed,
-            GoStreamError::TransportUnavailable => ErrorCode::ProviderUnavailable,
-            GoStreamError::HttpFailure { .. } => ErrorCode::ProviderUnavailable,
-            GoStreamError::MalformedResponse => ErrorCode::MalformedResponse,
-        }
-    }
-
-    pub fn message(&self) -> String {
-        match self {
-            GoStreamError::Unauthorized => {
-                "The provider rejected the credential for this request.".to_string()
-            }
-            GoStreamError::TransportUnavailable => "The provider could not be reached.".to_string(),
-            GoStreamError::HttpFailure { status } => {
-                format!("The provider answered with status {status}.")
-            }
-            GoStreamError::MalformedResponse => {
-                "The provider returned an unreadable response.".to_string()
-            }
-        }
-    }
-}
-
-pub fn map_status(status: u16) -> GoStreamError {
-    match status {
-        401 | 403 => GoStreamError::Unauthorized,
-        other => GoStreamError::HttpFailure { status: other },
-    }
-}
-
 pub trait GoTransport {
     fn post(
         &self,
         url: &str,
         headers: &[(String, String)],
         body: &str,
-    ) -> Result<Box<dyn Read + Send>, GoStreamError>;
+    ) -> Result<Box<dyn Read + Send>, GoFailure>;
 }
 
 pub struct UreqGoTransport;
@@ -194,7 +155,7 @@ impl GoTransport for UreqGoTransport {
         url: &str,
         headers: &[(String, String)],
         body: &str,
-    ) -> Result<Box<dyn Read + Send>, GoStreamError> {
+    ) -> Result<Box<dyn Read + Send>, GoFailure> {
         let mut request = ureq::post(url).header("User-Agent", BRAINROOT_USER_AGENT);
         for (name, value) in headers {
             request = request.header(name.as_str(), value.as_str());
@@ -202,8 +163,9 @@ impl GoTransport for UreqGoTransport {
 
         match request.send(body) {
             Ok(response) => Ok(Box::new(response.into_body().into_reader())),
-            Err(ureq::Error::StatusCode(status)) => Err(map_status(status)),
-            Err(_) => Err(GoStreamError::TransportUnavailable),
+            Err(ureq::Error::StatusCode(status)) => Err(GoFailure::from_status(status)),
+            Err(ureq::Error::Timeout(_)) => Err(GoFailure::Timeout),
+            Err(_) => Err(GoFailure::NetworkUnavailable),
         }
     }
 }
@@ -257,12 +219,12 @@ impl ChatStreamParser {
     }
 
     /// Feeds raw bytes; complete `data:` lines become neutral events.
-    pub fn push(&mut self, chunk: &[u8]) -> Result<Vec<StreamEvent>, GoStreamError> {
+    pub fn push(&mut self, chunk: &[u8]) -> Result<Vec<StreamEvent>, GoFailure> {
         if self.finished {
             return Ok(Vec::new());
         }
         if self.buffer.len() + chunk.len() > MAX_STREAM_LINE_BYTES {
-            return Err(GoStreamError::MalformedResponse);
+            return Err(GoFailure::MalformedResponse);
         }
         self.buffer.extend_from_slice(chunk);
 
@@ -295,11 +257,7 @@ impl ChatStreamParser {
         events
     }
 
-    fn process_line(
-        &mut self,
-        line: &str,
-        events: &mut Vec<StreamEvent>,
-    ) -> Result<(), GoStreamError> {
+    fn process_line(&mut self, line: &str, events: &mut Vec<StreamEvent>) -> Result<(), GoFailure> {
         if self.finished || line.is_empty() || line.starts_with(':') {
             return Ok(());
         }
@@ -313,7 +271,7 @@ impl ChatStreamParser {
         }
 
         let chunk: StreamChunk =
-            serde_json::from_str(payload).map_err(|_| GoStreamError::MalformedResponse)?;
+            serde_json::from_str(payload).map_err(|_| GoFailure::MalformedResponse)?;
         if !self.started {
             self.started = true;
             events.push(StreamEvent::Started);
@@ -547,7 +505,7 @@ mod tests {
 
         assert_eq!(
             parser.push(stream.as_bytes()),
-            Err(GoStreamError::MalformedResponse)
+            Err(GoFailure::MalformedResponse)
         );
     }
 
@@ -574,14 +532,5 @@ mod tests {
         let finished = parser.finish();
         assert_eq!(kinds(&finished), vec!["completed"]);
         assert!(parser.finish().is_empty());
-    }
-
-    #[test]
-    fn status_mapping_is_explicit() {
-        assert_eq!(map_status(401), GoStreamError::Unauthorized);
-        assert_eq!(map_status(403), GoStreamError::Unauthorized);
-        assert_eq!(map_status(429), GoStreamError::HttpFailure { status: 429 });
-        assert_eq!(map_status(500), GoStreamError::HttpFailure { status: 500 });
-        assert_eq!(map_status(500).code(), ErrorCode::ProviderUnavailable);
     }
 }

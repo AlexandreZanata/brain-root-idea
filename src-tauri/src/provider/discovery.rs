@@ -4,6 +4,11 @@
 //! keeps only the protocol families the contract records, and caches nonsecret
 //! metadata with an explicit timestamp/expiry. No clock is read here: callers
 //! pass `at`, mirroring the deterministic architecture of the provider core.
+//! Failure conditions go through the shared [`GoFailure`] classification.
+//!
+//! Per-model privacy disclosure is captured only when the payload states it,
+//! bounded by [`MAX_PRIVACY_DISCLOSURE_BYTES`], and stays explicitly unknown
+//! otherwise.
 //!
 //! The live response shape is verified by the opt-in smoke test (B03-S06);
 //! this module parses a minimal documented shape tolerantly and ignores
@@ -11,12 +16,14 @@
 
 use std::time::Duration;
 
-use super::contract::{ErrorCode, ModelId};
+use super::contract::ModelId;
 use super::credential::{AuthorizationHeader, CredentialValue};
+use super::failure::GoFailure;
 
 pub const MODELS_URL: &str = "https://opencode.ai/zen/go/v1/models";
 pub const BRAINROOT_USER_AGENT: &str = concat!("brainroot/", env!("CARGO_PKG_VERSION"));
 pub const CACHE_TTL: Duration = Duration::from_secs(15 * 60);
+pub const MAX_PRIVACY_DISCLOSURE_BYTES: usize = 200;
 
 /// Protocol families the OpenCode Go contract records. The mapping from a
 /// model to one of them is external and mutable; discovery only classifies.
@@ -50,59 +57,69 @@ impl ProtocolEndpoint {
     }
 }
 
+/// Per-model privacy policy stated by the models payload. Values are the
+/// provider's own bounded text; a missing, mistyped, empty, or oversized field
+/// stays [`PrivacyDisclosure::Unknown`] instead of being guessed or truncated.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PrivacyDisclosure {
+    Stated(String),
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModelPrivacy {
+    pub training: PrivacyDisclosure,
+    pub retention: PrivacyDisclosure,
+}
+
+impl ModelPrivacy {
+    pub fn unknown() -> Self {
+        Self {
+            training: PrivacyDisclosure::Unknown,
+            retention: PrivacyDisclosure::Unknown,
+        }
+    }
+
+    fn from_entry(object: &serde_json::Map<String, serde_json::Value>) -> Self {
+        let Some(privacy) = object.get("privacy").and_then(|value| value.as_object()) else {
+            return Self::unknown();
+        };
+        Self {
+            training: disclosure(privacy.get("training")),
+            retention: disclosure(privacy.get("retention")),
+        }
+    }
+}
+
+fn disclosure(value: Option<&serde_json::Value>) -> PrivacyDisclosure {
+    let Some(text) = value.and_then(|value| value.as_str()) else {
+        return PrivacyDisclosure::Unknown;
+    };
+    let text = text.trim();
+    if text.is_empty() || text.len() > MAX_PRIVACY_DISCLOSURE_BYTES {
+        return PrivacyDisclosure::Unknown;
+    }
+    PrivacyDisclosure::Stated(text.to_string())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiscoveredModel {
     pub id: ModelId,
     pub display_name: String,
     pub endpoint: ProtocolEndpoint,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DiscoveryError {
-    Unauthorized,
-    TransportUnavailable,
-    HttpFailure { status: u16 },
-    MalformedResponse,
-}
-
-impl DiscoveryError {
-    pub fn code(&self) -> ErrorCode {
-        match self {
-            DiscoveryError::Unauthorized => ErrorCode::AuthenticationFailed,
-            DiscoveryError::TransportUnavailable => ErrorCode::ProviderUnavailable,
-            DiscoveryError::HttpFailure { .. } => ErrorCode::ProviderUnavailable,
-            DiscoveryError::MalformedResponse => ErrorCode::MalformedResponse,
-        }
-    }
-
-    pub fn message(&self) -> String {
-        match self {
-            DiscoveryError::Unauthorized => {
-                "The provider rejected the credential for model discovery.".to_string()
-            }
-            DiscoveryError::TransportUnavailable => {
-                "The provider could not be reached for model discovery.".to_string()
-            }
-            DiscoveryError::HttpFailure { status } => {
-                format!("Model discovery failed with provider status {status}.")
-            }
-            DiscoveryError::MalformedResponse => {
-                "The provider returned an unreadable model list.".to_string()
-            }
-        }
-    }
+    pub privacy: ModelPrivacy,
 }
 
 /// Minimal HTTP surface discovery needs. The real implementation is
 /// [`UreqTransport`]; tests supply a fake so they never touch the network.
 pub trait HttpTransport {
-    fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<String, DiscoveryError>;
+    fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<String, GoFailure>;
 }
 
 pub struct UreqTransport;
 
 impl HttpTransport for UreqTransport {
-    fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<String, DiscoveryError> {
+    fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<String, GoFailure> {
         let mut request = ureq::get(url).header("User-Agent", BRAINROOT_USER_AGENT);
         for (name, value) in headers {
             request = request.header(*name, *value);
@@ -112,11 +129,10 @@ impl HttpTransport for UreqTransport {
             Ok(mut response) => response
                 .body_mut()
                 .read_to_string()
-                .map_err(|_| DiscoveryError::MalformedResponse),
-            Err(ureq::Error::StatusCode(401 | 403)) => Err(DiscoveryError::Unauthorized),
-            Err(ureq::Error::StatusCode(status)) => Err(DiscoveryError::HttpFailure { status }),
-            Err(ureq::Error::Timeout(_)) => Err(DiscoveryError::TransportUnavailable),
-            Err(_) => Err(DiscoveryError::TransportUnavailable),
+                .map_err(|_| GoFailure::MalformedResponse),
+            Err(ureq::Error::StatusCode(status)) => Err(GoFailure::from_status(status)),
+            Err(ureq::Error::Timeout(_)) => Err(GoFailure::Timeout),
+            Err(_) => Err(GoFailure::NetworkUnavailable),
         }
     }
 }
@@ -132,10 +148,7 @@ impl<T: HttpTransport> DiscoveryClient<T> {
 
     /// Fetches the models endpoint with the credential; the header value is
     /// built internally and never logged.
-    pub fn fetch(
-        &self,
-        credential: &CredentialValue,
-    ) -> Result<Vec<DiscoveredModel>, DiscoveryError> {
+    pub fn fetch(&self, credential: &CredentialValue) -> Result<Vec<DiscoveredModel>, GoFailure> {
         let authorization = AuthorizationHeader::bearer(credential);
         let body = self.transport.get(
             MODELS_URL,
@@ -145,21 +158,19 @@ impl<T: HttpTransport> DiscoveryClient<T> {
     }
 }
 
-fn parse_models(body: &str) -> Result<Vec<DiscoveredModel>, DiscoveryError> {
+fn parse_models(body: &str) -> Result<Vec<DiscoveredModel>, GoFailure> {
     let value: serde_json::Value =
-        serde_json::from_str(body).map_err(|_| DiscoveryError::MalformedResponse)?;
+        serde_json::from_str(body).map_err(|_| GoFailure::MalformedResponse)?;
 
     let entries = match value {
         serde_json::Value::Array(entries) => entries,
         serde_json::Value::Object(mut object) => {
-            let data = object
-                .remove("data")
-                .ok_or(DiscoveryError::MalformedResponse)?;
+            let data = object.remove("data").ok_or(GoFailure::MalformedResponse)?;
             data.as_array()
                 .cloned()
-                .ok_or(DiscoveryError::MalformedResponse)?
+                .ok_or(GoFailure::MalformedResponse)?
         }
-        _ => return Err(DiscoveryError::MalformedResponse),
+        _ => return Err(GoFailure::MalformedResponse),
     };
 
     let mut models = Vec::new();
@@ -188,6 +199,7 @@ fn parse_models(body: &str) -> Result<Vec<DiscoveredModel>, DiscoveryError> {
             id,
             display_name,
             endpoint,
+            privacy: ModelPrivacy::from_entry(object),
         });
     }
     Ok(models)
@@ -241,6 +253,7 @@ impl ModelCache {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::provider::contract::ErrorCode;
     use std::cell::RefCell;
 
     const FIXTURE: &str = r#"{
@@ -251,7 +264,8 @@ mod tests {
                 "endpoint": "https://opencode.ai/zen/go/v1/chat/completions",
                 "context": 200000,
                 "limit": { "output": 65536 },
-                "vendor": { "family": "glm" }
+                "vendor": { "family": "glm" },
+                "privacy": { "training": "Not used", "retention": "0 days" }
             },
             {
                 "id": "minimax-m3",
@@ -273,7 +287,7 @@ mod tests {
     type RecordedRequest = (String, Vec<(String, String)>);
 
     struct FakeTransport {
-        response: Result<String, DiscoveryError>,
+        response: Result<String, GoFailure>,
         requests: RefCell<Vec<RecordedRequest>>,
     }
 
@@ -285,7 +299,7 @@ mod tests {
             }
         }
 
-        fn failing(error: DiscoveryError) -> Self {
+        fn failing(error: GoFailure) -> Self {
             Self {
                 response: Err(error),
                 requests: RefCell::new(Vec::new()),
@@ -294,7 +308,7 @@ mod tests {
     }
 
     impl HttpTransport for FakeTransport {
-        fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<String, DiscoveryError> {
+        fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<String, GoFailure> {
             self.requests.borrow_mut().push((
                 url.to_string(),
                 headers
@@ -319,6 +333,13 @@ mod tests {
         assert_eq!(models[0].id.as_str(), "glm-5.3");
         assert_eq!(models[0].display_name, "GLM 5.3");
         assert_eq!(models[0].endpoint, ProtocolEndpoint::ChatCompletions);
+        assert_eq!(
+            models[0].privacy,
+            ModelPrivacy {
+                training: PrivacyDisclosure::Stated("Not used".to_string()),
+                retention: PrivacyDisclosure::Stated("0 days".to_string()),
+            }
+        );
     }
 
     #[test]
@@ -335,6 +356,46 @@ mod tests {
             .expect("minimax present");
         assert_eq!(minimax.display_name, "minimax-m3");
         assert_eq!(minimax.endpoint, ProtocolEndpoint::Messages);
+        assert_eq!(minimax.privacy, ModelPrivacy::unknown());
+    }
+
+    #[test]
+    fn absent_or_partial_privacy_stays_explicitly_unknown() {
+        let body = r#"{"data":[
+            {"id":"a","endpoint":"https://opencode.ai/zen/go/v1/chat/completions"},
+            {"id":"b","endpoint":"https://opencode.ai/zen/go/v1/chat/completions",
+             "privacy":{"training":"Not used"}}
+        ]}"#;
+        let client = DiscoveryClient::new(FakeTransport::returning(body));
+        let models = client.fetch(&credential()).expect("fixture parses");
+
+        assert_eq!(models[0].privacy, ModelPrivacy::unknown());
+        assert_eq!(
+            models[1].privacy.training,
+            PrivacyDisclosure::Stated("Not used".to_string())
+        );
+        assert_eq!(models[1].privacy.retention, PrivacyDisclosure::Unknown);
+    }
+
+    #[test]
+    fn mistyped_empty_or_oversized_privacy_is_unknown() {
+        let oversized = "p".repeat(MAX_PRIVACY_DISCLOSURE_BYTES + 1);
+        let body = format!(
+            r#"{{"data":[
+                {{"id":"a","endpoint":"https://opencode.ai/zen/go/v1/chat/completions",
+                  "privacy":{{"training":7,"retention":"  ","extra":true}}}},
+                {{"id":"b","endpoint":"https://opencode.ai/zen/go/v1/chat/completions",
+                  "privacy":{{"training":"{oversized}"}}}},
+                {{"id":"c","endpoint":"https://opencode.ai/zen/go/v1/chat/completions",
+                  "privacy":"not an object"}}
+            ]}}"#
+        );
+        let client = DiscoveryClient::new(FakeTransport::returning(&body));
+        let models = client.fetch(&credential()).expect("fixture parses");
+
+        assert!(models
+            .iter()
+            .all(|model| model.privacy == ModelPrivacy::unknown()));
     }
 
     #[test]
@@ -349,7 +410,7 @@ mod tests {
 
     #[test]
     fn unauthorized_maps_to_a_typed_error() {
-        let client = DiscoveryClient::new(FakeTransport::failing(DiscoveryError::Unauthorized));
+        let client = DiscoveryClient::new(FakeTransport::failing(GoFailure::from_status(401)));
         let error = client.fetch(&credential()).expect_err("unauthorized");
 
         assert_eq!(error.code(), ErrorCode::AuthenticationFailed);
@@ -357,20 +418,22 @@ mod tests {
     }
 
     #[test]
-    fn transport_and_http_failures_map_to_provider_unavailable() {
-        let transport =
-            DiscoveryClient::new(FakeTransport::failing(DiscoveryError::TransportUnavailable));
+    fn rate_limit_timeout_and_network_failures_stay_distinct() {
+        let limited = DiscoveryClient::new(FakeTransport::failing(GoFailure::from_status(429)));
+        let error = limited.fetch(&credential()).expect_err("rate limited");
+        assert_eq!(error.code(), ErrorCode::RateLimited);
+        assert!(error.message().contains("usage limit"));
+
+        let timed_out = DiscoveryClient::new(FakeTransport::failing(GoFailure::Timeout));
         assert_eq!(
-            transport.fetch(&credential()).expect_err("offline").code(),
-            ErrorCode::ProviderUnavailable
+            timed_out.fetch(&credential()).expect_err("timeout").code(),
+            ErrorCode::TimedOut
         );
 
-        let http = DiscoveryClient::new(FakeTransport::failing(DiscoveryError::HttpFailure {
-            status: 429,
-        }));
-        let error = http.fetch(&credential()).expect_err("rate limited");
+        let offline = DiscoveryClient::new(FakeTransport::failing(GoFailure::NetworkUnavailable));
+        let error = offline.fetch(&credential()).expect_err("offline");
         assert_eq!(error.code(), ErrorCode::ProviderUnavailable);
-        assert!(error.message().contains("429"));
+        assert!(error.message().contains("could not be reached"));
     }
 
     #[test]
@@ -378,7 +441,7 @@ mod tests {
         let client = DiscoveryClient::new(FakeTransport::returning("not json"));
         assert_eq!(
             client.fetch(&credential()),
-            Err(DiscoveryError::MalformedResponse)
+            Err(GoFailure::MalformedResponse)
         );
     }
 
