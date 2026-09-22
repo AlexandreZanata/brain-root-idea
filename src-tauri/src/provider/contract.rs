@@ -20,6 +20,8 @@ pub enum ErrorCode {
     MalformedResponse,
     InvalidInput,
     RequestTooLarge,
+    ResponseTooLarge,
+    TimedOut,
     UnsupportedContractVersion,
     UnknownEvent,
     InvalidState,
