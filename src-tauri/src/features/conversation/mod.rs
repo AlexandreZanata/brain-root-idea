@@ -12,6 +12,8 @@ mod wire;
 
 #[cfg(test)]
 mod e2e;
+#[cfg(test)]
+mod soak;
 
 use tauri::{AppHandle, Emitter};
 
