@@ -4,13 +4,13 @@
 
 ## Header
 
-- Status: Ready to merge
+- Status: Released
 - Objective: The Rust core owns one versioned, provider-neutral contract and a deterministic fake provider that can list models, stream text, complete, cancel, and produce every normalized failure without a real API key, network, or background worker.
-- Branch: `batch/b02-provider-contract`
+- Branch: `batch/b02-provider-contract` (deleted after merge)
 - Draft/final PR: [#17](https://github.com/AlexandreZanata/brain-root-idea/pull/17)
-- Merge commit: pending (recorded post-merge)
+- Merge commit: `831ebf7f641da6e6d9d73d3e383fb10526070d50`
 - Baseline commit: `46431ff14ae39b316fbef3f984792c74b2ba7c02`
-- Target/resulting version: `0.0.1-alpha.3` (annotated tag on the merge commit; pre-release)
+- Target/resulting version: `0.0.1-alpha.3` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1-alpha.3))
 - Started/completed: 2026-09-22 / —
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, rustc 1.96.0 pinned)
 
@@ -30,7 +30,7 @@
 | B02-S04 | [#20](https://github.com/AlexandreZanata/brain-root-idea/issues/20) | Byte-level normalizer: streaming JSON decode across UTF-8/JSON splits, 64 KiB buffer and 64-event queue with typed backpressure, neutral mapping, plain-language errors, one terminal; 14 tests | `8e3a2f9` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/20#issuecomment-5779277257) | `ErrorCode` gained `timed_out` and `response_too_large`; `QueueFull` consumes nothing so retry is safe | Closed |
 | B02-S05 | [#21](https://github.com/AlexandreZanata/brain-root-idea/issues/21) | Core-only credential boundary: status is the only serializable type, values/headers/references redact themselves, in-memory fake store, `provider_status` app command; 10 tests | `102ad29` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/21#issuecomment-5779342097) | The only secret is an obviously fake test literal; no capability or real store exists | Closed |
 | B02-S06 | [#22](https://github.com/AlexandreZanata/brain-root-idea/issues/22) | Contract integration test: credential pre-flight, discovery, request, streaming to completion, cancellation, plain-language failure, idle with no background work; 4 tests | `7e1b414` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/22#issuecomment-5779485224) | The executor's synthetic terminal after a wire `end`/`error` frame is ignored by the consumer once the normalizer finished (first terminal wins) | Closed |
-| B02-S07 | [#23](https://github.com/AlexandreZanata/brain-root-idea/issues/23) | Version `0.0.1-alpha.3` synchronized across `VERSION`, `Cargo.toml`, `package.json`, and the lockfile; changelog release section; full CI on the latest head; PR merged with the documented administrator exception; annotated tag and pre-release | `<merge>` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/23) | Version copies were included in the allowlist from the start, learning from B01-S07 | Ready |
+| B02-S07 | [#23](https://github.com/AlexandreZanata/brain-root-idea/issues/23) | Version `0.0.1-alpha.3` synchronized across `VERSION`, `Cargo.toml`, `package.json`, and the lockfile; changelog release section; full CI on the latest head; PR merged with the documented administrator exception; annotated tag and pre-release | `831ebf7f` (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/23#issuecomment-5779755106) | Version copies were included in the allowlist from the start; a stale cached PR head triggered a redundant run that was cancelled before the true-head run | Closed |
 
 ## Decisions and changed assumptions
 
@@ -49,7 +49,7 @@
 
 ## Final gates
 
-- Full CI: `check-full-linux` on the batch head and the post-merge `push` run on `main` — recorded in issue #23
+- Full CI: [`check-full-linux` success on the finalization head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35750092151) (5 m 19 s) and [`push` run success on `main`](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35750812968)
 - Review: single-maintainer exception; merged with the documented administrator bypass
 - Security/privacy: core-only credentials, redacted debug output, no provider text surfaced, no network, bounded buffers and queues
 - Performance: not applicable to this batch (no runtime resource)
@@ -59,4 +59,6 @@
 
 ## Result and next batch
 
-In progress. Next microstep: B02-S07 finalization. Batch merges only after every B02 issue closes with evidence, full Linux CI is green on the latest head, and this record matches the Wiki batch page.
+Batch B02 is released as [`v0.0.1-alpha.3`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1-alpha.3) on merge commit `831ebf7f`: the provider-neutral contract, deterministic fake, bounded pull-based execution, byte-level normalization, core-only credential boundary, and the contract integration test — with no UI wiring, no live transport, and no artifact. Rollback: delete the tag and pre-release, restore `VERSION` and the copies to `0.0.1-alpha.2`, remove the changelog release section, and revert this record and the Wiki pages; the merge commit stays unless a maintainer explicitly reverts it. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, tag, and CI URLs cannot exist before the merge.
+
+Next batch: B03 — OpenCode Go live transport (`batch/b03-opencode-go`), starting with the current provider contract capture (official docs verified on the execution date).
