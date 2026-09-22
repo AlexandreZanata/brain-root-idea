@@ -8,6 +8,7 @@ import {
   beginTurn,
   boundConversation,
   cancelTurn,
+  credentialSetupMessage,
   isConversationEnvelope,
   renderedHistoryBytes,
   settleTurn
@@ -60,6 +61,34 @@ test("cancelTurn marks only the cancelled turn and never carries an error", () =
   assert.equal(cancelled[0].status, "succeeded");
   assert.equal(cancelled[1].status, "cancelled");
   assert.equal(cancelled[1].error, "");
+  assert.equal(cancelled[1].errorCode, "");
+});
+
+test("credentialSetupMessage explains the next action for each status", () => {
+  assert.equal(credentialSetupMessage("configured"), null);
+  assert.match(
+    credentialSetupMessage("not_configured") ?? "",
+    /Add the key to the system credential store/
+  );
+  assert.match(
+    credentialSetupMessage("unavailable") ?? "",
+    /credential store is not available/
+  );
+});
+
+test("settleTurn carries the sanitized failure code for technical details", () => {
+  const active = beginTurn([], 1, "Build it");
+  const failed = settleTurn(
+    active,
+    1,
+    "failed",
+    "The provider could not be reached. Check your connection and try again.",
+    "provider_unavailable"
+  );
+
+  assert.equal(failed[0].status, "failed");
+  assert.equal(failed[0].errorCode, "provider_unavailable");
+  assert.equal(failed[0].error, "The provider could not be reached. Check your connection and try again.");
 });
 
 test("long output stays inside both rendered limits and preserves newest UTF-8", () => {

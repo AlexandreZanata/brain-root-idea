@@ -41,8 +41,22 @@ export type ConversationTurn = {
   prompt: string;
   response: string;
   error: string;
+  errorCode: string;
   status: "active" | "succeeded" | "failed" | "cancelled";
 };
+
+export type CredentialStatus = "configured" | "not_configured" | "unavailable";
+
+export function credentialSetupMessage(status: CredentialStatus): string | null {
+  switch (status) {
+    case "configured":
+      return null;
+    case "not_configured":
+      return "No OpenCode Go credential is configured. Add the key to the system credential store, then try again.";
+    case "unavailable":
+      return "The system credential store is not available, so prompts cannot be sent on this system.";
+  }
+}
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -114,7 +128,7 @@ export function beginTurn(
 ): ConversationTurn[] {
   return boundConversation([
     ...turns,
-    { id, prompt, response: "", error: "", status: "active" }
+    { id, prompt, response: "", error: "", errorCode: "", status: "active" }
   ]);
 }
 
@@ -134,10 +148,11 @@ export function settleTurn(
   turns: readonly ConversationTurn[],
   id: number,
   status: "succeeded" | "failed",
-  error = ""
+  error = "",
+  errorCode = ""
 ): ConversationTurn[] {
   return boundConversation(
-    turns.map((turn) => (turn.id === id ? { ...turn, status, error } : turn))
+    turns.map((turn) => (turn.id === id ? { ...turn, status, error, errorCode } : turn))
   );
 }
 
@@ -146,7 +161,9 @@ export function cancelTurn(
   id: number
 ): ConversationTurn[] {
   return boundConversation(
-    turns.map((turn) => (turn.id === id ? { ...turn, status: "cancelled", error: "" } : turn))
+    turns.map((turn) =>
+      turn.id === id ? { ...turn, status: "cancelled", error: "", errorCode: "" } : turn
+    )
   );
 }
 

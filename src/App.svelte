@@ -7,11 +7,13 @@
     appendChunk,
     beginTurn,
     cancelTurn,
+    credentialSetupMessage,
     isConversationEnvelope,
     settleTurn,
     type ConversationEnvelope,
     type ConversationState,
-    type ConversationTurn
+    type ConversationTurn,
+    type CredentialStatus
   } from "./conversation";
   import { requestHealth } from "./health";
 
@@ -20,12 +22,19 @@
   let healthState = $state<HealthState>("checking");
   let detail = $state("Waiting for the core health result.");
   let conversationState = $state<ConversationState>("empty");
+  let credentialStatus = $state<CredentialStatus | null>(null);
+  let credentialDetail = $state("");
   let listenerReady = $state(false);
   let prompt = $state("");
   let turns: ConversationTurn[] = $state([]);
   let nextTurnId = 1;
   let activeTurnId: number | null = null;
 
+  let setupMessage = $derived(
+    credentialStatus === null
+      ? credentialDetail
+      : credentialSetupMessage(credentialStatus)
+  );
   let isBusy = $derived(
     conversationState === "sending" ||
       conversationState === "streaming" ||
@@ -35,7 +44,11 @@
     conversationState === "sending" || conversationState === "streaming"
   );
   let canSend = $derived(
-    healthState === "ready" && listenerReady && !isBusy && prompt.trim().length > 0
+    healthState === "ready" &&
+      listenerReady &&
+      credentialStatus === "configured" &&
+      !isBusy &&
+      prompt.trim().length > 0
   );
 
   onMount(() => {
@@ -69,6 +82,17 @@
           detail = error instanceof Error ? error.message : "The core health request failed.";
         }
       }
+
+      try {
+        const status = await invoke<CredentialStatus>("provider_status");
+        if (!disposed) {
+          credentialStatus = status;
+        }
+      } catch {
+        if (!disposed) {
+          credentialDetail = "The credential status could not be read. Restart BrainRoot and try again.";
+        }
+      }
     })();
 
     return () => {
@@ -99,7 +123,7 @@
         }
       });
     } catch (error) {
-      failActive(errorMessage(error));
+      failActive(errorMessage(error), errorCode(error));
     }
   }
 
@@ -131,7 +155,7 @@
         activeTurnId = null;
         break;
       case "failed":
-        failActive(envelope.event.error.message);
+        failActive(envelope.event.error.message, envelope.event.error.code);
         break;
       case "cancelled":
         turns = cancelTurn(turns, turnId);
@@ -150,14 +174,14 @@
       await invoke("conversation_cancel");
     } catch (error) {
       if (conversationState === "cancelling") {
-        failActive(errorMessage(error));
+        failActive(errorMessage(error), errorCode(error));
       }
     }
   }
 
-  function failActive(message: string) {
+  function failActive(message: string, code = "") {
     if (activeTurnId !== null) {
-      turns = settleTurn(turns, activeTurnId, "failed", message);
+      turns = settleTurn(turns, activeTurnId, "failed", message, code);
     }
     activeTurnId = null;
     conversationState = "failed";
@@ -171,6 +195,16 @@
       }
     }
     return error instanceof Error ? error.message : "The request could not be started.";
+  }
+
+  function errorCode(error: unknown): string {
+    if (typeof error === "object" && error !== null) {
+      const code = (error as Record<string, unknown>).code;
+      if (typeof code === "string") {
+        return code;
+      }
+    }
+    return "";
   }
 </script>
 
@@ -205,10 +239,16 @@
           Done
         {:else if conversationState === "failed"}
           Needs attention
+        {:else if setupMessage}
+          Needs setup
         {:else}
           Ready for a request
         {/if}
       </p>
+
+      {#if setupMessage}
+        <p class="setup" role="status">{setupMessage}</p>
+      {/if}
 
       <div class="conversation-history" aria-live="polite" aria-label="Conversation">
         {#each turns as turn (turn.id)}
@@ -223,6 +263,12 @@
               <p class="turn-cancelled">Cancelled.</p>
             {:else if turn.error.length > 0}
               <p class="turn-error" role="alert">{turn.error}</p>
+              {#if turn.errorCode.length > 0}
+                <details class="technical">
+                  <summary>Technical details</summary>
+                  <code>{turn.errorCode}</code>
+                </details>
+              {/if}
             {/if}
           </article>
         {/each}
@@ -385,6 +431,26 @@
 
   .turn-cancelled {
     color: #9aa7b4;
+  }
+
+  .setup {
+    margin: 0;
+    color: #cdd9e5;
+    font-size: 0.875rem;
+  }
+
+  .technical {
+    margin: 0;
+    color: #9aa7b4;
+    font-size: 0.8125rem;
+  }
+
+  .technical summary {
+    cursor: pointer;
+  }
+
+  .technical code {
+    color: #cdd9e5;
   }
 
   .prompt {

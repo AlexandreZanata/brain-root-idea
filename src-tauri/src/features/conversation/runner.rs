@@ -57,13 +57,13 @@ impl LiveGoRunner {
             CredentialStatus::NotConfigured => {
                 return Err(normalized_error(
                     ErrorCode::AuthenticationFailed,
-                    "No OpenCode Go credential is configured.",
+                    "No OpenCode Go credential is configured. Add the key to the system credential store and try again.",
                 ));
             }
             CredentialStatus::Unavailable => {
                 return Err(normalized_error(
                     ErrorCode::ProviderUnavailable,
-                    "The credential store is not available on this system.",
+                    "The credential store is not available on this system. Prompts cannot be sent until a credential store is available.",
                 ));
             }
         }
@@ -71,7 +71,7 @@ impl LiveGoRunner {
         let reference = self.provider.credential_reference().ok_or_else(|| {
             normalized_error(
                 ErrorCode::AuthenticationFailed,
-                "No OpenCode Go credential is configured.",
+                "No OpenCode Go credential is configured. Add the key to the system credential store and try again.",
             )
         })?;
         self.provider.resolve(&reference).map_err(credential_error)
@@ -112,7 +112,7 @@ impl LiveGoRunner {
         let model = select_default_model(&catalog).ok_or_else(|| {
             normalized_error(
                 ErrorCode::InvalidInput,
-                "The default model is not available on the supported OpenCode Go endpoint.",
+                "No compatible OpenCode Go model is available right now. Try again later.",
             )
         })?;
 
@@ -230,11 +230,11 @@ pub(super) fn credential_error(error: CredentialError) -> NormalizedError {
     match error {
         CredentialError::BackendUnavailable => normalized_error(
             ErrorCode::ProviderUnavailable,
-            "The credential store is not available on this system.",
+            "The credential store is not available on this system. Prompts cannot be sent until a credential store is available.",
         ),
         CredentialError::NotConfigured | CredentialError::UnknownReference => normalized_error(
             ErrorCode::AuthenticationFailed,
-            "No OpenCode Go credential is configured.",
+            "No OpenCode Go credential is configured. Add the key to the system credential store and try again.",
         ),
         CredentialError::Empty => normalized_error(
             ErrorCode::InvalidInput,
@@ -268,4 +268,59 @@ pub(super) fn is_terminal(event: &StreamEvent) -> bool {
         event,
         StreamEvent::Completed { .. } | StreamEvent::Cancelled { .. } | StreamEvent::Failed { .. }
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::provider::credential::{CredentialReference, CredentialStore, CredentialValue};
+
+    struct UnavailableStore;
+
+    impl CredentialStore for UnavailableStore {
+        fn status(&self) -> CredentialStatus {
+            CredentialStatus::Unavailable
+        }
+
+        fn reference(&self) -> Option<CredentialReference> {
+            None
+        }
+
+        fn resolve(
+            &self,
+            _reference: &CredentialReference,
+        ) -> Result<CredentialValue, CredentialError> {
+            Err(CredentialError::BackendUnavailable)
+        }
+
+        fn set(
+            &self,
+            _reference: CredentialReference,
+            _value: CredentialValue,
+        ) -> Result<(), CredentialError> {
+            Err(CredentialError::BackendUnavailable)
+        }
+    }
+
+    #[test]
+    fn unconfigured_credential_explains_the_next_action() {
+        let runner = LiveGoRunner::new(ProviderState::new());
+
+        let error = runner
+            .credential()
+            .expect_err("no credential is configured");
+        assert_eq!(error.code, ErrorCode::AuthenticationFailed);
+        assert!(error
+            .message
+            .contains("Add the key to the system credential store"));
+    }
+
+    #[test]
+    fn unavailable_credential_store_explains_the_next_action() {
+        let runner = LiveGoRunner::new(ProviderState::with_store(UnavailableStore));
+
+        let error = runner.credential().expect_err("the store is unavailable");
+        assert_eq!(error.code, ErrorCode::ProviderUnavailable);
+        assert!(error.message.contains("Prompts cannot be sent"));
+    }
 }
