@@ -1,5 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+// The B04 UI consumes this state machine in a later microstep; until then the
+// items are intentionally unused.
+#[allow(dead_code)]
+mod conversation;
 mod health;
 mod provider;
 
