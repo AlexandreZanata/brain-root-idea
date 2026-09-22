@@ -401,7 +401,10 @@ fn select_default_model(models: &[DiscoveredModel]) -> Option<ModelId> {
         .iter()
         .find(|model| {
             model.id.as_str() == DEFAULT_MODEL_ID
-                && model.endpoint == ProtocolEndpoint::ChatCompletions
+                && matches!(
+                    model.endpoint,
+                    None | Some(ProtocolEndpoint::ChatCompletions)
+                )
         })
         .map(|model| model.id.clone())
 }
@@ -450,7 +453,7 @@ pub fn conversation_send(
 mod tests {
     use super::*;
     use crate::provider::contract::{Completion, StopReason};
-    use crate::provider::discovery::{ModelPrivacy, PrivacyDisclosure};
+    use crate::provider::discovery::ModelPrivacy;
     use std::sync::{mpsc, Barrier};
 
     fn input(message: &str) -> ConversationSendRequest {
@@ -460,31 +463,38 @@ mod tests {
         }
     }
 
-    fn model(id: &str, endpoint: ProtocolEndpoint) -> DiscoveredModel {
+    fn model(id: &str, endpoint: Option<ProtocolEndpoint>) -> DiscoveredModel {
         DiscoveredModel {
             id: ModelId::new(id).expect("valid model"),
             display_name: id.to_string(),
             endpoint,
-            privacy: ModelPrivacy {
-                training: PrivacyDisclosure::Unknown,
-                retention: PrivacyDisclosure::Unknown,
-            },
+            privacy: ModelPrivacy::unknown(),
         }
     }
 
     #[test]
-    fn default_model_requires_exact_id_and_supported_endpoint() {
+    fn default_model_requires_exact_id_and_accepts_an_unstated_endpoint() {
         let catalog = vec![
-            model(DEFAULT_MODEL_ID, ProtocolEndpoint::Messages),
-            model("another-model", ProtocolEndpoint::ChatCompletions),
+            model(DEFAULT_MODEL_ID, Some(ProtocolEndpoint::Messages)),
+            model("another-model", Some(ProtocolEndpoint::ChatCompletions)),
         ];
         assert_eq!(select_default_model(&catalog), None);
 
-        let mut compatible = catalog;
-        compatible.push(model(DEFAULT_MODEL_ID, ProtocolEndpoint::ChatCompletions));
+        let with_unstated = vec![model(DEFAULT_MODEL_ID, None)];
         assert_eq!(
-            select_default_model(&compatible)
-                .expect("default is compatible")
+            select_default_model(&with_unstated)
+                .expect("an unstated endpoint is a candidate")
+                .as_str(),
+            DEFAULT_MODEL_ID
+        );
+
+        let with_chat = vec![model(
+            DEFAULT_MODEL_ID,
+            Some(ProtocolEndpoint::ChatCompletions),
+        )];
+        assert_eq!(
+            select_default_model(&with_chat)
+                .expect("the chat endpoint is compatible")
                 .as_str(),
             DEFAULT_MODEL_ID
         );

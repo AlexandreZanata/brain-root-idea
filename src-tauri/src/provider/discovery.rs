@@ -106,7 +106,10 @@ fn disclosure(value: Option<&serde_json::Value>) -> PrivacyDisclosure {
 pub struct DiscoveredModel {
     pub id: ModelId,
     pub display_name: String,
-    pub endpoint: ProtocolEndpoint,
+    /// The endpoint stated by the payload, when it states one. The live
+    /// service lists ids without a per-model endpoint, so `None` means
+    /// "not stated", never "unsupported".
+    pub endpoint: Option<ProtocolEndpoint>,
     pub privacy: ModelPrivacy,
 }
 
@@ -214,11 +217,12 @@ fn parse_models(body: &str) -> Result<Vec<DiscoveredModel>, GoFailure> {
         let Some(id_value) = object.get("id").and_then(|id| id.as_str()) else {
             continue;
         };
-        let Some(endpoint_value) = object.get("endpoint").and_then(|url| url.as_str()) else {
-            continue;
-        };
-        let Some(endpoint) = ProtocolEndpoint::from_url(endpoint_value) else {
-            continue;
+        let endpoint = match object.get("endpoint") {
+            None => None,
+            Some(value) => match value.as_str().and_then(ProtocolEndpoint::from_url) {
+                Some(endpoint) => Some(endpoint),
+                None => continue,
+            },
         };
         let Ok(id) = ModelId::new(id_value) else {
             continue;
@@ -365,7 +369,7 @@ mod tests {
         assert_eq!(models.len(), 3);
         assert_eq!(models[0].id.as_str(), "glm-5.3");
         assert_eq!(models[0].display_name, "GLM 5.3");
-        assert_eq!(models[0].endpoint, ProtocolEndpoint::ChatCompletions);
+        assert_eq!(models[0].endpoint, Some(ProtocolEndpoint::ChatCompletions));
         assert_eq!(
             models[0].privacy,
             ModelPrivacy {
@@ -388,8 +392,36 @@ mod tests {
             .find(|model| model.id.as_str() == "minimax-m3")
             .expect("minimax present");
         assert_eq!(minimax.display_name, "minimax-m3");
-        assert_eq!(minimax.endpoint, ProtocolEndpoint::Messages);
+        assert_eq!(minimax.endpoint, Some(ProtocolEndpoint::Messages));
         assert_eq!(minimax.privacy, ModelPrivacy::unknown());
+    }
+
+    #[test]
+    fn accepts_entries_without_a_stated_endpoint() {
+        let body = r#"{"object":"list","data":[
+            {"id":"glm-5.3-flash","object":"model","created":1790095476,"owned_by":"opencode"},
+            {"id":"kimi-k3","object":"model","created":1790095476,"owned_by":"opencode"}
+        ]}"#;
+        let client = DiscoveryClient::new(FakeTransport::returning(body));
+        let models = client.fetch(&credential()).expect("fixture parses");
+
+        assert_eq!(models.len(), 2);
+        assert!(models.iter().all(|model| model.endpoint.is_none()));
+        assert_eq!(models[0].id.as_str(), "glm-5.3-flash");
+        assert_eq!(models[1].display_name, "kimi-k3");
+    }
+
+    #[test]
+    fn stated_but_unrecognized_endpoints_stay_filtered() {
+        let body = r#"{"data":[
+            {"id":"a","endpoint":"https://example.com/v2/complete"},
+            {"id":"b","endpoint":null},
+            {"id":"c","endpoint":123}
+        ]}"#;
+        let client = DiscoveryClient::new(FakeTransport::returning(body));
+        let models = client.fetch(&credential()).expect("fixture parses");
+
+        assert!(models.is_empty());
     }
 
     #[test]
