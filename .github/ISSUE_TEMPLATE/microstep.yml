@@ -1,0 +1,175 @@
+name: Microstep (economical agent)
+description: One independently verifiable microstep issue for a BrainRoot batch, per docs/18-mvp-execution-plan.md
+title: "[Bxx-Syy] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Follow `docs/18-mvp-execution-plan.md`. One issue = one observable outcome, one focused commit, one branch/PR batch.
+        Fill every required field before work starts; check every Definition of Ready item before starting and every Definition of Done item before closing.
+        Required labels: `batch:Bxx`, exactly one `type:*`, exactly one `risk:*`, `agent:economical`; add `status:blocked` only while a stop condition exists.
+        Never paste secrets, authorization headers, raw logs, personal paths, or private provider output.
+  - type: input
+    id: batch-step-id
+    attributes:
+      label: Batch and step ID
+      description: "Batch plus step, for example B00-S02."
+      placeholder: "B00-S02"
+    validations:
+      required: true
+  - type: input
+    id: batch-branch
+    attributes:
+      label: Batch branch
+      description: The single branch for this batch.
+      placeholder: "batch/b00-governance"
+    validations:
+      required: true
+  - type: input
+    id: batch-pr
+    attributes:
+      label: Batch PR (Draft)
+      description: Link to the batch draft pull request.
+      placeholder: "https://github.com/AlexandreZanata/brain-root-idea/pull/N"
+    validations:
+      required: true
+  - type: input
+    id: starting-commit
+    attributes:
+      label: Starting commit
+      description: Full SHA this microstep starts from.
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Target milestone
+      options:
+        - MVP-0 Linux Model Loop
+    validations:
+      required: true
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      options:
+        - low
+        - medium
+        - high
+    validations:
+      required: true
+  - type: dropdown
+    id: agent-profile
+    attributes:
+      label: Agent profile
+      options:
+        - economical
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: One sentence describing what is observably true when this issue is done.
+    validations:
+      required: true
+  - type: textarea
+    id: required-reading
+    attributes:
+      label: Required reading
+      description: Files or official sources needed for this microstep. Do not add broad reading for context.
+    validations:
+      required: true
+  - type: textarea
+    id: facts
+    attributes:
+      label: Facts and fixed decisions
+      description: Facts, decisions already made, and assumptions that must be tested.
+    validations:
+      required: true
+  - type: textarea
+    id: allowed-changes
+    attributes:
+      label: Allowed changes
+      description: Exact files or narrow directories that may change. No other file may be created or modified.
+    validations:
+      required: true
+  - type: textarea
+    id: forbidden-scope
+    attributes:
+      label: Forbidden scope
+      description: Issue-specific exclusions, in addition to no unrelated refactor, no new dependency, and no change to permissions, persistence, network destinations, or public contracts.
+    validations:
+      required: true
+  - type: textarea
+    id: implementation-sequence
+    attributes:
+      label: Exact implementation sequence
+      description: Mechanical steps with no architectural choice left implicit.
+    validations:
+      required: true
+  - type: dropdown
+    id: dependency-authorized
+    attributes:
+      label: New dependency allowed
+      options:
+        - "no"
+        - "yes"
+    validations:
+      required: true
+  - type: textarea
+    id: dependency-evidence
+    attributes:
+      label: Dependency-policy evidence (only when a dependency is allowed)
+      description: Capability, existing alternatives, runtime/bundle/startup impact, transitive count, maintenance, license, advisories, lazy-load behavior, removal path.
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation commands and expected evidence
+      description: Exact commands and the specific observable result for each. Include `git diff --name-only <starting SHA>...HEAD` and its expected allowlisted paths.
+    validations:
+      required: true
+  - type: checkboxes
+    id: security-cleanup
+    attributes:
+      label: Negative, security, and cleanup checks
+      options:
+        - label: Required failure state tested.
+        - label: No secret or authorization header in diff, log, or artifact.
+        - label: No resource remains active after completion, cancel, or close (when applicable).
+        - label: No unrelated test regressed.
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback
+      description: How to remove only this microstep without discarding other user or batch work.
+    validations:
+      required: true
+  - type: textarea
+    id: stop-conditions
+    attributes:
+      label: Stop conditions
+      description: Issue-specific conditions in addition to docs/18. The agent comments BLOCKED and stops when any condition is met.
+    validations:
+      required: true
+  - type: checkboxes
+    id: definition-of-ready
+    attributes:
+      label: Definition of Ready (check every item before starting)
+      options:
+        - label: Starting SHA and branch verified.
+        - label: Batch PR exists and is Draft.
+        - label: Required input and expected output are unambiguous.
+        - label: Allowed/forbidden scope is complete.
+        - label: Commands are available on the documented environment.
+  - type: checkboxes
+    id: definition-of-done
+    attributes:
+      label: Definition of Done (check every item before closing)
+      options:
+        - label: Outcome and every acceptance check pass.
+        - label: Evidence comment posted without secrets.
+        - label: One focused commit created with `(refs #N)`.
+        - label: Issue linked to batch PR and PR checklist updated.
+        - label: Wiki batch row updated.
+        - label: Issue manually closed.
