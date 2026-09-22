@@ -5,7 +5,11 @@ mod provider;
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![health::health])
+        .manage(provider::credential::ProviderState::new())
+        .invoke_handler(tauri::generate_handler![
+            health::health,
+            provider::credential::provider_status
+        ])
         .run(tauri::generate_context!())
         .expect("error while running BrainRoot");
 }
