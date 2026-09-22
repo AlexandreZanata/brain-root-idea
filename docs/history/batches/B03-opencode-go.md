@@ -8,10 +8,10 @@
 - Objective: A Linux developer can configure an OpenCode Go credential without exposing it, discover the currently available models through the core, and run an opt-in live smoke request through one validated protocol path with the BrainRoot user agent and a stable nonsecret session header — while the provider-neutral contract from B02 stays unchanged.
 - Branch: `batch/b03-opencode-go` (deleted after merge)
 - Draft/final PR: [#25](https://github.com/AlexandreZanata/brain-root-idea/pull/25)
-- Merge commit: pending (filled by the documented post-merge finalization commit)
+- Merge commit: `560a0bade95107e0b6b6b8416d400df89ba612b5`
 - Baseline commit: `53a4b83a7ab7dd897baba5d3fe09edc2f815f20a`
-- Target/resulting version: `0.0.1-alpha.4` (annotated tag on the merge commit; pre-release URL filled post-merge)
-- Started/completed: 2026-09-22 / —
+- Target/resulting version: `0.0.1-alpha.4` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1-alpha.4))
+- Started/completed: 2026-09-22 / 2026-09-22
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, kernel `7.1.5-76070105-generic`, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned)
 
 ## Non-goals
@@ -31,7 +31,7 @@
 | B03-S04 | [#28](https://github.com/AlexandreZanata/brain-root-idea/issues/28) | Validated `chat/completions` path in `provider::go`: config restricted to the documented endpoint with default model `glm-5.3-flash`, random nonsecret `x-opencode-session` per conversation, typed request body, injectable POST transport, and an SSE parser mapping the real stream to neutral events; 14 tests, all offline | `170aef4` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/28#issuecomment-5780325650) | `Content-Type: application/json` added to the headers; the live payload stays unverified until an authorized smoke run | Closed |
 | B03-S05 | [#29](https://github.com/AlexandreZanata/brain-root-idea/issues/29) | Shared `GoFailure` classification in `provider::failure` (invalid key, subscription unavailable, unsupported model, rate/usage limit, timeout, provider failure, malformed response, network unavailable) with distinct plain-language messages and no contract change; discovery exposes bounded per-model `privacy.training`/`retention` as `Stated`/`Unknown` | `a00ec2c` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/29#issuecomment-5780475837) | Re-verification (no credential): the public models payload states no per-model `endpoint`/privacy fields and the unauthenticated chat call answers `401` with an `AuthError` envelope; the authenticated shape remains unverified | Closed |
 | B03-S06 | [#30](https://github.com/AlexandreZanata/brain-root-idea/issues/30) | `provider::live_smoke` opt-in test (`#[ignore]` + `BRAINROOT_LIVE_SMOKE=1` + `BRAINROOT_OPENCODE_GO_KEY`): live discovery must return a non-empty catalog and one fixed prompt must stream at least one chunk to a `Completed` terminal; `UreqGoTransport`/`UreqTransport` gained explicit `with_timeout` (120 s B02 budget), defaults unchanged | `a1eaaea` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/30#issuecomment-5780554621) | Guards proven offline (default run ignores it; switch without key fails closed without network); the authorized live run is pending and is the first check of the authenticated models shape | Closed |
-| B03-S07 | [#31](https://github.com/AlexandreZanata/brain-root-idea/issues/31) | Version `0.0.1-alpha.4` synchronized across `VERSION`, `Cargo.toml`, `package.json`, and the lockfile; changelog release section; final history record; PR made Ready; full CI on the latest head; merge commit; annotated tag and pre-release | pending (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/31) | Ecosystem copies plus the history record were in the allowlist; this record is finalized by the documented post-merge commit | Closed |
+| B03-S07 | [#31](https://github.com/AlexandreZanata/brain-root-idea/issues/31) | Version `0.0.1-alpha.4` synchronized across `VERSION`, `Cargo.toml`, `package.json`, and the lockfile; changelog release section; final history record; PR made Ready; full CI on the latest head; merge commit; annotated tag and pre-release | `d5fe0d4`, `560a0ba` (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/31#issuecomment-5780612546), [final](https://github.com/AlexandreZanata/brain-root-idea/issues/31#issuecomment-5780930615) | Ecosystem copies plus the history record were in the allowlist; the live smoke is recorded as `UNKNOWN — not executed`; this record is finalized by the documented post-merge commit | Closed |
 
 ## Decisions and changed assumptions
 
@@ -53,7 +53,7 @@
 
 ## Final gates
 
-- Full CI: pending (filled by the documented post-merge finalization commit)
+- Full CI: [`check-full-linux` success on the finalization head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35757962437) (7 m 37 s) and [`push` run success on `main`](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35759261290)
 - Review: single-maintainer exception; merge performed with the documented administrator bypass (`enforce_admins: false`)
 - Security/privacy: core-only credential storage and redaction; bounded failure classification that never surfaces provider text; opt-in smoke guards; secret-pattern scans in the gates; no new network destination beyond the documented OpenCode endpoints
 - Performance: not applicable to this batch (no runtime resource; requests are on demand and bounded by the caller)
@@ -63,6 +63,6 @@
 
 ## Result and next batch
 
-Batch B03 is released as `v0.0.1-alpha.4`: the OpenCode Go live transport — current model discovery with a bounded cache, Linux Secret Service credential storage with an honest session fallback, one validated `chat/completions` path with BrainRoot client identity, complete Go failure normalization, per-model privacy disclosure, and an opt-in live smoke test — all behind the unchanged provider-neutral contract, without a UI, artifact, or default live request. Rollback: revert the batch commits; after merge the merge commit stays unless a maintainer explicitly reverts it, and the published tag is never moved. This final record is completed by the documented post-merge commit on `main` because the merge commit, CI runs, tag, and release URL cannot exist before the merge.
+Batch B03 is released as [`v0.0.1-alpha.4`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1-alpha.4) on merge commit `560a0ba`: the OpenCode Go live transport — current model discovery with a bounded cache, Linux Secret Service credential storage with an honest session fallback, one validated `chat/completions` path with BrainRoot client identity, complete Go failure normalization, per-model privacy disclosure, and an opt-in live smoke test — all behind the unchanged provider-neutral contract, without a UI, artifact, or default live request. Rollback: revert the batch commits; after merge the merge commit stays unless a maintainer explicitly reverts it, and the published tag is never moved. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, tag, and CI URLs cannot exist before the merge.
 
 Next batch: B04 — Minimal conversation experience (`batch/b04-conversation-ui`), starting with explicit conversation state.
