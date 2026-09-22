@@ -39,7 +39,7 @@ Do not publish two different artifacts with the same version. Tags and release a
 
 B00 chooses one machine-readable root version source. Generated or ecosystem-required copies—for example Cargo package, frontend package, and Tauri bundle versions—must be synchronized by a deterministic script/check. Agents change the root source only; final CI fails on drift.
 
-Until B00 implements this mechanism, documentation must say `UNRELEASED`; agents must not create ad-hoc version fields.
+Implemented in B00-S05: the root `VERSION` file is the single machine-readable source. It contains `UNRELEASED` until a batch finalization sets a SemVer value (B00-S06 sets `0.0.1-alpha.1`). `CHANGELOG.md` is the human-readable record, and `scripts/check-version-consistency.sh` fails on an invalid or multi-line source, a missing changelog section, or a mismatch in any present `Cargo.toml`, `package.json`, or `src-tauri/tauri.conf.json`. Agents change only `VERSION`; ad-hoc version fields remain forbidden.
 
 ## Tags and releases
 
