@@ -250,7 +250,7 @@
         <p class="setup" role="status">{setupMessage}</p>
       {/if}
 
-      <div class="conversation-history" aria-live="polite" aria-label="Conversation">
+      <div class="conversation-history" aria-label="Conversation">
         {#each turns as turn (turn.id)}
           <article class="turn">
             <p class="message-label">You</p>
@@ -278,11 +278,11 @@
         <label for="prompt">What do you want to build?</label>
         <textarea id="prompt" name="prompt" rows="4" bind:value={prompt}></textarea>
         <div class="actions">
-          <button class="send" type="submit" disabled={!canSend}>Send</button>
+          <button class="send" type="submit" aria-disabled={!canSend}>Send</button>
           <button
             class="cancel"
             type="button"
-            disabled={!isCancellable}
+            aria-disabled={!isCancellable}
             onclick={onCancel}
           >
             Cancel
@@ -499,9 +499,9 @@
     background: #1f5fd8;
   }
 
-  .send:disabled {
+  .send[aria-disabled="true"] {
     background: #39424d;
-    color: #9aa7b4;
+    color: #cdd9e5;
     cursor: not-allowed;
   }
 
@@ -517,11 +517,11 @@
     cursor: pointer;
   }
 
-  .cancel:hover:not(:disabled) {
+  .cancel:hover:not([aria-disabled="true"]) {
     background: #232a33;
   }
 
-  .cancel:disabled {
+  .cancel[aria-disabled="true"] {
     color: #9aa7b4;
     cursor: not-allowed;
   }
