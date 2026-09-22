@@ -53,13 +53,15 @@ print(f"changelog: {', '.join(sections)} section(s) present")
 
 copies = []
 
-cargo = os.path.join(root, "Cargo.toml")
-if os.path.isfile(cargo):
-    with open(cargo, "rb") as handle:
-        data = tomllib.load(handle)
-    value = data.get("package", {}).get("version")
-    if value:
-        copies.append(("Cargo.toml", value))
+cargo_manifests = ("Cargo.toml", "src-tauri/Cargo.toml")
+for cargo_rel in cargo_manifests:
+    cargo = os.path.join(root, cargo_rel)
+    if os.path.isfile(cargo):
+        with open(cargo, "rb") as handle:
+            data = tomllib.load(handle)
+        value = data.get("package", {}).get("version")
+        if value:
+            copies.append((cargo_rel, value))
 
 package = os.path.join(root, "package.json")
 if os.path.isfile(package):
