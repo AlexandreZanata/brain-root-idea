@@ -13,3 +13,6 @@ pub mod execution;
 pub mod fake;
 #[allow(dead_code)]
 pub mod normalize;
+
+#[cfg(test)]
+mod integration;
