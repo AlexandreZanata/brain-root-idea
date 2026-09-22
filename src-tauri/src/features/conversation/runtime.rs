@@ -1,266 +1,21 @@
-//! Core-owned conversation session and Tauri IPC for B04.
-//!
-//! The frontend sends one bounded, provider-neutral message. A worker exists
-//! only while that request is active and emits the frozen neutral
-//! [`StreamEvent`] contract. The normal runner is OpenCode Go; the fake runner
-//! is injected only by tests or explicit debug configuration.
+//! Conversation runtime: one active request, one worker, cancellation.
 
-use std::io::Read;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
-use std::time::Instant;
 
-use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
-
-use crate::conversation::{ConversationEvent, ConversationState};
+#[cfg(any(test, debug_assertions))]
+use super::runner::FakeRunner;
+use super::runner::{cancelled_event, is_terminal, normalized_error, LiveGoRunner, ProviderRunner};
+use super::state::{ConversationEvent, ConversationState};
+use super::wire::{ConversationAccepted, ConversationEnvelope, ConversationSendRequest};
 use crate::provider::contract::{
-    self, Cancellation, CancellationReason, ConversationId, ErrorCode, ModelId, NormalizedError,
-    ProviderRequest, StreamEvent, UserMessage, PROVIDER_CONTRACT_VERSION,
+    CancellationReason, ConversationId, ErrorCode, NormalizedError, ProviderRequest, StreamEvent,
+    UserMessage, PROVIDER_CONTRACT_VERSION,
 };
-use crate::provider::credential::{CredentialError, CredentialStatus, ProviderState};
-use crate::provider::discovery::{
-    CatalogState, DiscoveredModel, DiscoveryClient, ModelCache, ProtocolEndpoint, UreqTransport,
-};
-use crate::provider::execution::{CancellationToken, DEFAULT_TOTAL_TIMEOUT};
-use crate::provider::failure::GoFailure;
-use crate::provider::go::{
-    headers, ChatStreamParser, GoConfig, GoTransport, SessionId, UreqGoTransport, DEFAULT_MODEL_ID,
-    GO_CHAT_COMPLETIONS_ENDPOINT,
-};
-#[cfg(any(test, debug_assertions))]
-use crate::provider::{
-    execution::{ExecutionLimits, RequestOwner},
-    fake::{FakeProvider, FakeScenario},
-    normalize::StreamNormalizer,
-};
-
-pub const CONVERSATION_EVENT_NAME: &str = "conversation_event";
-const READ_BUFFER_BYTES: usize = 8 * 1024;
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct ConversationSendRequest {
-    pub contract_version: u32,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct ConversationAccepted {
-    pub contract_version: u32,
-    pub conversation: ConversationId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(deny_unknown_fields, rename_all = "camelCase")]
-pub struct ConversationEnvelope {
-    pub contract_version: u32,
-    pub conversation: ConversationId,
-    pub event: StreamEvent,
-}
-
-trait ProviderRunner: Send + Sync {
-    fn model(&self) -> ModelId;
-    fn stream(
-        &self,
-        request: &ProviderRequest,
-        cancel: &CancellationToken,
-        emit: &mut dyn FnMut(StreamEvent),
-    );
-}
-
-struct LiveGoRunner {
-    provider: ProviderState,
-    catalog: Mutex<ModelCache>,
-    started_at: Instant,
-}
-
-impl LiveGoRunner {
-    fn new(provider: ProviderState) -> Self {
-        Self {
-            provider,
-            catalog: Mutex::new(ModelCache::new()),
-            started_at: Instant::now(),
-        }
-    }
-
-    fn credential(&self) -> Result<crate::provider::credential::CredentialValue, NormalizedError> {
-        match self.provider.credential_status() {
-            CredentialStatus::Configured => {}
-            CredentialStatus::NotConfigured => {
-                return Err(normalized_error(
-                    ErrorCode::AuthenticationFailed,
-                    "No OpenCode Go credential is configured.",
-                ));
-            }
-            CredentialStatus::Unavailable => {
-                return Err(normalized_error(
-                    ErrorCode::ProviderUnavailable,
-                    "The credential store is not available on this system.",
-                ));
-            }
-        }
-
-        let reference = self.provider.credential_reference().ok_or_else(|| {
-            normalized_error(
-                ErrorCode::AuthenticationFailed,
-                "No OpenCode Go credential is configured.",
-            )
-        })?;
-        self.provider.resolve(&reference).map_err(credential_error)
-    }
-
-    fn run_live(
-        &self,
-        request: &ProviderRequest,
-        cancel: &CancellationToken,
-        emit: &mut dyn FnMut(StreamEvent),
-    ) -> Result<(), NormalizedError> {
-        let credential = self.credential()?;
-        if cancel.is_cancelled() {
-            emit(cancelled_event(&request.conversation));
-            return Ok(());
-        }
-        let now = self.started_at.elapsed();
-        let cached = self
-            .catalog
-            .lock()
-            .expect("model cache lock is not poisoned")
-            .state(now);
-        let catalog = match cached {
-            CatalogState::Fresh(models) => models,
-            CatalogState::Stale(_) | CatalogState::Empty => {
-                let models = DiscoveryClient::new(UreqTransport::with_timeout(
-                    crate::provider::execution::DEFAULT_CONNECT_TIMEOUT,
-                ))
-                .fetch(&credential)
-                .map_err(go_error)?;
-                self.catalog
-                    .lock()
-                    .expect("model cache lock is not poisoned")
-                    .store(now, models.clone());
-                models
-            }
-        };
-        let model = select_default_model(&catalog).ok_or_else(|| {
-            normalized_error(
-                ErrorCode::InvalidInput,
-                "The default model is not available on the supported OpenCode Go endpoint.",
-            )
-        })?;
-
-        let config = GoConfig::new(GO_CHAT_COMPLETIONS_ENDPOINT, model)
-            .map_err(|error| normalized_error(error.code(), &error.message()))?;
-        let body = config
-            .build_request_body(&request.message)
-            .map_err(go_error)?;
-        let session = SessionId::from_value(request.conversation.as_str())
-            .map_err(|error| normalized_error(error.code(), &error.message()))?;
-        let request_headers = headers(&credential, &session);
-        let mut reader = UreqGoTransport::with_timeout(DEFAULT_TOTAL_TIMEOUT)
-            .post(config.endpoint(), &request_headers, &body)
-            .map_err(go_error)?;
-        let mut parser = ChatStreamParser::new(request.conversation.clone());
-        let mut buffer = [0_u8; READ_BUFFER_BYTES];
-        let mut received = 0usize;
-
-        while !parser.is_finished() {
-            if cancel.is_cancelled() {
-                emit(cancelled_event(&request.conversation));
-                return Ok(());
-            }
-            let count = reader.read(&mut buffer).map_err(|_| {
-                normalized_error(
-                    ErrorCode::ProviderUnavailable,
-                    "The provider connection ended unexpectedly.",
-                )
-            })?;
-            if count == 0 {
-                break;
-            }
-            received = received.saturating_add(count);
-            if received > contract::limits::MAX_RESPONSE_BYTES {
-                return Err(normalized_error(
-                    ErrorCode::ResponseTooLarge,
-                    "The provider's response was larger than BrainRoot allows.",
-                ));
-            }
-            for event in parser.push(&buffer[..count]).map_err(go_error)? {
-                if cancel.is_cancelled() {
-                    emit(cancelled_event(&request.conversation));
-                    return Ok(());
-                }
-                emit(event);
-            }
-        }
-
-        for event in parser.finish() {
-            emit(event);
-        }
-        Ok(())
-    }
-}
-
-impl ProviderRunner for LiveGoRunner {
-    fn model(&self) -> ModelId {
-        ModelId::new(DEFAULT_MODEL_ID).expect("static default model is valid")
-    }
-
-    fn stream(
-        &self,
-        request: &ProviderRequest,
-        cancel: &CancellationToken,
-        emit: &mut dyn FnMut(StreamEvent),
-    ) {
-        if let Err(error) = self.run_live(request, cancel, emit) {
-            emit(StreamEvent::Failed { error });
-        }
-    }
-}
-
-#[cfg(any(test, debug_assertions))]
-struct FakeRunner;
-
-#[cfg(any(test, debug_assertions))]
-impl ProviderRunner for FakeRunner {
-    fn model(&self) -> ModelId {
-        ModelId::new("fake-streaming").expect("static fake model is valid")
-    }
-
-    fn stream(
-        &self,
-        request: &ProviderRequest,
-        cancel: &CancellationToken,
-        emit: &mut dyn FnMut(StreamEvent),
-    ) {
-        let mut owner = RequestOwner::start(
-            FakeProvider.script(FakeScenario::Success),
-            ExecutionLimits::default(),
-            cancel.clone(),
-        );
-        let mut normalizer = StreamNormalizer::new(request.conversation.clone());
-        for execution_event in owner.advance(std::time::Duration::ZERO) {
-            if normalizer.is_finished() {
-                break;
-            }
-            if normalizer.push_execution(execution_event).is_err() {
-                emit(StreamEvent::Failed {
-                    error: normalized_error(
-                        ErrorCode::MalformedResponse,
-                        "The deterministic provider returned an unreadable response.",
-                    ),
-                });
-                return;
-            }
-            for event in normalizer.drain() {
-                emit(event);
-            }
-        }
-    }
-}
+use crate::provider::credential::ProviderState;
+use crate::provider::execution::CancellationToken;
 
 struct SessionInner {
     conversation: ConversationId,
@@ -298,7 +53,7 @@ impl ConversationSession {
         }
     }
 
-    fn start<F>(
+    pub(super) fn start<F>(
         &self,
         input: ConversationSendRequest,
         emit: F,
@@ -358,8 +113,8 @@ impl ConversationSession {
     /// Moves the conversation to `CANCELLING` immediately and signals the
     /// active request. A second cancel or a cancel without an active request
     /// is rejected.
-    pub(crate) fn cancel(&self) -> Result<ConversationState, NormalizedError> {
-        let next = {
+    pub(crate) fn cancel(&self) -> Result<(), NormalizedError> {
+        {
             let mut state = self
                 .inner
                 .state
@@ -372,8 +127,7 @@ impl ConversationSession {
                 )
             })?;
             *state = next;
-            next
-        };
+        }
 
         let token = self
             .inner
@@ -384,7 +138,11 @@ impl ConversationSession {
         if let Some(token) = token {
             token.cancel(CancellationReason::UserRequested);
         }
-        Ok(next)
+        Ok(())
+    }
+
+    pub(super) fn conversation_id(&self) -> ConversationId {
+        self.inner.conversation.clone()
     }
 
     pub(crate) fn is_active(&self) -> bool {
@@ -454,15 +212,6 @@ fn run_request<F>(
         .expect("cancel slot lock is not poisoned") = None;
 }
 
-fn cancelled_event(conversation: &ConversationId) -> StreamEvent {
-    StreamEvent::Cancelled {
-        cancellation: Cancellation {
-            conversation: conversation.clone(),
-            reason: CancellationReason::UserRequested,
-        },
-    }
-}
-
 fn current_state(inner: &SessionInner) -> ConversationState {
     *inner
         .state
@@ -493,82 +242,10 @@ fn event_matches_conversation(event: &StreamEvent, expected: &ConversationId) ->
     }
 }
 
-fn is_terminal(event: &StreamEvent) -> bool {
-    matches!(
-        event,
-        StreamEvent::Completed { .. } | StreamEvent::Cancelled { .. } | StreamEvent::Failed { .. }
-    )
-}
-
-fn select_default_model(models: &[DiscoveredModel]) -> Option<ModelId> {
-    models
-        .iter()
-        .find(|model| {
-            model.id.as_str() == DEFAULT_MODEL_ID
-                && matches!(
-                    model.endpoint,
-                    None | Some(ProtocolEndpoint::ChatCompletions)
-                )
-        })
-        .map(|model| model.id.clone())
-}
-
-fn credential_error(error: CredentialError) -> NormalizedError {
-    match error {
-        CredentialError::BackendUnavailable => normalized_error(
-            ErrorCode::ProviderUnavailable,
-            "The credential store is not available on this system.",
-        ),
-        CredentialError::NotConfigured | CredentialError::UnknownReference => normalized_error(
-            ErrorCode::AuthenticationFailed,
-            "No OpenCode Go credential is configured.",
-        ),
-        CredentialError::Empty => normalized_error(
-            ErrorCode::InvalidInput,
-            "The configured credential is empty.",
-        ),
-    }
-}
-
-fn go_error(error: GoFailure) -> NormalizedError {
-    normalized_error(error.code(), &error.message())
-}
-
-fn normalized_error(code: ErrorCode, message: &str) -> NormalizedError {
-    NormalizedError {
-        code,
-        message: message.to_string(),
-    }
-}
-
-#[tauri::command]
-pub fn conversation_send(
-    request: ConversationSendRequest,
-    app: AppHandle,
-    state: tauri::State<'_, ConversationSession>,
-) -> Result<ConversationAccepted, NormalizedError> {
-    let (accepted, _worker) = state.start(request, move |envelope| {
-        let _ = app.emit(CONVERSATION_EVENT_NAME, envelope);
-    })?;
-    Ok(accepted)
-}
-
-#[tauri::command]
-pub fn conversation_cancel(
-    state: tauri::State<'_, ConversationSession>,
-) -> Result<ConversationAccepted, NormalizedError> {
-    state.cancel()?;
-    Ok(ConversationAccepted {
-        contract_version: PROVIDER_CONTRACT_VERSION,
-        conversation: state.inner.conversation.clone(),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provider::contract::{Completion, StopReason};
-    use crate::provider::discovery::ModelPrivacy;
+    use crate::provider::contract::{self, Completion, ModelId, StopReason};
     use std::sync::{mpsc, Barrier};
 
     fn input(message: &str) -> ConversationSendRequest {
@@ -576,43 +253,6 @@ mod tests {
             contract_version: PROVIDER_CONTRACT_VERSION,
             message: message.to_string(),
         }
-    }
-
-    fn model(id: &str, endpoint: Option<ProtocolEndpoint>) -> DiscoveredModel {
-        DiscoveredModel {
-            id: ModelId::new(id).expect("valid model"),
-            display_name: id.to_string(),
-            endpoint,
-            privacy: ModelPrivacy::unknown(),
-        }
-    }
-
-    #[test]
-    fn default_model_requires_exact_id_and_accepts_an_unstated_endpoint() {
-        let catalog = vec![
-            model(DEFAULT_MODEL_ID, Some(ProtocolEndpoint::Messages)),
-            model("another-model", Some(ProtocolEndpoint::ChatCompletions)),
-        ];
-        assert_eq!(select_default_model(&catalog), None);
-
-        let with_unstated = vec![model(DEFAULT_MODEL_ID, None)];
-        assert_eq!(
-            select_default_model(&with_unstated)
-                .expect("an unstated endpoint is a candidate")
-                .as_str(),
-            DEFAULT_MODEL_ID
-        );
-
-        let with_chat = vec![model(
-            DEFAULT_MODEL_ID,
-            Some(ProtocolEndpoint::ChatCompletions),
-        )];
-        assert_eq!(
-            select_default_model(&with_chat)
-                .expect("the chat endpoint is compatible")
-                .as_str(),
-            DEFAULT_MODEL_ID
-        );
     }
 
     #[test]
@@ -752,8 +392,8 @@ mod tests {
             .expect("request accepted");
         entered_receiver.recv().expect("worker started");
 
-        let state = session.cancel().expect("cancel accepted");
-        assert_eq!(state, ConversationState::Cancelling);
+        session.cancel().expect("cancel accepted");
+        assert_eq!(session.state(), ConversationState::Cancelling);
         assert!(session.is_active());
 
         release.wait();
@@ -878,26 +518,5 @@ mod tests {
             .expect_err("oversized rejected");
         assert_eq!(error.code, ErrorCode::RequestTooLarge);
         assert_eq!(session.state(), ConversationState::Empty);
-    }
-
-    #[test]
-    fn envelope_serialization_is_versioned_and_provider_neutral() {
-        let envelope = ConversationEnvelope {
-            contract_version: PROVIDER_CONTRACT_VERSION,
-            conversation: ConversationId::new("conversation-test").expect("valid"),
-            event: StreamEvent::TextChunk {
-                text: "safe text".to_string(),
-            },
-        };
-        let value = serde_json::to_value(envelope).expect("serializes");
-
-        assert_eq!(value["contractVersion"], PROVIDER_CONTRACT_VERSION);
-        assert_eq!(value["conversation"], "conversation-test");
-        assert_eq!(value["event"]["type"], "text_chunk");
-        assert_eq!(value["event"]["text"], "safe text");
-        let rendered = value.to_string();
-        assert!(!rendered.contains("Authorization"));
-        assert!(!rendered.contains("credential"));
-        assert!(!rendered.contains("opencode"));
     }
 }

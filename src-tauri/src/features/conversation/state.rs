@@ -70,7 +70,6 @@ pub enum ConversationEvent {
     /// The user submitted a new prompt; the caller validates and bounds it.
     Submit,
     /// The user asked to cancel the active request.
-    #[allow(dead_code)] // Wired by the immediately following B04-S04 microstep.
     Cancel,
     /// One neutral provider event from the frozen contract.
     Stream(StreamEvent),
