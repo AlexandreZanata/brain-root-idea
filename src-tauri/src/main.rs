@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod health;
+mod provider;
 
 fn main() {
     tauri::Builder::default()
