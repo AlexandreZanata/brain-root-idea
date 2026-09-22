@@ -8,6 +8,8 @@ pub mod contract;
 #[allow(dead_code)]
 pub mod credential;
 #[allow(dead_code)]
+pub mod discovery;
+#[allow(dead_code)]
 pub mod execution;
 #[allow(dead_code)]
 pub mod fake;
