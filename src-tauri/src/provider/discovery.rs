@@ -116,11 +116,44 @@ pub trait HttpTransport {
     fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<String, GoFailure>;
 }
 
-pub struct UreqTransport;
+/// The live discovery transport. Unbounded by default; [`UreqTransport::with_timeout`]
+/// bounds the entire call, including reading the response body.
+pub struct UreqTransport {
+    timeout: Option<Duration>,
+}
+
+impl UreqTransport {
+    pub fn new() -> Self {
+        Self { timeout: None }
+    }
+
+    pub fn with_timeout(timeout: Duration) -> Self {
+        Self {
+            timeout: Some(timeout),
+        }
+    }
+
+    fn agent(&self) -> ureq::Agent {
+        let mut config = ureq::Agent::config_builder();
+        if let Some(timeout) = self.timeout {
+            config = config.timeout_global(Some(timeout));
+        }
+        ureq::Agent::new_with_config(config.build())
+    }
+}
+
+impl Default for UreqTransport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl HttpTransport for UreqTransport {
     fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<String, GoFailure> {
-        let mut request = ureq::get(url).header("User-Agent", BRAINROOT_USER_AGENT);
+        let mut request = self
+            .agent()
+            .get(url)
+            .header("User-Agent", BRAINROOT_USER_AGENT);
         for (name, value) in headers {
             request = request.header(*name, *value);
         }

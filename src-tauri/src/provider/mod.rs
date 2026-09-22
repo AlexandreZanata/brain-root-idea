@@ -24,3 +24,5 @@ pub mod secret_service;
 
 #[cfg(test)]
 mod integration;
+#[cfg(test)]
+mod live_smoke;

@@ -8,6 +8,7 @@
 //! fallback to another model, protocol, endpoint, or balance.
 
 use std::io::Read;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
@@ -147,7 +148,37 @@ pub trait GoTransport {
     ) -> Result<Box<dyn Read + Send>, GoFailure>;
 }
 
-pub struct UreqGoTransport;
+/// The live Go transport. Unbounded by default; [`UreqGoTransport::with_timeout`]
+/// bounds the entire call, including reading the response body.
+pub struct UreqGoTransport {
+    timeout: Option<Duration>,
+}
+
+impl UreqGoTransport {
+    pub fn new() -> Self {
+        Self { timeout: None }
+    }
+
+    pub fn with_timeout(timeout: Duration) -> Self {
+        Self {
+            timeout: Some(timeout),
+        }
+    }
+
+    fn agent(&self) -> ureq::Agent {
+        let mut config = ureq::Agent::config_builder();
+        if let Some(timeout) = self.timeout {
+            config = config.timeout_global(Some(timeout));
+        }
+        ureq::Agent::new_with_config(config.build())
+    }
+}
+
+impl Default for UreqGoTransport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl GoTransport for UreqGoTransport {
     fn post(
@@ -156,7 +187,10 @@ impl GoTransport for UreqGoTransport {
         headers: &[(String, String)],
         body: &str,
     ) -> Result<Box<dyn Read + Send>, GoFailure> {
-        let mut request = ureq::post(url).header("User-Agent", BRAINROOT_USER_AGENT);
+        let mut request = self
+            .agent()
+            .post(url)
+            .header("User-Agent", BRAINROOT_USER_AGENT);
         for (name, value) in headers {
             request = request.header(name.as_str(), value.as_str());
         }
