@@ -4,12 +4,13 @@
 
 ## Header
 
-- Status: Ready to merge
+- Status: Released
 - Objective: Establish the experimental delivery controls — license and attribution verification, issue and PR templates, labels/milestone/branch rules, history and Wiki, version/changelog controls, and the initial documentation CI.
-- Branch: `batch/b00-governance`
+- Branch: `batch/b00-governance` (deleted after merge)
 - Draft/final PR: [#2](https://github.com/AlexandreZanata/brain-root-idea/pull/2)
+- Merge commit: `405fc5d0d08ad993552cc2e194d884ed6cbdc7fc`
 - Baseline commit: `695bee3a41274f60044b9641852dfc1883ac0741`
-- Target/resulting version: `0.0.1-alpha.1` (single source `VERSION`)
+- Target/resulting version: `0.0.1-alpha.1` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1-alpha.1))
 - Started/completed: 2026-09-22 / —
 - Supported test environment: Linux reference environment, not frozen yet (B01-S01)
 
@@ -28,7 +29,7 @@
 | B00-S03 | [#4](https://github.com/AlexandreZanata/brain-root-idea/issues/4) | Repository rules runbook records the 18-label scheme, milestone, and configured `main` protection (PR required, 1 approval, conversation resolution, no force push/deletion); admin bypass and the missing Linux check documented as gaps | `7176661` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/4#issuecomment-5776689307) | Administrator bypass intentional for a single maintainer; required status check deferred to B00-S06 | Closed |
 | B00-S04 | [#5](https://github.com/AlexandreZanata/brain-root-idea/issues/5) | Full Wiki structure published with the flat `Batch-B00-Governance` page; repository mirror created Active with validated bidirectional links | `7e75121` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/5#issuecomment-5776816232) | Nested Wiki URLs are not plain deep links; flat convention adopted and recorded in `docs/20` | Closed |
 | B00-S05 | [#6](https://github.com/AlexandreZanata/brain-root-idea/issues/6) | Single machine-readable version source (`VERSION`), `CHANGELOG.md`, and an offline consistency check for the source, changelog sections, and future ecosystem copies | `b7c0034` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/6#issuecomment-5776927405) | Ecosystem copies do not exist yet; the check is dormant and enforces once B01 scaffolds Cargo/npm/Tauri | Closed |
-| B00-S06 | [#7](https://github.com/AlexandreZanata/brain-root-idea/issues/7) | Initial Linux CI workflow produces the required `check-full-linux` check (docs links/sections, secrets, integrity, version consistency, license/NOTICE); version, changelog, runbook, and records finalized; PR merged with the documented administrator exception; annotated tag and pre-release `v0.0.1-alpha.1` | `<merge>` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/7) | Single-maintainer approval exception documented; post-merge record commit carries the merge/tag/CI links | Closed |
+| B00-S06 | [#7](https://github.com/AlexandreZanata/brain-root-idea/issues/7) | Initial Linux CI workflow produces the required `check-full-linux` check (docs links/sections, secrets, integrity, version consistency, license/NOTICE); version, changelog, runbook, and records finalized; PR merged with the documented administrator exception; annotated tag and pre-release `v0.0.1-alpha.1` | `405fc5d0` (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/7#issuecomment-5777103618) | Single-maintainer approval exception documented; post-merge record commit carries the merge/tag/CI links | Closed |
 
 Update one row whenever a microstep closes or is reopened. Never paste secrets or unbounded raw logs.
 
@@ -51,7 +52,7 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Final gates
 
-- Full CI: `check-full-linux` on the batch head and the post-merge `push` run on `main` — links recorded in issue #7
+- Full CI: [`check-full-linux` success on the batch head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35731445351) and [`push` run success on `main`](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35731532295)
 - Review: single-maintainer exception; merged with the documented administrator bypass (no second identity exists)
 - Security/privacy: `scripts/check-docs.sh` secret-pattern scan and manual diff review; no credential or authorization header in any artifact
 - Performance: not applicable for B00
@@ -61,6 +62,6 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Result and next batch
 
-Batch B00 delivers the governance and delivery controls: verified license/attribution artifacts, repository templates with structural validation, documented labels/milestone/branch rules, synchronized Wiki and repository history, a single version source with changelog controls, and the first Linux CI check required on `main`. Version `0.0.1-alpha.1` is the batch output; there is no user-visible application capability yet.
+Batch B00 is released as [`v0.0.1-alpha.1`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1-alpha.1) on merge commit `405fc5d0`: governance and delivery controls only, with no user-visible application capability yet. Rollback: remove the required check and workflow, delete the tag and pre-release, and restore `VERSION` to `UNRELEASED`. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, tag, and CI URLs cannot exist before the merge.
 
-Next batch: B01 — minimal measured Linux shell (`batch/b01-linux-shell`), starting with the Linux reference environment and dependency evidence. The merge commit, tag, release, and CI links are finalized in the documented post-merge record commit because they cannot exist before the merge.
+Next batch: B01 — minimal measured Linux shell (`batch/b01-linux-shell`), starting with the Linux reference environment and dependency evidence.
