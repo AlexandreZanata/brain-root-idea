@@ -28,7 +28,7 @@ Failure-Log
 Performance-Index
 ```
 
-Wiki capabilities and page naming are initialized in B00. If nested names are not rendered as expected, use flat names such as `Batch-B00-Governance` and record the convention.
+Wiki capabilities and page naming are initialized in B00. If nested names are not rendered as expected, use flat names such as `Batch-B00-Governance` and record the convention. Observed on 2026-09-22 (B00-S04): a page stored as `Batches/B00-Governance.md` is served only at `.../wiki/Batches%2FB00-Governance` and at GitHub's normalized `.../wiki/B00-Governance`, while the plain nested URL `.../wiki/Batches/B00-Governance` returns 404. BrainRoot therefore uses the flat convention `Batch-Bxx-Name` for batch pages and `Release-vX.Y.Z` for release pages.
 
 ## Update cadence
 
