@@ -2,7 +2,7 @@
 
 **Status:** Active
 **Applies to:** `AlexandreZanata/brain-root-idea`
-**Last verified:** 2026-09-22 (issue #4, B00-S03)
+**Last verified:** 2026-09-22 (issue #4, B00-S03; required check added in issue #7, B00-S06)
 
 ## Purpose
 
@@ -56,7 +56,7 @@ One milestone covers the Linux MVP-0 batches. A later platform or release milest
 | Dismiss stale reviews on new commits | enabled |
 | Require conversation resolution | enabled |
 | Enforce for administrators | disabled (documented gap) |
-| Required status checks | none yet (B00-S06 adds the Linux full check) |
+| Required status checks | `check-full-linux` (`strict: true`), added by B00-S06 |
 | Allow force pushes | disabled |
 | Allow deletions | disabled |
 
@@ -81,7 +81,7 @@ Applied payload:
 ## Gaps and pending work
 
 - **Administrator bypass:** `enforce_admins` is disabled because the repository has a single maintainer identity; the required approval is therefore not enforced for the administrator. The rule exists and applies to any other collaborator. Revisit when a second reviewer identity exists.
-- **Required status check:** the Linux full check does not exist yet. B00-S06 must create the CI check and then add its exact name to `required_status_checks` (`strict: true`); until then merges are not gated by CI.
+- **Required status check:** `check-full-linux` is required on `main` (`strict: true`) and is produced by `.github/workflows/ci.yml` on `pull_request` (non-draft) and `push` to `main`. The initial check runs the documentation/secret/integrity gate, the version consistency gate, and the license/NOTICE artifact gate. `scripts/check-governance-templates.sh` is not part of this workflow because the runner image does not provide PyYAML to the default interpreter; B01-S04 adds it after B01-S01 freezes the Linux reference environment.
 - **Single-maintainer approval:** with one identity, `required_approving_review_count: 1` cannot be satisfied by another person, which is why the administrator bypass above is required for the batch to merge. This is recorded as a gap, not as success.
 - **Classic protection versus rulesets:** classic branch protection is used because it is simple and reversible; if repository needs grow (multiple actors, bypass lists), migrate to a ruleset and update this runbook.
 - **Evidence drift:** GitHub settings cannot be enforced from the repository. `docs/20-project-history-and-wiki.md` requires a maintainer-visible comparison at batch close; future automation may clone settings read-only.
@@ -101,13 +101,14 @@ gh api repos/AlexandreZanata/brain-root-idea/labels --paginate
 gh api repos/AlexandreZanata/brain-root-idea/milestones
 ```
 
-B00-S06 adds the required check after CI exists:
+Added by B00-S06 once the workflow existed:
 
 ```sh
 gh api --method PATCH repos/AlexandreZanata/brain-root-idea/branches/main/protection/required_status_checks \
-  --input required-status-checks.json
+  -f strict=true -F contexts[]=check-full-linux
 ```
 
 ## Evidence
 
 - Applied and verified in issue #4 ([B00-S03](https://github.com/AlexandreZanata/brain-root-idea/issues/4)); exported protection settings and label/milestone checks are recorded in the issue evidence comment without credentials.
+- Required check added and verified in issue #7 ([B00-S06](https://github.com/AlexandreZanata/brain-root-idea/issues/7)); the first green `check-full-linux` run and the post-merge `main` run are recorded there.

@@ -1,0 +1,24 @@
+name: linux-full
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check-full-linux:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Documentation, secret, and repository integrity gate
+        run: sh scripts/check-docs.sh
+      - name: Version consistency gate
+        run: sh scripts/check-version-consistency.sh
+      - name: License and NOTICE artifact gate
+        run: sh scripts/check-license-artifacts.sh
