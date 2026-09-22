@@ -10,6 +10,26 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.1-alpha.3
+
+### Added
+
+- A versioned provider-neutral contract in the Rust core: model descriptor, conversation ID, user message, request, stream events, completion, cancellation, and normalized errors with documented size limits and a request-state transition function ([#16](https://github.com/AlexandreZanata/brain-root-idea/issues/16)).
+- A deterministic fake provider that speaks a documented wire format and scripts success, authentication failure, rate limiting, server error, malformed frames, delayed events, and a never-ending stream as data — no clock, thread, or network ([#18](https://github.com/AlexandreZanata/brain-root-idea/issues/18)).
+- A pull-based bounded execution layer: one request owner with a shared cancellation token, connect/read/total timeouts, a response-size limit, and exactly one terminal event per request ([#19](https://github.com/AlexandreZanata/brain-root-idea/issues/19)).
+- Byte-level streaming normalization: arbitrary chunk boundaries including split UTF-8, bounded buffers and queues with explicit backpressure, neutral event mapping, and plain-language errors that never surface provider text ([#20](https://github.com/AlexandreZanata/brain-root-idea/issues/20)).
+- A core-only credential boundary: `CredentialStatus` is the only serializable type, credential values and authorization headers redact themselves, and the `provider_status` app command lets the UI learn configured/not-configured only ([#21](https://github.com/AlexandreZanata/brain-root-idea/issues/21)).
+- A provider contract integration test that drives credential pre-flight, discovery, request, streaming, completion, cancellation, and a plain-language failure end to end ([#22](https://github.com/AlexandreZanata/brain-root-idea/issues/22)).
+
+### Security
+
+- No credential is stored, logged, or serialized; provider-supplied text is never surfaced; the provider modules contain no thread, timer, clock, or network client.
+
+### Known limitations
+
+- The provider boundary is not wired to the UI yet (B04) and there is no live transport (B03); the staged `dead_code` allowances remain until the UI consumes the modules.
+- No package, artifact, or checksum exists for this pre-release.
+
 ## 0.0.1-alpha.2
 
 ### Added
