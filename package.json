@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "check": "svelte-check --tsgo --tsconfig ./tsconfig.json",
     "check:watch": "svelte-check --tsgo --tsconfig ./tsconfig.json --watch",
+    "test:frontend": "node --test --test-isolation=none src/conversation.test.mjs",
     "tauri": "tauri"
   },
   "devDependencies": {

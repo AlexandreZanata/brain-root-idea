@@ -1,25 +1,155 @@
 <script lang="ts">
+  import { invoke } from "@tauri-apps/api/core";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
+  import {
+    CONVERSATION_CONTRACT_VERSION,
+    appendChunk,
+    beginTurn,
+    isConversationEnvelope,
+    settleTurn,
+    type ConversationEnvelope,
+    type ConversationState,
+    type ConversationTurn
+  } from "./conversation";
   import { requestHealth } from "./health";
 
   type HealthState = "checking" | "ready" | "failed";
 
-  let healthState: HealthState = $state("checking");
+  let healthState = $state<HealthState>("checking");
   let detail = $state("Waiting for the core health result.");
+  let conversationState = $state<ConversationState>("empty");
+  let listenerReady = $state(false);
+  let prompt = $state("");
+  let turns: ConversationTurn[] = $state([]);
+  let nextTurnId = 1;
+  let activeTurnId: number | null = null;
 
-  onMount(async () => {
-    try {
-      await requestHealth();
-      healthState = "ready";
-      detail = "The core health contract responded normally.";
-    } catch (error) {
-      healthState = "failed";
-      detail = error instanceof Error ? error.message : "The core health request failed.";
-    }
+  let isBusy = $derived(
+    conversationState === "sending" || conversationState === "streaming"
+  );
+  let canSend = $derived(
+    healthState === "ready" && listenerReady && !isBusy && prompt.trim().length > 0
+  );
+
+  onMount(() => {
+    let disposed = false;
+    let unlisten: UnlistenFn | undefined;
+
+    void (async () => {
+      try {
+        unlisten = await listen<unknown>("conversation_event", ({ payload }) => {
+          onConversationEvent(payload);
+        });
+        if (disposed) {
+          unlisten();
+          return;
+        }
+        listenerReady = true;
+      } catch {
+        detail = "The conversation channel could not be opened.";
+      }
+
+      try {
+        await requestHealth();
+        if (!disposed) {
+          healthState = "ready";
+          detail = "The core health contract responded normally.";
+          conversationState = "ready";
+        }
+      } catch (error) {
+        if (!disposed) {
+          healthState = "failed";
+          detail = error instanceof Error ? error.message : "The core health request failed.";
+        }
+      }
+    })();
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   });
 
-  function onPromptSubmit(event: SubmitEvent) {
+  async function onPromptSubmit(event: SubmitEvent) {
     event.preventDefault();
+    const message = prompt.trim();
+    if (!canSend || message.length === 0) {
+      return;
+    }
+
+    const turnId = nextTurnId;
+    nextTurnId += 1;
+    activeTurnId = turnId;
+    turns = beginTurn(turns, turnId, message);
+    prompt = "";
+    conversationState = "sending";
+
+    try {
+      await invoke("conversation_send", {
+        request: {
+          contractVersion: CONVERSATION_CONTRACT_VERSION,
+          message
+        }
+      });
+    } catch (error) {
+      failActive(errorMessage(error));
+    }
+  }
+
+  function onConversationEvent(payload: unknown) {
+    if (!isConversationEnvelope(payload)) {
+      failActive("The core returned an unexpected conversation event.");
+      return;
+    }
+    applyConversationEvent(payload);
+  }
+
+  function applyConversationEvent(envelope: ConversationEnvelope) {
+    const turnId = activeTurnId;
+    if (turnId === null) {
+      return;
+    }
+
+    switch (envelope.event.type) {
+      case "started":
+        conversationState = "streaming";
+        break;
+      case "text_chunk":
+        conversationState = "streaming";
+        turns = appendChunk(turns, turnId, envelope.event.text);
+        break;
+      case "completed":
+        turns = settleTurn(turns, turnId, "succeeded");
+        conversationState = "succeeded";
+        activeTurnId = null;
+        break;
+      case "failed":
+        failActive(envelope.event.error.message);
+        break;
+      case "cancelled":
+        failActive("The request was cancelled.");
+        conversationState = "ready";
+        break;
+    }
+  }
+
+  function failActive(message: string) {
+    if (activeTurnId !== null) {
+      turns = settleTurn(turns, activeTurnId, "failed", message);
+    }
+    activeTurnId = null;
+    conversationState = "failed";
+  }
+
+  function errorMessage(error: unknown): string {
+    if (typeof error === "object" && error !== null) {
+      const message = (error as Record<string, unknown>).message;
+      if (typeof message === "string" && message.length > 0) {
+        return message;
+      }
+    }
+    return error instanceof Error ? error.message : "The request could not be started.";
   }
 </script>
 
@@ -43,10 +173,40 @@
   <div class="workspace">
     <section class="agent" aria-labelledby="agent-title">
       <h2 id="agent-title">Build</h2>
+      <p class="conversation-status" aria-live="polite">
+        {#if conversationState === "sending"}
+          Starting…
+        {:else if conversationState === "streaming"}
+          Building…
+        {:else if conversationState === "succeeded"}
+          Done
+        {:else if conversationState === "failed"}
+          Needs attention
+        {:else}
+          Ready for a request
+        {/if}
+      </p>
+
+      <div class="conversation-history" aria-live="polite" aria-label="Conversation">
+        {#each turns as turn (turn.id)}
+          <article class="turn">
+            <p class="message-label">You</p>
+            <p class="message user-message">{turn.prompt}</p>
+            {#if turn.response.length > 0}
+              <p class="message-label">BrainRoot</p>
+              <p class="message assistant-message">{turn.response}</p>
+            {/if}
+            {#if turn.error.length > 0}
+              <p class="turn-error" role="alert">{turn.error}</p>
+            {/if}
+          </article>
+        {/each}
+      </div>
+
       <form class="prompt" onsubmit={onPromptSubmit}>
         <label for="prompt">What do you want to build?</label>
-        <textarea id="prompt" name="prompt" rows="4"></textarea>
-        <button class="send" type="submit">Send</button>
+        <textarea id="prompt" name="prompt" rows="4" bind:value={prompt}></textarea>
+        <button class="send" type="submit" disabled={!canSend}>Send</button>
       </form>
     </section>
 
@@ -133,12 +293,62 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    min-height: 0;
+  }
+
+  .conversation-status {
+    margin: 0;
+    color: #9aa7b4;
+    font-size: 0.8125rem;
+  }
+
+  .conversation-history {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 8rem;
+    overflow: auto;
+  }
+
+  .turn {
+    display: grid;
+    gap: 0.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #2a323c;
+  }
+
+  .message-label,
+  .message,
+  .turn-error {
+    margin: 0;
+  }
+
+  .message-label {
+    color: #9aa7b4;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .message,
+  .turn-error {
+    overflow-wrap: anywhere;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+  }
+
+  .user-message {
+    color: #cdd9e5;
+  }
+
+  .turn-error {
+    color: #ffb4ab;
   }
 
   .prompt {
     display: flex;
     flex-direction: column;
-    flex: 1;
     gap: 0.5rem;
   }
 
@@ -148,7 +358,6 @@
   }
 
   textarea {
-    flex: 1;
     min-height: 6rem;
     resize: vertical;
     padding: 0.625rem 0.75rem;
@@ -177,6 +386,12 @@
 
   .send:hover {
     background: #1f5fd8;
+  }
+
+  .send:disabled {
+    background: #39424d;
+    color: #9aa7b4;
+    cursor: not-allowed;
   }
 
   :focus-visible {

@@ -33,11 +33,6 @@ impl ConversationState {
         }
     }
 
-    /// Convenience for callers that only need to know legality.
-    pub fn accepts(self, event: &ConversationEvent) -> bool {
-        self.next(event).is_ok()
-    }
-
     /// Applies one event, returning the next state or a typed rejection.
     pub fn next(self, event: &ConversationEvent) -> Result<Self, TransitionError> {
         use ConversationEvent as Event;
@@ -75,6 +70,7 @@ pub enum ConversationEvent {
     /// The user submitted a new prompt; the caller validates and bounds it.
     Submit,
     /// The user asked to cancel the active request.
+    #[allow(dead_code)] // Wired by the immediately following B04-S04 microstep.
     Cancel,
     /// One neutral provider event from the frozen contract.
     Stream(StreamEvent),
