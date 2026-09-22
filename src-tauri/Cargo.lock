@@ -152,6 +152,8 @@ dependencies = [
 name = "brainroot"
 version = "0.0.1-alpha.1"
 dependencies = [
+ "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
 ]

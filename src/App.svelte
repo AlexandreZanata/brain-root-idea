@@ -1,13 +1,37 @@
 <script lang="ts">
-  const productName = "BrainRoot";
+  import { onMount } from "svelte";
+  import { requestHealth } from "./health";
+
+  type HealthState = "checking" | "ready" | "failed";
+
+  let healthState: HealthState = $state("checking");
+  let detail = $state("Waiting for the core health result.");
+
+  onMount(async () => {
+    try {
+      await requestHealth();
+      healthState = "ready";
+      detail = "The core health contract responded normally.";
+    } catch (error) {
+      healthState = "failed";
+      detail = error instanceof Error ? error.message : "The core health request failed.";
+    }
+  });
 </script>
 
 <main>
-  <h1>{productName}</h1>
-  <p class="state">Experimental Linux setup</p>
-  <p class="detail">
-    The agent surface and Companion Canvas arrive in later batches.
+  <h1>BrainRoot</h1>
+  <p class="subtitle">Experimental Linux setup</p>
+  <p class="state">
+    {#if healthState === "checking"}
+      Checking the core…
+    {:else if healthState === "ready"}
+      Ready
+    {:else}
+      Not ready
+    {/if}
   </p>
+  <p class="detail">{detail}</p>
 </main>
 
 <style>
@@ -38,6 +62,12 @@
     margin: 0;
     font-size: 1.75rem;
     font-weight: 600;
+  }
+
+  .subtitle {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #7d8b99;
   }
 
   .state {
