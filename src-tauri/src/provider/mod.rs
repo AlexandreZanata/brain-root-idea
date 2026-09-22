@@ -14,6 +14,8 @@ pub mod execution;
 #[allow(dead_code)]
 pub mod fake;
 #[allow(dead_code)]
+pub mod go;
+#[allow(dead_code)]
 pub mod normalize;
 #[allow(dead_code)]
 pub mod secret_service;
