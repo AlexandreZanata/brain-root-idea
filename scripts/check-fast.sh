@@ -14,6 +14,9 @@ echo "[check-fast] rust unit tests (cargo test)"
 echo "[check-fast] frontend unit tests (node --test)"
 pnpm run test:frontend
 
+echo "[check-fast] security and privacy (check-security)"
+sh "$ROOT/scripts/check-security.sh"
+
 echo "[check-fast] feature module structure (check-modules)"
 sh "$ROOT/scripts/check-modules.sh"
 

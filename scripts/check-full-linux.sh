@@ -24,6 +24,9 @@ pnpm run build
 echo "[check-full-linux] production build (pnpm tauri build --no-bundle)"
 pnpm tauri build --no-bundle
 
+echo "[check-full-linux] security and privacy (check-security)"
+sh "$ROOT/scripts/check-security.sh"
+
 echo "[check-full-linux] feature module structure (check-modules)"
 sh scripts/check-modules.sh
 
