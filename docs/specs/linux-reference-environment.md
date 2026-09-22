@@ -101,6 +101,18 @@ Frontend:
 
 Resolved transitive dependency counts require the lockfile that B01-S02 creates. Measure with `cargo tree --prefix none | wc -l` and `pnpm list --depth Infinity`, then record the numbers in the batch history instead of estimating them here.
 
+## Smoke test coverage and limitations
+
+`scripts/smoke-linux.sh` runs on the reference session (not in CI, which has no display) and asserts:
+
+- the release binary launches, stays alive, and creates exactly one `WebKitWebProcess` and one `WebKitNetworkProcess` as direct children (matched through `/proc/<pid>/cmdline`, never through global WebKit patterns);
+- the readiness marker `brainroot: health contract v… served` proves the frontend loaded and completed the typed health round-trip;
+- `SIGTERM` shuts the main process and both children down, and no listener remains afterward.
+
+Limitations, recorded instead of worked around: no UI automation is approved, so the window-close path and the rendered `Ready` label are not asserted automatically; `SIGTERM` is the shutdown trigger and the readiness marker is the Rust-side proof of the frontend contract call. The smoke test is deliberately excluded from `check-fast`, `check-full-linux`, and CI.
+
+Production builds must go through `pnpm tauri build --no-bundle` (or enable `tauri/custom-protocol` explicitly): a plain `cargo build --release` does not enable the CLI-managed `custom-protocol` feature, so the binary keeps development semantics and does not serve the embedded frontend. This was measured on 2026-09-22 while validating the smoke test.
+
 ## Sources
 
 - Tauri Linux prerequisites: <https://v2.tauri.app/start/prerequisites/> (read 2026-09-22).

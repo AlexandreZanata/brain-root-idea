@@ -35,6 +35,11 @@ pub fn health(request: HealthRequest) -> Result<HealthReport, HealthError> {
         });
     }
 
+    eprintln!(
+        "brainroot: health contract v{} served",
+        HEALTH_CONTRACT_VERSION
+    );
+
     Ok(HealthReport {
         contract_version: HEALTH_CONTRACT_VERSION,
         status: HealthStatus::Ready,
