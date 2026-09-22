@@ -4,9 +4,32 @@ All notable changes to BrainRoot are recorded here. The format is human-readable
 
 Batch B00 (governance and delivery controls) is tracked by [pull/2](https://github.com/AlexandreZanata/brain-root-idea/pull/2) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B00-Governance).
 
+Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/AlexandreZanata/brain-root-idea/pull/9) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B01-Linux-Shell).
+
 ## Unreleased
 
 No unreleased changes yet.
+
+## 0.0.1-alpha.2
+
+### Added
+
+- A minimal Linux shell: a Tauri 2 + Rust binary with a Svelte 5 + Vite + TypeScript frontend, checked with TypeScript 7.0.2 through `svelte-check --tsgo`, opening a `BrainRoot` window with the `Experimental Linux setup` state and no IPC permissions ([#10](https://github.com/AlexandreZanata/brain-root-idea/issues/10), [reference environment](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/specs/linux-reference-environment.md)).
+- One versioned typed `health` contract with runtime validation and rejection of malformed input, unknown fields, and unsupported versions; the window shows `Ready` only after the core result, with a single request and no polling ([#11](https://github.com/AlexandreZanata/brain-root-idea/issues/11)).
+- Repository-owned deterministic gates: `check-fast` (Rust formatting, unit tests, frontend types) and `check-full-linux` (plus clippy, production frontend build, production Tauri build, documentation links, version consistency, and license/secret checks), with a Rust toolchain pinned through `rust-toolchain.toml` and the full gate running in CI ([#12](https://github.com/AlexandreZanata/brain-root-idea/issues/12)).
+- A release smoke test that proves launch, typed readiness, exactly one web and one network process, clean shutdown, and zero leftover processes or listeners ([#13](https://github.com/AlexandreZanata/brain-root-idea/issues/13)).
+
+### Performance
+
+- First measured baseline on the reference environment: warm start p50 **0.282 s** (target ≤ 1.0 s) and settled idle CPU median **0.172 %** (target < 1 %); frontend bundle ≈31 KB uncompressed; cleanup returns to zero processes. Report: [b01-linux-baseline](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/specs/performance-reports/b01-linux-baseline.md) ([#14](https://github.com/AlexandreZanata/brain-root-idea/issues/14)).
+
+### Known limitations
+
+- Memory target fails: the shell alone reaches ≈198.5 MB proportional (PSS) / 418.9 MB summed VmRSS against the 150 MB target; recorded as failing, not adjusted.
+- Idle CPU stays a stability warning until more quiet-machine windows are measured, after one 1.310 % window in an earlier run.
+- Without approved UI automation, the window-close path and the rendered `Ready` label are not asserted automatically; `SIGTERM` and the readiness marker stand in.
+- `scripts/check-governance-templates.sh` is still outside CI because the runner lacks PyYAML for the default interpreter.
+- No package or artifact is produced; there is no checksum and this is a pre-release.
 
 ## 0.0.1-alpha.1
 
