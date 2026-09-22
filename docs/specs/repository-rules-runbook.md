@@ -101,7 +101,7 @@ gh api repos/AlexandreZanata/brain-root-idea/labels --paginate
 gh api repos/AlexandreZanata/brain-root-idea/milestones
 ```
 
-Added by B00-S06 once the workflow existed:
+Enabled by B00-S06 through the full protection replacement (`PUT /branches/main/protection`) because the status-check sub-resource did not exist while checks were unset; once enabled, use the sub-resource to change checks:
 
 ```sh
 gh api --method PATCH repos/AlexandreZanata/brain-root-idea/branches/main/protection/required_status_checks \
