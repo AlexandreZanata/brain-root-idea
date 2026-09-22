@@ -8,10 +8,10 @@
 - Objective: A Linux user can type one prompt into the agent surface, watch a streamed answer appear, cancel an active request, and understand every setup or failure state — while the larger Canvas region stays a clear "Preview comes in MVP-1" placeholder and the provider stays behind the frozen provider-neutral contract.
 - Branch: `batch/b04-conversation-ui` (deleted after merge)
 - Draft/final PR: [#33](https://github.com/AlexandreZanata/brain-root-idea/pull/33)
-- Merge commit: pending (filled by the documented post-merge finalization commit)
+- Merge commit: `4ac973f763470eb58e8c147d61aab95c1e458e62`
 - Baseline commit: `9f115ff27c42ba15bac6a30af425bc09a9f4e63a`
-- Target/resulting version: `0.0.1-alpha.5` (annotated tag on the merge commit; pre-release URL filled post-merge)
-- Started/completed: 2026-09-22 / —
+- Target/resulting version: `0.0.1-alpha.5` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1-alpha.5))
+- Started/completed: 2026-09-22 / 2026-09-22
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, kernel `7.1.5-76070105-generic`, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned)
 
 ## Non-goals
@@ -32,7 +32,7 @@
 | B04-A01 | [#39](https://github.com/AlexandreZanata/brain-root-idea/issues/39) | Core reorganized into `features::conversation` (`state`, `wire`, `catalog`, `runner`, `runtime`, interface) and `features::health`; private submodules and the new `scripts/check-modules.sh` enforce the registry; staged `dead_code` allowances removed | `410f8b4` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/39#issuecomment-5782273331) | Tauri's command macro requires the definition path, so the commands live in the feature `mod.rs` (no `ipc.rs`); clippy flagged a private type in the cancel signature, fixed by returning unit | Closed |
 | B04-S05 | [#40](https://github.com/AlexandreZanata/brain-root-idea/issues/40) | Action-oriented copy for timeout/network/provider/malformed plus credential and no-model messages; `provider_status` read once; "Needs setup" with Send disabled; sanitized code in a "Technical details" element | `f2797a7` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/40#issuecomment-5782371503) | The naive `log::` grep false-positives on `catalog::`; the bounded `\blog::` pattern has no matches | Closed |
 | B04-S06 | [#41](https://github.com/AlexandreZanata/brain-root-idea/issues/41) | Accessibility and secret-safety verification: history `aria-live` removed, `Send`/`Cancel` use `aria-disabled` so focus is never dropped, disabled contrast fixed, and `scripts/check-accessibility.sh` runs in both gates | `b8a79c2` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/41#issuecomment-5782442849) | Disabled label contrast was 4.15:1 and was raised to 7.11:1; keyboard/screen-reader behavior is verified statically, not by UI automation | Closed |
-| B04-S07 | [#42](https://github.com/AlexandreZanata/brain-root-idea/issues/42) | Version `0.0.1-alpha.5` synchronized across `VERSION`, `Cargo.toml`, `package.json`, and the lockfile; changelog section; final history record; PR made Ready; full CI; merge commit; annotated tag and pre-release | pending (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/42) | Ecosystem copies plus the history record were in the allowlist; this record is finalized by the documented post-merge commit | Closed |
+| B04-S07 | [#42](https://github.com/AlexandreZanata/brain-root-idea/issues/42) | Version `0.0.1-alpha.5` synchronized across `VERSION`, `Cargo.toml`, `package.json`, and the lockfile; changelog section; final history record; PR made Ready; full CI; merge commit; annotated tag and pre-release | `9149827`, `4ac973f` (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/42#issuecomment-5782519157), [final](https://github.com/AlexandreZanata/brain-root-idea/issues/42) | Ecosystem copies plus the history record were in the allowlist; this record is finalized by the documented post-merge commit | Closed |
 
 ## Decisions and changed assumptions
 
@@ -56,17 +56,17 @@
 
 ## Final gates
 
-- Full CI: pending (filled by the documented post-merge finalization commit)
+- Full CI: [`check-full-linux` success on the finalization head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35772959146) (7 m 35 s) and [`push` run success on `main`](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35773929366)
 - Review: single-maintainer exception; merge performed with the documented administrator bypass (`enforce_admins: false`)
 - Security/privacy: the S06 scan covered 118 files with no key material, and the built bundle contains no `Authorization`, `Bearer`, or `oc_sk_` material; the credential stays core-only and the live smoke recorded counts and timing only
 - Performance: not applicable to this batch; no measurement was taken, and the live smoke timings are single-run observations, not a budget report
 - Cleanup: cancellation and terminal events release request ownership (`active`/`cancel` cleared); no worker exists at idle
 - Artifact/checksum: none for this batch; the pre-release states the absence explicitly
 - Known limitations: the rendered window still needs the maintainer/release smoke for visual confirmation; a cancel during a blocked socket read is bounded by the 120 s transport timeout; the OpenCode Go catalog, endpoints, limits, privacy terms, and authenticated models shape are externally mutable
-- Wiki/repository history comparison: pending (B04-S07)
+- Wiki/repository history comparison: [Batch-B04-Conversation-UI](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B04-Conversation-UI) matches this record; the post-merge finalization commit is the one that carries these URLs
 
 ## Result and next batch
 
-Batch B04 is released as `v0.0.1-alpha.5`: the minimal Linux conversation loop — explicit conversation state, an agent-first layout, typed streaming IPC against the live OpenCode Go transport, cancellation and close cleanup, action-oriented setup and failure states, and enforceable feature modules with accessibility and module gates — still without tools, Canvas, checkpoints, or project mutation. Rollback: revert the batch commits; after merge the merge commit stays unless a maintainer explicitly reverts it, and the published tag is never moved. This final record is completed by the documented post-merge commit on `main` because the merge commit, CI runs, tag, and release URL cannot exist before the merge.
+Batch B04 is released as [`v0.0.1-alpha.5`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1-alpha.5) on merge commit `4ac973f`:  the minimal Linux conversation loop — explicit conversation state, an agent-first layout, typed streaming IPC against the live OpenCode Go transport, cancellation and close cleanup, action-oriented setup and failure states, and enforceable feature modules with accessibility and module gates — still without tools, Canvas, checkpoints, or project mutation. Rollback: revert the batch commits; after merge the merge commit stays unless a maintainer explicitly reverts it, and the published tag is never moved. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, CI runs, tag, and release URL cannot exist before the merge.
 
 Next batch: B05 — Linux MVP-0 hardening and release (`batch/b05-linux-mvp0-release`), starting with the end-to-end fake-provider journey.
