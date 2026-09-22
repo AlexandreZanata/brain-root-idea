@@ -24,6 +24,12 @@ pnpm run build
 echo "[check-full-linux] production build (pnpm tauri build --no-bundle)"
 pnpm tauri build --no-bundle
 
+echo "[check-full-linux] feature module structure (check-modules)"
+sh scripts/check-modules.sh
+
+echo "[check-full-linux] accessibility and focus (check-accessibility)"
+sh "$ROOT/scripts/check-accessibility.sh"
+
 echo "[check-full-linux] documentation links, required sections, secrets, and integrity"
 sh scripts/check-docs.sh
 

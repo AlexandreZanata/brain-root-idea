@@ -5,7 +5,7 @@
 //! debug output. No real key is stored anywhere: [`InMemoryCredentialStore`] is
 //! a deterministic fake for tests and the pre-credential experiment.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -186,8 +186,9 @@ impl CredentialStore for InMemoryCredentialStore {
     }
 }
 
+#[derive(Clone)]
 pub struct ProviderState {
-    store: Mutex<Box<dyn CredentialStore + Send + Sync>>,
+    store: Arc<Mutex<Box<dyn CredentialStore + Send + Sync>>>,
 }
 
 impl ProviderState {
@@ -196,8 +197,12 @@ impl ProviderState {
     }
 
     pub fn with_store(store: impl CredentialStore + Send + Sync + 'static) -> Self {
+        Self::with_boxed_store(Box::new(store))
+    }
+
+    pub fn with_boxed_store(store: Box<dyn CredentialStore + Send + Sync>) -> Self {
         Self {
-            store: Mutex::new(Box::new(store)),
+            store: Arc::new(Mutex::new(store)),
         }
     }
 
@@ -381,6 +386,29 @@ mod tests {
             state
                 .resolve(&reference)
                 .expect("resolves")
+                .expose_to_core(),
+            FAKE_SECRET
+        );
+    }
+
+    #[test]
+    fn provider_state_clones_share_the_core_only_store() {
+        let state = ProviderState::new();
+        let worker_state = state.clone();
+        let reference = CredentialReference::new("default").expect("valid reference");
+
+        state
+            .set_credential(reference.clone(), fake_value())
+            .expect("session store accepts");
+
+        assert_eq!(
+            worker_state.credential_status(),
+            CredentialStatus::Configured
+        );
+        assert_eq!(
+            worker_state
+                .resolve(&reference)
+                .expect("shared store resolves")
                 .expose_to_core(),
             FAKE_SECRET
         );

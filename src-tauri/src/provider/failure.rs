@@ -65,15 +65,19 @@ impl GoFailure {
                 "The OpenCode Go usage limit was reached for this period. Try again later or choose another model."
                     .to_string()
             }
-            Self::Timeout => "The provider took too long to respond.".to_string(),
-            Self::NetworkUnavailable => "The provider could not be reached.".to_string(),
+            Self::Timeout => "The provider took too long to respond. Try again.".to_string(),
+            Self::NetworkUnavailable => {
+                "The provider could not be reached. Check your connection and try again.".to_string()
+            }
             Self::ProviderFailure { status } if (500..=599).contains(status) => {
-                "The provider is temporarily unavailable.".to_string()
+                "The provider is temporarily unavailable. Try again shortly.".to_string()
             }
             Self::ProviderFailure { status } => {
-                format!("The provider answered with status {status}.")
+                format!("The provider answered with status {status}. Try again.")
             }
-            Self::MalformedResponse => "The provider returned an unreadable response.".to_string(),
+            Self::MalformedResponse => {
+                "The provider returned an unreadable response. Try again.".to_string()
+            }
         }
     }
 }

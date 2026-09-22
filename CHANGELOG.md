@@ -10,6 +10,44 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.1-alpha.5
+
+Batch B04 (minimal Linux conversation loop) is tracked by [pull/33](https://github.com/AlexandreZanata/brain-root-idea/pull/33) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B04-Conversation-UI).
+
+### Added
+
+- An explicit conversation state machine — `EMPTY`, `READY`, `SENDING`, `STREAMING`, `CANCELLING`, `SUCCEEDED`, `FAILED` — that rejects late chunks, double submits, duplicate terminals, and completion after cancel ([#32](https://github.com/AlexandreZanata/brain-root-idea/issues/32)).
+- An agent-first layout: the Focus preset (30 % agent / 70 % Canvas), a labeled prompt field, and the dominant "Preview comes in MVP-1." Canvas placeholder with keyboard, focus, zoom, semantics, contrast, and reduced-motion checks ([#34](https://github.com/AlexandreZanata/brain-root-idea/issues/34)).
+- A typed, versioned conversation IPC (`conversation_send`, `conversation_event`) that streams neutral events to the Svelte surface with bounded rendered history and duplicate-submit prevention ([#35](https://github.com/AlexandreZanata/brain-root-idea/issues/35)).
+- Cancellation end to end: the state moves to `CANCELLING` immediately, propagates through the shared token, emits exactly one `cancelled` terminal, and the window close path cancels the same way ([#37](https://github.com/AlexandreZanata/brain-root-idea/issues/37)).
+- Understandable setup and failure states: not configured, no compatible model, invalid credential, network unavailable, limit reached, timeout, provider error, and malformed response each explain the next action, with the neutral error code available as optional technical detail ([#40](https://github.com/AlexandreZanata/brain-root-idea/issues/40)).
+- Feature modules with an enforceable interface: `features::conversation` (state, wire, catalog, runner, runtime, interface) and `features::health`, guarded by `scripts/check-modules.sh` in both gates ([#39](https://github.com/AlexandreZanata/brain-root-idea/issues/39)).
+
+### Changed
+
+- Model discovery accepts the live models payload shape, where entries state no per-model endpoint; an unstated endpoint is a candidate, a stated unsupported endpoint is still filtered, and the configured default model resolves without a fallback ([#36](https://github.com/AlexandreZanata/brain-root-idea/issues/36)).
+- Failure and setup messages now end with the next action, and the credential status is read once at mount instead of being inferred from send failures.
+
+### Fixed
+
+- The conversation history no longer announces every streamed chunk; `Send`/`Cancel` keep keyboard focus via `aria-disabled`; the disabled button label contrast was raised from 4.15:1 to 7.11:1 ([#41](https://github.com/AlexandreZanata/brain-root-idea/issues/41)).
+
+### Security
+
+- The OpenCode Go key stays in the Rust core and never crosses the IPC boundary; the accessibility verification scanned 118 files and the built bundle with no key material, credential, or authorization header found ([#41](https://github.com/AlexandreZanata/brain-root-idea/issues/41)).
+- The live smoke ran locally with a maintainer key (environment only) and recorded counts and timing only.
+
+### Documentation
+
+- The OpenCode Go contract re-verification, the batch decisions, and the failure/rollback notes are recorded in the Wiki batch page and `docs/history/batches/B04-conversation-ui.md`.
+
+### Known limitations
+
+- The rendered window still needs the maintainer/release smoke for visual confirmation; no UI automation is approved.
+- A cancel issued while a socket read is blocked is released when the transport returns, bounded by the 120 s total timeout.
+- The OpenCode Go catalog, endpoints, limits, privacy terms, and authenticated models shape are externally mutable; the live smoke passed on 2026-09-22 with a local key (`models=33`, chat `chunks=1`, normal terminal).
+- No package, artifact, or checksum exists for this pre-release.
+
 ## 0.0.1-alpha.4
 
 Batch B03 (OpenCode Go live transport) is tracked by [pull/25](https://github.com/AlexandreZanata/brain-root-idea/pull/25) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B03-Opencode-Go).
