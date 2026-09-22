@@ -30,6 +30,9 @@ sh scripts/check-modules.sh
 echo "[check-full-linux] accessibility and focus (check-accessibility)"
 sh "$ROOT/scripts/check-accessibility.sh"
 
+echo "[check-full-linux] fake-provider end-to-end journey (e2e-linux)"
+sh scripts/e2e-linux.sh
+
 echo "[check-full-linux] documentation links, required sections, secrets, and integrity"
 sh scripts/check-docs.sh
 

@@ -10,6 +10,9 @@ mod runtime;
 mod state;
 mod wire;
 
+#[cfg(test)]
+mod e2e;
+
 use tauri::{AppHandle, Emitter};
 
 use self::wire::{ConversationAccepted, ConversationSendRequest, CONVERSATION_EVENT_NAME};
