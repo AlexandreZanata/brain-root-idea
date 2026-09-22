@@ -65,3 +65,9 @@ Secrets never enter `.brainroot/`, SQLite logs, task history, screenshots, or so
 
 Threat-model review, path traversal/symlink tests, WebView origin/IPC tests, secret redaction fixtures, permission persistence/revocation tests, hostile repository prompt-injection tests, process-tree cleanup tests, dependency audit/SBOM, and platform sandbox capability matrix.
 
+
+## MVP-0 implemented posture (2026-09-22)
+
+Implemented and verified in the current release line: credentials live only in the Rust core (Linux Secret Service with an honest session-only fallback); no Tauri capability file grants filesystem, shell, HTTP, dialog, updater, or process permissions; outbound requests target only the documented `https://opencode.ai/zen/go/v1/…` endpoints with TLS; the frontend receives only the versioned neutral contract and can never read the key; provider text is never surfaced; `scripts/check-security.sh` enforces destinations, telemetry absence, capabilities, log hygiene, and the direct-dependency allowlists; `scripts/check-docs.sh` scans for secret patterns; and the built bundle was scanned with no credential or header material.
+
+Known MVP-0 limitations, stated rather than hidden: the shipped Debian artifact is unsigned and experimental; there is no platform sandbox beyond Tauri's capability model yet; the live path needs a credential in the Secret Service and its cancellation latency is bounded by the transport read rather than measured; and the deterministic fake is available only in debug builds.

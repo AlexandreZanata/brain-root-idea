@@ -8,7 +8,23 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 ## Unreleased
 
-No unreleased changes yet.
+Batch B05 (Linux MVP-0 hardening and release) is tracked by [pull/44](https://github.com/AlexandreZanata/brain-root-idea/pull/44) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B05-Linux-MVP0-Release).
+
+### Added
+
+- A deterministic fake-provider end-to-end journey: 500 + 500 fake conversations and 200 cancellations with joined workers, driver latency, and RSS/thread reporting, plus an open/close cycle soak ([#46](https://github.com/AlexandreZanata/brain-root-idea/issues/46)).
+- An offline security gate covering destination allowlists, the frontend network surface, telemetry markers, Tauri capabilities, log hygiene, and the direct-dependency allowlists, with an injectable live transport so oversized, malformed, and failed responses are tested without network access ([#45](https://github.com/AlexandreZanata/brain-root-idea/issues/45)).
+- An end-to-end script that runs the product journey, the rendered-output bounds, and the launch/readiness/close process smoke ([#43](https://github.com/AlexandreZanata/brain-root-idea/issues/43)).
+- One documented Linux artifact: a Tauri Debian package with its runtime dependencies, checksum, and install/run/remove notes ([#47](https://github.com/AlexandreZanata/brain-root-idea/issues/47)).
+
+### Changed
+
+- Release-facing documentation now reflects the implemented Linux MVP-0, including the mutable OpenCode Go terms, catalog, limits, endpoints, and privacy, and the failure/recovery history.
+
+### Known limitations
+
+- The total-memory TARGET fails on the reference environment (426.2 MB summed RSS / 241.6 MB PSS against 150 MB); idle CPU is a median pass with windows above budget on a busy host; live-path cancellation latency is `UNKNOWN` ([report](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/specs/performance-reports/b05-mvp0-soak.md)).
+- The Debian artifact is unsigned, experimental, Ubuntu/Debian-family x86_64 only, and its checksum is per build.
 
 ## 0.0.1-alpha.5
 

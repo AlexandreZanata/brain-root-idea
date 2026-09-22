@@ -17,6 +17,8 @@ A Linux user can launch the minimal BrainRoot shell, configure an OpenCode Go cr
 
 MVP-0 explicitly excludes filesystem tools, shell tools, project mutation, autonomous agent loops, browser preview, checkpoints, Code View, Windows, and macOS. The API transport remains behind the Agent Adapter/provider boundary so this experiment does not redefine the final agent architecture.
 
+**MVP-0 status (2026-09-22):** implemented and released through `v0.0.1-alpha.5` — minimal shell, provider-neutral contract, deterministic fake, bounded execution, OpenCode Go discovery and `chat/completions` transport, Secret Service credential boundary, minimal conversation loop with cancellation and understandable failures, plus the module, accessibility, security, end-to-end, and soak gates. Remaining for the `0.0.1` test release: final CI, review, tag, and clean-environment verification of the Debian artifact (`docs/specs/b05-linux-artifact.md`). Two known shortfalls stay stated as failing: the total-memory TARGET and the live-path cancellation latency, which is bounded by the transport read rather than measured (`docs/specs/performance-reports/b05-mvp0-soak.md`).
+
 ## MVP outcome
 
 A user can open an existing local web project, ask one supported agent for a bounded change, watch truthful progress, preview localhost in the Companion Canvas, run an observable validation, inspect a plain-language change summary, undo to a checkpoint, and resume basic task history—without opening code or a terminal.

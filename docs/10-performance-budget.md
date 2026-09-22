@@ -6,7 +6,7 @@
 - **MEASURED:** reproducible result with build, hardware, OS, procedure, and sample data.
 - **UNKNOWN:** insufficient evidence.
 
-As of 2026-09-22, all numerical BrainRoot values below are **TARGET**, with **MEASURED = none**. Technology reputation is not a benchmark.
+As of 2026-09-22, the numbers below are a mix of **TARGET** and **MEASURED**: the Linux reference environment has a measured shell baseline and an MVP-0 release soak (startup and cancellation pass; idle CPU is a median pass with windows above budget on a busy host; the total-memory target **fails**). Live-path cancellation latency remains **UNKNOWN**. See [the B01 baseline](specs/performance-reports/b01-linux-baseline.md) and [the MVP-0 soak](specs/performance-reports/b05-mvp0-soak.md). Technology reputation is not a benchmark.
 
 ## Initial budgets
 
