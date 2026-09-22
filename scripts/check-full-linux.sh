@@ -21,8 +21,8 @@ pnpm run check
 echo "[check-full-linux] frontend production build (vite build)"
 pnpm run build
 
-echo "[check-full-linux] rust release build (cargo build --release)"
-(cd src-tauri && cargo build --release)
+echo "[check-full-linux] production build (pnpm tauri build --no-bundle)"
+pnpm tauri build --no-bundle
 
 echo "[check-full-linux] documentation links, required sections, secrets, and integrity"
 sh scripts/check-docs.sh
