@@ -66,8 +66,8 @@ Rust:
 Frontend:
 
 - `@tauri-apps/cli` 2.11.5, `@tauri-apps/api` 2.11.1 — license Apache-2.0 OR MIT.
-- `svelte` 5.57.1, `@sveltejs/vite-plugin-svelte` 7.3.0, `vite` 8.3.0, `typescript` 6.0.3, `svelte-check` 4.7.6.
-- TypeScript decision: npm `latest` is 7.0.2, but `svelte-check` 4.7.6 declares `typescript: ^5.0.0 || ^6.0.0`; the approved version is the latest 6.x stable, 6.0.3.
+- `svelte` 5.57.1, `@sveltejs/vite-plugin-svelte` 7.3.0, `vite` 8.3.0, `typescript` 6.0.3 plus `@typescript/native` 7.0.2, `svelte-check` 4.7.6.
+- TypeScript decision (updated 2026-09-22 by maintainer decision): the project is checked with **TypeScript 7.0.2** through the officially supported `svelte-check` path — `typescript@~6` remains installed as the required compatibility backend and the native TS 7 compiler is aliased as `@typescript/native@npm:typescript@7.0.2`; the `check`/`check:watch` scripts use `svelte-check --tsgo`. Installing `typescript@7.0.2` alone breaks `svelte-check` 4.7.6 with "TypeScript 7 support currently requires both TypeScript 7 and TypeScript 6 installed in your project". Verified in an isolated copy: `svelte-check found 0 errors and 0 warnings` and `vite build` exit 0.
 - Package manager: pnpm 11.13.0 (maintainer decision). Node engines: `vite` 8.3.0 requires `^20.19.0 || >=22.12.0`, satisfied by Node.js v26.3.1.
 
 | Package | Version | License | Basis |
@@ -80,13 +80,14 @@ Frontend:
 | svelte | 5.57.1 | MIT | ADR 0003 |
 | @sveltejs/vite-plugin-svelte | 7.3.0 | MIT | Peers `vite ^8.0.0 || ^8.0.0-beta.7`, `svelte ^5.46.4` |
 | vite | 8.3.0 | MIT | Frontend build tool |
-| typescript | 6.0.3 | Apache-2.0 | Compatible with `svelte-check` peers; 7.0.2 excluded |
+| typescript | 6.0.3 | Apache-2.0 | Compatibility backend required by `svelte-check` 4.7.6 alongside the TS 7 native compiler |
+| @typescript/native | 7.0.2 (`npm:typescript@7.0.2`) | Apache-2.0 | TypeScript 7.0.2 native compiler used for checking via `svelte-check --tsgo` |
 | svelte-check | 4.7.6 | MIT | Type and accessibility checking |
 
 ## Advisory check
 
-- Source: OSV query API <https://api.osv.dev/v1/query> (queried 2026-09-22).
-- Queried versions: `tauri` 2.11.6, `wry` 0.57.0, `tauri-build` 2.6.3, `svelte` 5.57.1, `vite` 8.3.0, `@tauri-apps/api` 2.11.1, `@tauri-apps/cli` 2.11.5, `svelte-check` 4.7.6, `@sveltejs/vite-plugin-svelte` 7.3.0.
+- Source: OSV query API <https://api.osv.dev/v1/query> (queried 2026-09-22; `typescript` 6.0.3 and 7.0.2 re-queried on the same date during the B01-S01 update).
+- Queried versions: `tauri` 2.11.6, `wry` 0.57.0, `tauri-build` 2.6.3, `svelte` 5.57.1, `vite` 8.3.0, `@tauri-apps/api` 2.11.1, `@tauri-apps/cli` 2.11.5, `svelte-check` 4.7.6, `@sveltejs/vite-plugin-svelte` 7.3.0, `typescript` 6.0.3, `typescript` 7.0.2.
 - Result: none for every queried version.
 - The resolved lockfile receives a fresh advisory check in B01-S02; this table is not a substitute for it.
 
