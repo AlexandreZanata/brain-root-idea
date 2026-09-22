@@ -14,12 +14,14 @@ use serde::{Deserialize, Serialize};
 pub enum CredentialStatus {
     Configured,
     NotConfigured,
+    Unavailable,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CredentialError {
     NotConfigured,
     UnknownReference,
+    BackendUnavailable,
     Empty,
 }
 
@@ -31,6 +33,9 @@ impl CredentialError {
             }
             CredentialError::UnknownReference => {
                 "The credential reference does not exist.".to_string()
+            }
+            CredentialError::BackendUnavailable => {
+                "The credential store is not available on this system.".to_string()
             }
             CredentialError::Empty => "The credential value must not be empty.".to_string(),
         }
@@ -108,7 +113,11 @@ pub trait CredentialStore {
     fn status(&self) -> CredentialStatus;
     fn reference(&self) -> Option<CredentialReference>;
     fn resolve(&self, reference: &CredentialReference) -> Result<CredentialValue, CredentialError>;
-    fn set(&self, reference: CredentialReference, value: CredentialValue);
+    fn set(
+        &self,
+        reference: CredentialReference,
+        value: CredentialValue,
+    ) -> Result<(), CredentialError>;
 }
 
 #[derive(Default)]
@@ -162,13 +171,18 @@ impl CredentialStore for InMemoryCredentialStore {
             .ok_or(CredentialError::UnknownReference)
     }
 
-    fn set(&self, reference: CredentialReference, value: CredentialValue) {
+    fn set(
+        &self,
+        reference: CredentialReference,
+        value: CredentialValue,
+    ) -> Result<(), CredentialError> {
         let mut entries = self
             .entries
             .lock()
             .expect("credential store lock is not poisoned");
         entries.retain(|(existing, _)| existing != &reference);
         entries.push((reference, value));
+        Ok(())
     }
 }
 
@@ -201,11 +215,15 @@ impl ProviderState {
             .reference()
     }
 
-    pub fn set_credential(&self, reference: CredentialReference, value: CredentialValue) {
+    pub fn set_credential(
+        &self,
+        reference: CredentialReference,
+        value: CredentialValue,
+    ) -> Result<(), CredentialError> {
         self.store
             .lock()
             .expect("provider state lock is not poisoned")
-            .set(reference, value);
+            .set(reference, value)
     }
 
     pub fn resolve(
@@ -259,7 +277,9 @@ mod tests {
     fn stored_credential_is_configured_and_resolves() {
         let store = InMemoryCredentialStore::new();
         let reference = CredentialReference::new("default").expect("valid reference");
-        store.set(reference.clone(), fake_value());
+        store
+            .set(reference.clone(), fake_value())
+            .expect("session store accepts");
 
         assert_eq!(store.status(), CredentialStatus::Configured);
         assert_eq!(store.reference(), Some(reference.clone()));
@@ -271,7 +291,9 @@ mod tests {
     fn clearing_returns_to_not_configured() {
         let store = InMemoryCredentialStore::new();
         let reference = CredentialReference::new("default").expect("valid reference");
-        store.set(reference, fake_value());
+        store
+            .set(reference, fake_value())
+            .expect("session store accepts");
         store.clear();
 
         assert_eq!(store.status(), CredentialStatus::NotConfigured);
@@ -280,10 +302,12 @@ mod tests {
     #[test]
     fn unknown_reference_is_rejected() {
         let store = InMemoryCredentialStore::new();
-        store.set(
-            CredentialReference::new("default").expect("valid reference"),
-            fake_value(),
-        );
+        store
+            .set(
+                CredentialReference::new("default").expect("valid reference"),
+                fake_value(),
+            )
+            .expect("session store accepts");
         let other = CredentialReference::new("other").expect("valid reference");
 
         assert_eq!(
@@ -335,6 +359,10 @@ mod tests {
             serde_json::to_value(CredentialStatus::NotConfigured).expect("serializes"),
             Value::String("not_configured".to_string())
         );
+        assert_eq!(
+            serde_json::to_value(CredentialStatus::Unavailable).expect("serializes"),
+            Value::String("unavailable".to_string())
+        );
     }
 
     #[test]
@@ -343,7 +371,9 @@ mod tests {
         assert_eq!(state.credential_status(), CredentialStatus::NotConfigured);
 
         let reference = CredentialReference::new("default").expect("valid reference");
-        state.set_credential(reference.clone(), fake_value());
+        state
+            .set_credential(reference.clone(), fake_value())
+            .expect("session store accepts");
 
         assert_eq!(state.credential_status(), CredentialStatus::Configured);
         assert_eq!(state.credential_reference(), Some(reference.clone()));

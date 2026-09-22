@@ -10,6 +10,39 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.1-alpha.4
+
+Batch B03 (OpenCode Go live transport) is tracked by [pull/25](https://github.com/AlexandreZanata/brain-root-idea/pull/25) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B03-Opencode-Go).
+
+### Added
+
+- OpenCode Go model discovery in the Rust core: the documented models endpoint fetched through an injectable transport, protocol-family filtering, a bounded nonsecret cache with explicit `Fresh`/`Stale`/`Empty` states, and tolerant parsing of unknown fields ([#26](https://github.com/AlexandreZanata/brain-root-idea/issues/26)).
+- Linux credential storage through an approved Secret Service integration with an injectable backend, a truthful `unavailable` status, and a session-only fallback instead of plaintext persistence; the key cannot cross the frontend contract ([#27](https://github.com/AlexandreZanata/brain-root-idea/issues/27)).
+- One validated `chat/completions` path with a BrainRoot-specific user agent, a random nonsecret `x-opencode-session` per conversation, a typed request body, and an SSE parser that maps the live stream to provider-neutral events with no silent fallback to another model, protocol, endpoint, or balance ([#28](https://github.com/AlexandreZanata/brain-root-idea/issues/28)).
+- A shared Go failure classification: invalid key, unavailable subscription, unsupported model, rate/usage limit, timeouts, provider failures, malformed responses, and network failures become distinct plain-language states using the existing neutral error codes ([#29](https://github.com/AlexandreZanata/brain-root-idea/issues/29)).
+- Per-model privacy/retention disclosure captured from the models payload when it states it, bounded and explicitly `unknown` otherwise, so no policy is claimed that the endpoint does not state ([#29](https://github.com/AlexandreZanata/brain-root-idea/issues/29)).
+- An opt-in live smoke test that discovers the live catalog and streams one harmless fixed prompt to a normal terminal event; it is ignored by default and additionally requires `BRAINROOT_LIVE_SMOKE=1` plus a locally exported `BRAINROOT_OPENCODE_GO_KEY` ([#30](https://github.com/AlexandreZanata/brain-root-idea/issues/30)).
+
+### Changed
+
+- Discovery and chat HTTP clients gained an explicit `with_timeout` option used by the opt-in smoke (the B02 120 s total budget); default transport behavior is unchanged and no default timeout is wired yet.
+
+### Security
+
+- The OpenCode Go key stays in the Rust core: environment injection is limited to the opt-in live test, never persisted, and never printed; logs, test output, and evidence contain no credential, authorization header, or provider response body.
+- Failure classification never reads or surfaces a provider error body, and the live smoke records only counts, field names, and timing.
+
+### Documentation
+
+- The current OpenCode Go contract (endpoints, client identity, session guidance, usage limits, per-model privacy, and mutability) is captured in `docs/specs/opencode-go-contract.md` ([#24](https://github.com/AlexandreZanata/brain-root-idea/issues/24)); the batch record and Wiki page document the re-verification findings.
+
+### Known limitations
+
+- The public models payload observed on 2026-09-22 states no per-model `endpoint` or privacy field; the authenticated shape and the `402`/`403`/`404` status semantics remain live-unverified. Discovery therefore yields an empty catalog on the observed public shape until an authorized live run confirms or a remediation updates it.
+- The opt-in live smoke was not executed as part of this batch's evidence; it is not part of the required deterministic CI path.
+- In-stream provider errors map to the generic `provider_unavailable`, and the credential store is not wired to the application yet (B04).
+- No package, artifact, or checksum exists for this pre-release.
+
 ## 0.0.1-alpha.3
 
 ### Added

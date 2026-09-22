@@ -8,11 +8,21 @@ pub mod contract;
 #[allow(dead_code)]
 pub mod credential;
 #[allow(dead_code)]
+pub mod discovery;
+#[allow(dead_code)]
 pub mod execution;
+#[allow(dead_code)]
+pub mod failure;
 #[allow(dead_code)]
 pub mod fake;
 #[allow(dead_code)]
+pub mod go;
+#[allow(dead_code)]
 pub mod normalize;
+#[allow(dead_code)]
+pub mod secret_service;
 
 #[cfg(test)]
 mod integration;
+#[cfg(test)]
+mod live_smoke;

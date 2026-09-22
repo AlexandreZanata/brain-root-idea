@@ -117,10 +117,12 @@ fn discovery_request_stream_and_complete() {
     let state = ProviderState::new();
     assert_eq!(state.credential_status(), CredentialStatus::NotConfigured);
     let reference = CredentialReference::new("default").expect("valid reference");
-    state.set_credential(
-        reference.clone(),
-        CredentialValue::new("fake-secret-value").expect("valid value"),
-    );
+    state
+        .set_credential(
+            reference.clone(),
+            CredentialValue::new("fake-secret-value").expect("valid value"),
+        )
+        .expect("session store accepts");
     assert_eq!(state.credential_status(), CredentialStatus::Configured);
 
     let models = FakeProvider.models();
