@@ -1,7 +1,7 @@
 //! Provider runners for the conversation feature.
 
 use std::io::Read;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use super::catalog::select_default_model;
@@ -38,14 +38,26 @@ pub(super) trait ProviderRunner: Send + Sync {
 
 pub(super) struct LiveGoRunner {
     provider: ProviderState,
+    transport: Arc<dyn GoTransport + Send + Sync>,
     catalog: Mutex<ModelCache>,
     started_at: Instant,
 }
 
 impl LiveGoRunner {
     pub(super) fn new(provider: ProviderState) -> Self {
+        Self::with_transport(
+            provider,
+            Arc::new(UreqGoTransport::with_timeout(DEFAULT_TOTAL_TIMEOUT)),
+        )
+    }
+
+    fn with_transport(
+        provider: ProviderState,
+        transport: Arc<dyn GoTransport + Send + Sync>,
+    ) -> Self {
         Self {
             provider,
+            transport,
             catalog: Mutex::new(ModelCache::new()),
             started_at: Instant::now(),
         }
@@ -124,7 +136,8 @@ impl LiveGoRunner {
         let session = SessionId::from_value(request.conversation.as_str())
             .map_err(|error| normalized_error(error.code(), &error.message()))?;
         let request_headers = headers(&credential, &session);
-        let mut reader = UreqGoTransport::with_timeout(DEFAULT_TOTAL_TIMEOUT)
+        let mut reader = self
+            .transport
             .post(config.endpoint(), &request_headers, &body)
             .map_err(go_error)?;
         let mut parser = ChatStreamParser::new(request.conversation.clone());
@@ -322,5 +335,93 @@ mod tests {
         let error = runner.credential().expect_err("the store is unavailable");
         assert_eq!(error.code, ErrorCode::ProviderUnavailable);
         assert!(error.message.contains("Prompts cannot be sent"));
+    }
+
+    struct FakeTransport {
+        body: Result<Vec<u8>, GoFailure>,
+    }
+
+    impl GoTransport for FakeTransport {
+        fn post(
+            &self,
+            _url: &str,
+            _headers: &[(String, String)],
+            _body: &str,
+        ) -> Result<Box<dyn Read + Send>, GoFailure> {
+            match &self.body {
+                Ok(body) => Ok(Box::new(std::io::Cursor::new(body.clone()))),
+                Err(failure) => Err(*failure),
+            }
+        }
+    }
+
+    fn configured_runner(body: Result<Vec<u8>, GoFailure>) -> LiveGoRunner {
+        let provider = ProviderState::new();
+        let reference = CredentialReference::new("default").expect("valid reference");
+        provider
+            .set_credential(
+                reference,
+                CredentialValue::new("fake-secret-value").expect("valid credential"),
+            )
+            .expect("session store accepts");
+
+        let runner = LiveGoRunner::with_transport(provider, Arc::new(FakeTransport { body }));
+        runner
+            .catalog
+            .lock()
+            .expect("catalog lock is not poisoned")
+            .store(
+                std::time::Duration::ZERO,
+                vec![crate::provider::discovery::DiscoveredModel {
+                    id: ModelId::new(DEFAULT_MODEL_ID).expect("static model is valid"),
+                    display_name: DEFAULT_MODEL_ID.to_string(),
+                    endpoint: None,
+                    privacy: crate::provider::discovery::ModelPrivacy::unknown(),
+                }],
+            );
+        runner
+    }
+
+    fn live_request() -> ProviderRequest {
+        ProviderRequest::new(
+            ConversationId::new("conversation-security").expect("valid conversation"),
+            ModelId::new(DEFAULT_MODEL_ID).expect("static model is valid"),
+            crate::provider::contract::UserMessage::new("security check").expect("valid message"),
+        )
+    }
+
+    #[test]
+    fn oversized_live_response_is_rejected_offline() {
+        let chunk = "data: {\"choices\":[{\"delta\":{\"content\":\"0123456789abcdef\"}}]}\n\n";
+        let mut body = String::new();
+        while body.len() <= contract::limits::MAX_RESPONSE_BYTES + chunk.len() {
+            body.push_str(chunk);
+        }
+        let runner = configured_runner(Ok(body.into_bytes()));
+
+        let error = runner
+            .run_live(&live_request(), &CancellationToken::new(), &mut |_| {})
+            .expect_err("oversized responses are capped");
+        assert_eq!(error.code, ErrorCode::ResponseTooLarge);
+    }
+
+    #[test]
+    fn transport_failure_maps_to_its_neutral_code_offline() {
+        let runner = configured_runner(Err(GoFailure::from_status(401)));
+
+        let error = runner
+            .run_live(&live_request(), &CancellationToken::new(), &mut |_| {})
+            .expect_err("transport failures are mapped");
+        assert_eq!(error.code, ErrorCode::AuthenticationFailed);
+    }
+
+    #[test]
+    fn malformed_live_frame_is_rejected_offline() {
+        let runner = configured_runner(Ok(b"data: {not json}\n".to_vec()));
+
+        let error = runner
+            .run_live(&live_request(), &CancellationToken::new(), &mut |_| {})
+            .expect_err("malformed frames are rejected");
+        assert_eq!(error.code, ErrorCode::MalformedResponse);
     }
 }

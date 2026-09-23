@@ -172,3 +172,11 @@ Events carry stable IDs, monotonic sequence per task, timestamp, source, sanitiz
 **ASSUMPTION:** A small abstraction can provide honest capability detection without a lowest-common-denominator security claim.  
 **DECISION:** Secrets stay out of project/SQLite state; Safe Mode combines core authorization with the strongest practical platform containment.  
 **OPEN QUESTION:** Linux Secret Service fallback and exact child-process containment/distribution strategy per OS.
+
+### MVP-0 implementation evidence (2026-09-22)
+
+**MEASURED (code and gates):** the Linux model loop is implemented as a modular Rust monolith. `features::conversation` owns the explicit state machine, the versioned IPC wire types, the model catalog selection, the provider runners, and the one-worker runtime; `features::health` owns the typed shell readiness contract; `provider/` remains the adapter subsystem (frozen neutral contract, deterministic fake, bounded execution, normalizer, Go discovery/transport, Secret Service credential boundary). Offline gates enforce module boundaries, accessibility, and security invariants, and the opt-in live smoke verified the real `chat/completions` path on the reference environment.
+
+**DECISION:** the MVP-0 runtime is one on-demand `std::thread` per active blocking request with typed Tauri events; this does not settle the later agent/process concurrency stack (`docs/17-open-questions.md`).
+
+**EXTERNAL MUTABILITY:** the OpenCode Go catalog, endpoints, limits, prices, privacy/retention fields, and the authenticated models payload can change; the transport discovers and validates at runtime, and the dated snapshot lives in `docs/specs/opencode-go-contract.md`. See [the artifact notes](specs/b05-linux-artifact.md) and [the MVP-0 soak](specs/performance-reports/b05-mvp0-soak.md).

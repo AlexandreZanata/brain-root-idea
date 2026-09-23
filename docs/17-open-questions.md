@@ -44,3 +44,6 @@ Cross-platform WebView hibernation cannot be treated as a uniform Tauri/WRY feat
 ## Resolved decisions
 
 - **Project license (2026-09-22):** Apache License 2.0 with a `NOTICE` attribution naming BrainRoot and linking `https://github.com/AlexandreZanata/brain-root-idea`. See ADR 0010.
+- **MVP-0 conversation runtime (2026-09-22):** one on-demand `std::thread` per active blocking request with typed Tauri events and no new runtime dependency; the broader async/runtime choice for later agent and process work remains open. See B04-S03.
+- **OpenCode Go credential read path for MVP-0 (2026-09-22):** the live loop reads the `dev.brainroot.experiment/default` entry from Linux Secret Service; there is no plaintext environment key or in-app credential form; the broader credential UX stays open. See B04-S03.
+- **Authenticated models payload shape (2026-09-22):** the live endpoint states no per-model endpoint; discovery accepts the shape and resolves the configured default model without a fallback. Live `402`/`403`/`404` semantics remain unverified until a deliberately exercised run. See B04-R01 and `docs/specs/opencode-go-contract.md`.

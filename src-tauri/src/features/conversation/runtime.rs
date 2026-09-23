@@ -40,7 +40,7 @@ impl ConversationSession {
         Self::with_runner(Arc::new(FakeRunner))
     }
 
-    fn with_runner(runner: Arc<dyn ProviderRunner>) -> Self {
+    pub(super) fn with_runner(runner: Arc<dyn ProviderRunner>) -> Self {
         Self {
             inner: Arc::new(SessionInner {
                 conversation: ConversationId::new(uuid::Uuid::new_v4().to_string())
@@ -145,12 +145,17 @@ impl ConversationSession {
         self.inner.conversation.clone()
     }
 
+    #[cfg(test)]
+    pub(super) fn model_id(&self) -> crate::provider::contract::ModelId {
+        self.runner.model()
+    }
+
     pub(crate) fn is_active(&self) -> bool {
         self.inner.active.load(Ordering::SeqCst)
     }
 
     #[cfg(test)]
-    fn state(&self) -> ConversationState {
+    pub(super) fn state(&self) -> ConversationState {
         *self
             .inner
             .state
