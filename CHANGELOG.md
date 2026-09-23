@@ -10,6 +10,21 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.6
+
+Batch B10 (adjacent localhost preview) is tracked by [pull/73](https://github.com/AlexandreZanata/brain-root-idea/pull/73) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B10-Adjacent-Preview).
+
+### Added
+
+- The Companion Canvas Preview tab can now run your app beside the chat: a visible permission moment (one command, one folder), the owned dev server with an assigned loopback address and process-group cleanup, and the preview rendered in the Canvas ([#72](https://github.com/AlexandreZanata/brain-root-idea/issues/72), [#74](https://github.com/AlexandreZanata/brain-root-idea/issues/74), [#75](https://github.com/AlexandreZanata/brain-root-idea/issues/75)).
+- Preview states are truthful and event-driven: starting, ready, and failed with plain-language recovery; a crash after ready becomes a visible failed state.
+- The preview view has no BrainRoot IPC, loads only the owned loopback origin, and keeps an isolated profile under the application data directory.
+
+### Known limitations
+
+- Visual alignment of the preview over the Canvas slot still needs the rendered confirmation; focus/keyboard routing, zoom/scale, DPR, and soak remain unmeasured.
+- The command and folder are in-memory only, there is no project opening yet, and this batch produces no artifact.
+
 ## 0.0.5
 
 Batch B09 (Linux preview hosting decision, CB-A gate 2) is tracked by [pull/69](https://github.com/AlexandreZanata/brain-root-idea/pull/69) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B09-Preview-Hosting).
