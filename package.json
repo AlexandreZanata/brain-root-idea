@@ -1,7 +1,7 @@
 {
   "name": "brainroot",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "BrainRoot experimental Linux shell",
   "type": "module",
   "license": "Apache-2.0",

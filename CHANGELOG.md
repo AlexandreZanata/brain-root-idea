@@ -10,6 +10,18 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.3
+
+Batch B07 (Companion Browser plan integration, documentation only) is tracked by [pull/60](https://github.com/AlexandreZanata/brain-root-idea/pull/60) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B07-Companion-Browser-Plan).
+
+### Documentation
+
+- The maintainer-adopted Companion Browser plan now lives in `docs/specs/companion-browser-plan.md` and is referenced from the Companion Canvas, browser architecture, roadmap, and open-questions documents, without implementing any browser capability and without turning the CB-A…CB-D candidates into executable issues ([#59](https://github.com/AlexandreZanata/brain-root-idea/issues/59)).
+
+### Known limitations
+
+- The Companion Browser is not implemented; no preview, Human Browser, import, Deck, or phone capability exists, and future batch IDs are not assigned.
+
 ## 0.0.2
 
 Batch B06 (workspace shell in the product visual language) is tracked by [pull/53](https://github.com/AlexandreZanata/brain-root-idea/pull/53) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B06-Workspace-Shell).
