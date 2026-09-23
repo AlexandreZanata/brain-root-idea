@@ -322,4 +322,11 @@
       overflow-y: auto;
     }
   }
+
+  @media (max-width: 640px) {
+    .workspace {
+      padding: 0.6rem;
+      gap: 0.6rem;
+    }
+  }
 </style>

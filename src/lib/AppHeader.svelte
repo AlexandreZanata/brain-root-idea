@@ -113,4 +113,19 @@
     font-size: 0.72rem;
     color: var(--text-muted);
   }
+
+  @media (max-width: 640px) {
+    .chrome {
+      padding: 0.55rem 0.8rem;
+    }
+
+    h1 {
+      font-size: 0.95rem;
+    }
+
+    .tagline,
+    .core-detail {
+      display: none;
+    }
+  }
 </style>

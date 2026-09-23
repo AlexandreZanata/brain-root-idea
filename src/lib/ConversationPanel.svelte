@@ -150,4 +150,26 @@
     display: flex;
     gap: 0.4rem;
   }
+
+  @media (max-width: 1080px) {
+    .agent {
+      min-height: 20rem;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .composer {
+      padding: 0.65rem 0.75rem 0.85rem;
+    }
+
+    .composer-bar {
+      flex-wrap: wrap;
+      row-gap: 0.4rem;
+    }
+
+    .composer-state {
+      flex-basis: 100%;
+      text-align: left;
+    }
+  }
 </style>

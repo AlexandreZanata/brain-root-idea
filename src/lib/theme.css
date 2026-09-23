@@ -479,3 +479,35 @@ body {
     animation: none !important;
   }
 }
+
+/* Responsive contract: stacked workspace below 1080px, compact chrome below 640px */
+
+@media (max-width: 1080px) {
+  .br-rail {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.4rem;
+  }
+
+  .br-rail .br-btn--rail {
+    flex-direction: row;
+    gap: 0.45rem;
+    padding: 0.5rem 0.75rem;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .br-rail {
+    padding: 0.35rem;
+  }
+
+  .br-rail .rail-label {
+    display: none;
+  }
+
+  .br-tabs {
+    overflow-x: auto;
+  }
+}

@@ -63,4 +63,10 @@
     grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
     gap: 0.6rem;
   }
+
+  @media (max-width: 1080px) {
+    .canvas {
+      min-height: 24rem;
+    }
+  }
 </style>

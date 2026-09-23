@@ -13,5 +13,5 @@
   title={active ? label : `${label} — planned for MVP-1`}
 >
   <Icon name={icon} size="md" />
-  <span>{label}</span>
+  <span class="rail-label">{label}</span>
 </Button>
