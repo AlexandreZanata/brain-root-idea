@@ -159,6 +159,51 @@ pub fn preview_hide(
     Ok(status.clone())
 }
 
+#[cfg(debug_assertions)]
+fn rss_kb() -> u64 {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|status| {
+            status
+                .lines()
+                .find(|line| line.starts_with("VmRSS:"))
+                .and_then(|line| line.split_whitespace().nth(1))
+                .and_then(|value| value.parse().ok())
+        })
+        .unwrap_or(0)
+}
+
+#[cfg(debug_assertions)]
+fn child_process_count() -> usize {
+    let own_pid = std::process::id();
+    let mut count = 0;
+    if let Ok(entries) = std::fs::read_dir("/proc") {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let Some(pid) = name.to_str().and_then(|value| value.parse::<u32>().ok()) else {
+                continue;
+            };
+            if pid == own_pid {
+                continue;
+            }
+            let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
+                continue;
+            };
+            let Some(after_command) = stat.rfind(')').map(|index| &stat[index + 1..]) else {
+                continue;
+            };
+            let parent = after_command
+                .split_whitespace()
+                .nth(1)
+                .and_then(|value| value.parse::<u32>().ok());
+            if parent == Some(own_pid) {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
 /// Debug-only fixture harness: starts the owned server with a local HTTP
 /// fixture, then shows the preview view at a fixed rectangle and prints one
 /// marker once it is created. Release builds never compile or run this path.
@@ -207,7 +252,62 @@ pub fn debug_fixture(app: tauri::AppHandle) {
                 bounds: Some(bounds),
             };
             println!("brainroot: preview view ready");
-            thread::sleep(Duration::from_secs(5));
+
+            let mut inner_width_base = None;
+            let deadline = Instant::now() + Duration::from_secs(8);
+            while inner_width_base.is_none() && Instant::now() < deadline {
+                inner_width_base = view::debug_inner_width(&app).ok();
+                if inner_width_base.is_none() {
+                    thread::sleep(Duration::from_millis(200));
+                }
+            }
+            let mut environment = None;
+            let deadline = Instant::now() + Duration::from_secs(4);
+            while environment.is_none() && Instant::now() < deadline {
+                if let Ok(measured) = view::debug_environment(&app) {
+                    if measured.1 != (0, 0, 0, 0) {
+                        environment = Some(measured);
+                    }
+                }
+                if environment.is_none() {
+                    thread::sleep(Duration::from_millis(150));
+                }
+            }
+            let focus = view::debug_focus(&app).ok();
+            let device_pixel_ratio = view::debug_device_pixel_ratio(&app).ok();
+            let _ = view::debug_zoom(&app, 2.0);
+            thread::sleep(Duration::from_millis(400));
+            let inner_width_zoomed = view::debug_inner_width(&app).ok();
+            let _ = view::debug_zoom(&app, 1.0);
+            thread::sleep(Duration::from_millis(400));
+            let inner_width_restored = view::debug_inner_width(&app).ok();
+            let rss_before = rss_kb();
+            let children_before = child_process_count();
+            let soak = view::debug_soak(&app, 100).ok();
+            thread::sleep(Duration::from_millis(300));
+            let rss_after = rss_kb();
+            let children_after = child_process_count();
+            let quality = serde_json::json!({
+                "scale_factor": environment.as_ref().map(|(scale, _)| *scale),
+                "allocated_physical": environment.as_ref().map(|(_, allocation)| *allocation),
+                "requested_logical": [bounds.0, bounds.1, bounds.2, bounds.3],
+                "widget_focused": focus.map(|(focused, _)| focused),
+                "window_active": focus.map(|(_, active)| active),
+                "device_pixel_ratio": device_pixel_ratio,
+                "inner_width_base": inner_width_base,
+                "inner_width_zoomed": inner_width_zoomed,
+                "inner_width_restored": inner_width_restored,
+                "soak_updates": soak.map(|_| 100),
+                "soak_p50_us": soak.map(|(p50, _)| p50),
+                "soak_max_us": soak.map(|(_, max)| max),
+                "rss_kb_before": rss_before,
+                "rss_kb_after": rss_after,
+                "children_before": children_before,
+                "children_after": children_after,
+            });
+            println!("brainroot: preview quality {quality}");
+
+            thread::sleep(Duration::from_secs(2));
             state.shutdown(&app);
             thread::sleep(Duration::from_secs(1));
             app.exit(0);

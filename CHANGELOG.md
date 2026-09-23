@@ -10,6 +10,20 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.8
+
+Batch B12 (preview quality measurements) is tracked by [pull/81](https://github.com/AlexandreZanata/brain-root-idea/pull/81) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B12-Preview-Quality).
+
+### Changed
+
+- The remaining preview acceptance checks from ADR 0012 are measured through the production preview module and recorded: scale/DPR at factor 1 (Wayland) and 2 (XWayland), page zoom in and out, widget focus, and a 100-update bounds soak with latency, RSS, and child-process counts ([#80](https://github.com/AlexandreZanata/brain-root-idea/issues/80)).
+- The open-questions document now states the measured items and keeps keyboard routing and screen-reader behavior inside preview content explicit as `UNKNOWN`.
+
+### Known limitations
+
+- Keyboard event routing into preview content and screen-reader behavior are not automatable on the reference stack and remain unverified.
+- The soak covers 100 resize updates, not a long-duration run; visual confirmation still needs the rendered check.
+
 ## 0.0.7
 
 Batch B11 (responsive viewport presets) is tracked by [pull/78](https://github.com/AlexandreZanata/brain-root-idea/pull/78) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B11-Responsive-Viewport).

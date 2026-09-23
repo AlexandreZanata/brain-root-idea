@@ -334,7 +334,7 @@ dependencies = [
 
 [[package]]
 name = "brainroot"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "gtk",
  "keyring",
