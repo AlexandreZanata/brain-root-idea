@@ -1,12 +1,14 @@
 # Companion Browser: integrated side browser and data portability
 
-**Status:** proposed roadmap plan, not authorization to implement or a claim of measured performance
+**Status:** adopted as the initial Companion Browser plan; not authorization to implement or a claim of measured performance
 
 **Platform order:** Linux first; Windows after the Linux contract is proven; macOS after Windows
 
 **Scope:** desktop BrainRoot, not a mobile operating-system app
 
 **Reviewed:** 2026-09-23
+
+**Recorded decision (2026-09-23, maintainer):** this document is the initial Companion Browser plan and will be used as such. The Companion Browser is created for Linux only at first; Windows and macOS are not part of the initial creation and require separate future batches with their own probes and evidence.
 
 ## Outcome and boundaries
 
