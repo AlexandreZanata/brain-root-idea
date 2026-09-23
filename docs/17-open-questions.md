@@ -19,6 +19,8 @@ An item leaves this file only when linked evidence and an ADR or scoped decision
 - **SQLite integration:** crate, migration tool, journal mode, backup, corruption recovery, and encryption needs.
 - **Credential abstraction:** exact macOS Keychain, Windows Credential Locker, and Linux Secret Service integration; fallback when a Linux secret service is unavailable.
 - **Human browser policy:** profile creation, cookies, downloads, external navigation, explicit sharing, retention, and delete controls.
+- **Browser data portability:** exact import categories and retained history policy; HTML bookmarks can be proposed first, but direct profile reads, credentials, cookies, and sessions require separate security decisions. See [the Companion Browser plan](specs/companion-browser-plan.md).
+- **Side browser feasibility:** Linux WebKitGTK child-view positioning/resizing under the supported X11/Wayland stacks, profile isolation, resource return, and whether one-HOT switching is fast enough. See [the Companion Browser plan](specs/companion-browser-plan.md) and ADR 0006.
 - **Preview networking:** localhost origin discovery, port ownership, HTTPS/dev certificates, remote device testing, and SSR/dev-server variants.
 - **External project compatibility:** which ecosystems are supported first and how BrainRoot detects start/test commands without unsafe guessing.
 - **Code signing versus sandboxing:** packaging entitlements may constrain child tools differently per platform.
