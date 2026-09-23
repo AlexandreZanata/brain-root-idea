@@ -4,12 +4,13 @@
 
 ## Header
 
-- Status: Ready (awaiting maintainer approval to merge)
+- Status: Released
 - Objective: The Companion Canvas shows the user's local app beside the chat — BrainRoot owns the dev server, hosts the preview view per ADR 0012, loads only the approved loopback origin, reports truthful states, and cleans up on close — without remote browsing or project mutation.
-- Branch: `batch/b10-adjacent-preview`
+- Branch: `batch/b10-adjacent-preview` (deleted after merge)
 - Draft/final PR: [#73](https://github.com/AlexandreZanata/brain-root-idea/pull/73)
+- Merge commit: `db3a025cfae149ac8441697e5b4b643f860f1ee5`
 - Baseline commit: `c24542db205dd6ba64a7285863324ffa57a4d384`
-- Target/resulting version: `0.0.6` (preview capability; no artifact)
+- Target/resulting version: `0.0.6` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.6) without artifact)
 - Started/completed: 2026-09-23 / 2026-09-23
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, kernel `7.1.5-76070105-generic`, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned, Node.js v26.3.1, pnpm 11.13.0)
 - Repository history mirror: this file (created at batch close)
@@ -28,7 +29,7 @@
 | B10-S01 | [#72](https://github.com/AlexandreZanata/brain-root-idea/issues/72) | The Rust core owns the dev-server lifecycle per ADR 0011: assigned loopback port, declared command with `PORT`, process-group spawn, bounded readiness with early-exit detection, SIGTERM/grace/SIGKILL group stop, bounded never-logged output, and the typed `preview_start`/`preview_stop`/`preview_status` commands with stop-on-close; seven unit tests pass with a real `sh`/`python3` fixture and no leftover process or listener | `22e3ad1` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/72#issuecomment-5797895377) | `libc 0.2` approved for `killpg` only (std spawns the group but cannot signal it); no persistence and no UI yet, so the command surface is trusted-shell-only until the Canvas permission moment lands | Closed |
 | B10-S02 | [#74](https://github.com/AlexandreZanata/brain-root-idea/issues/74) | The production preview view is implemented per ADR 0012: a `wry` WebView in a `GtkFixed` overlay outside the Tauri manager with no Tauri IPC, `preview_show`/`preview_set_bounds`/`preview_view_status`/`preview_hide`, the origin policy with its corpus, an isolated profile under the app data directory, and destroy on hide/close; eight tests pass and the debug harness proves the real view end to end with a clean shutdown and no leftovers | `8f69fd0` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/74#issuecomment-5798332494) | The origin corpus moved to `src-tauri/tests/preview-origin-corpus.json` (test data outside the gate's scanned destination surface); the host window resolves through `get_webview_window` because `Manager::get_window` is behind `tauri/unstable` | Closed |
 | B10-S03 | [#75](https://github.com/AlexandreZanata/brain-root-idea/issues/75) | The Canvas Preview tab is integrated: permission surface (command + folder), states from typed `preview-status` events without polling, slot geometry sync, failed state with retry, stop/hide and cleanup, plus a crash-after-ready monitor in the supervisor; 11 frontend tests and 9 Rust tests pass, the accessibility/security/docs gates are green and the harness still proves the view end to end | `efefc4e` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/75#issuecomment-5798543063) | One fixture process from the pre-fix failing crash test was cleaned before the commit; the fixed test leaves nothing behind | Closed |
-| B10-S04 | [#76](https://github.com/AlexandreZanata/brain-root-idea/issues/76) | Finalization: version `0.0.6` synchronized across `VERSION`, `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`; changelog `0.0.6` section; this history record created; PR #73 marked Ready and the full Linux gate run on the latest head; merge/tag deferred to maintainer approval | pending | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/76) | The authenticated repository owner cannot approve its own PR; no tag is created before the merge commit exists on `main` | In review |
+| B10-S04 | [#76](https://github.com/AlexandreZanata/brain-root-idea/issues/76) | Finalization: version `0.0.6` synchronized across `VERSION`, `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`; changelog `0.0.6` section; this history record created; PR #73 marked Ready, merged with a merge commit through the documented single-maintainer administrator bypass, branch deleted, annotated `v0.0.6` tagged with a pre-release, and this record completed on `main` | `9de9512`, `db3a025` (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/76) | Merge and release used the documented single-maintainer administrator bypass; no artifact for this batch | Closed |
 
 Update one row whenever a microstep closes or is reopened. Never paste secrets or unbounded raw logs.
 
@@ -48,9 +49,10 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Final gates
 
-- Full CI: `check-full-linux` on the finalization head — run URL recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/76) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B10-Adjacent-Preview)
-- Review: requested; awaiting maintainer approval (documented single-maintainer administrator path)
-- Security/privacy: `check-docs.sh` secret scan green (193 files); `check-security.sh` green with the approved dependency list; the preview view has no Tauri IPC by construction; the origin policy rejects the negative corpus; the address is rendered from runtime values only; child output is bounded and never logged or shown
+- Full CI: [`check-full-linux` success on the finalization head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35889105296) (10 m 53 s, `9de9512`); post-merge `push` runs on `main` for `db3a025` and the finalization commit are recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/76) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B10-Adjacent-Preview)
+- Review: single-maintainer administrator bypass documented; merged at B10-S04
+- Release: annotated `v0.0.6` on merge commit `db3a025`; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.6) without artifact
+- Security/privacy: `check-docs.sh` secret scan green (199 files); `check-security.sh` green with the approved dependency list; the preview view has no Tauri IPC by construction; the origin policy rejects the negative corpus; the address is rendered from runtime values only; child output is bounded and never logged or shown
 - Performance: no new budget; supervisor readiness is bounded by the declared timeout; no polling loop exists (events plus one initial read); the harness and unit tests run in seconds
 - Cleanup: supervisor tests prove group stop and port rebinding; the debug harness proves the real view is destroyed and the owned server stopped with no leftover process or listener; the fixed crash test leaves nothing behind
 - Artifact/checksum: none for this batch
@@ -58,4 +60,4 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Result and next batch
 
-B10 makes the Companion Canvas preview real: the user states a command and folder, BrainRoot owns one dev server on an assigned loopback port, the preview view renders beside the chat with no Tauri IPC, states and failures are truthful and event-driven, and everything stops on request or close. Next: the roadmap's next capability step in its own batch, with the unmeasured acceptance checks (focus/keyboard routing, zoom/scale, DPR, soak) kept explicit. Rollback: revert the batch commits; the shipped app, runtime state, and any tag are unaffected.
+Batch B10 is released as [`v0.0.6`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.6) on merge commit `db3a025`: the user states a command and folder, BrainRoot owns one dev server on an assigned loopback port, the preview view renders beside the chat with no Tauri IPC, states and failures are truthful and event-driven, and everything stops on request or close. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, CI run, tag, and release URL cannot exist before the merge. Next: the roadmap's next capability step in its own batch, with the unmeasured acceptance checks (focus/keyboard routing, zoom/scale, DPR, soak) kept explicit. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
