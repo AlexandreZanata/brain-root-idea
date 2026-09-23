@@ -7,11 +7,18 @@
 //! for the shell. One view exists at most.
 
 use std::cell::RefCell;
+
+use gtk::prelude::Cast;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use tauri::{AppHandle, Emitter, Manager};
-use webkit2gtk::WebViewExt as _;
+use webkit2gtk::{
+    DeviceInfoPermissionRequest, GeolocationPermissionRequest, MediaKeySystemPermissionRequest,
+    NotificationPermissionRequest, PermissionRequest, PermissionRequestExt,
+    PointerLockPermissionRequest, UserMediaPermissionRequest, WebViewExt as _,
+    WebsiteDataAccessPermissionRequest,
+};
 use wry::{
     NewWindowResponse, Rect, WebContext, WebView, WebViewBuilder, WebViewBuilderExtUnix,
     WebViewExtUnix,
@@ -45,6 +52,59 @@ fn emit_status(app: &AppHandle, status: &Arc<Mutex<HumanStatus>>) {
     if let Ok(status) = status.lock() {
         let _ = app.emit("human-browser-status", &*status);
     }
+}
+
+fn permission_kind(request: &PermissionRequest) -> &'static str {
+    if request
+        .clone()
+        .downcast::<GeolocationPermissionRequest>()
+        .is_ok()
+    {
+        return "geolocation";
+    }
+    if request
+        .clone()
+        .downcast::<UserMediaPermissionRequest>()
+        .is_ok()
+    {
+        return "media";
+    }
+    if request
+        .clone()
+        .downcast::<NotificationPermissionRequest>()
+        .is_ok()
+    {
+        return "notifications";
+    }
+    if request
+        .clone()
+        .downcast::<PointerLockPermissionRequest>()
+        .is_ok()
+    {
+        return "pointer_lock";
+    }
+    if request
+        .clone()
+        .downcast::<DeviceInfoPermissionRequest>()
+        .is_ok()
+    {
+        return "device_info";
+    }
+    if request
+        .clone()
+        .downcast::<MediaKeySystemPermissionRequest>()
+        .is_ok()
+    {
+        return "media_key_system";
+    }
+    if request
+        .clone()
+        .downcast::<WebsiteDataAccessPermissionRequest>()
+        .is_ok()
+    {
+        return "website_data_access";
+    }
+    "unknown"
 }
 
 fn record_denial(status: &Arc<Mutex<HumanStatus>>, code: &str) {
@@ -150,6 +210,20 @@ pub fn show(
             let webview = builder
                 .build_gtk(&fixed)
                 .map_err(|error| format!("human view failed: {error}"))?;
+            let permission_status = Arc::clone(&status);
+            let permission_app = handle.clone();
+            webview
+                .webview()
+                .connect_permission_request(move |_webview, request| {
+                    let kind = permission_kind(request);
+                    record_denial(
+                        &permission_status,
+                        &format!("human_permission_denied:{kind}"),
+                    );
+                    emit_status(&permission_app, &permission_status);
+                    request.deny();
+                    true
+                });
             VIEW.with(|slot| {
                 *slot.borrow_mut() = Some(HumanView { webview });
             });
@@ -266,6 +340,54 @@ pub fn refresh(app: &AppHandle, status: Arc<Mutex<HumanStatus>>) -> Result<(), S
         }
     }
     Ok(())
+}
+
+/// Destroys the view, drops the cached context, and removes the profile data
+/// so the next load starts clean.
+pub fn clear_data(
+    app: &AppHandle,
+    profile_root: PathBuf,
+    status: Arc<Mutex<HumanStatus>>,
+) -> Result<(), String> {
+    host::on_main_thread(app, move || {
+        destroy_current()?;
+        CONTEXT.with(|slot| {
+            let mut slot = slot.borrow_mut();
+            let matches = matches!(slot.as_ref(), Some((root, _)) if root == &profile_root);
+            if matches {
+                *slot = None;
+            }
+        });
+        let profile = profile_root.join("human-profile");
+        let _ = std::fs::remove_dir_all(&profile);
+        std::fs::create_dir_all(&profile).map_err(|error| error.to_string())?;
+        Ok(())
+    })?;
+    if let Ok(mut status) = status.lock() {
+        *status = HumanStatus::default();
+    }
+    Ok(())
+}
+
+/// Debug-only script evaluation against the live view.
+#[cfg(debug_assertions)]
+pub fn debug_evaluate(app: &AppHandle, script: &str) -> Result<String, String> {
+    let (sender, receiver) = std::sync::mpsc::channel::<String>();
+    let script = script.to_string();
+    host::on_main_thread(app, move || {
+        VIEW.with(|slot| {
+            let view = slot.borrow();
+            let view = view.as_ref().ok_or("human view is not visible")?;
+            view.webview
+                .evaluate_script_with_callback(&script, move |value| {
+                    let _ = sender.send(value);
+                })
+                .map_err(|error| error.to_string())
+        })
+    })?;
+    receiver
+        .recv_timeout(host::MAIN_THREAD_TIMEOUT)
+        .map_err(|_| "script readback timed out".to_string())
 }
 
 /// Destroys the human view. Must run on the GTK main thread; used by the
