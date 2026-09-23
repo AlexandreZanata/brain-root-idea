@@ -17,6 +17,14 @@ ureq = { version = "3.4.2", features = ["json"] }
 keyring = "4.2.0"
 uuid = { version = "1.26.1", features = ["v4"] }
 
+[features]
+probe = ["tauri/unstable"]
+
+[[bin]]
+name = "webview_probe"
+path = "src/bin/webview_probe.rs"
+required-features = ["probe"]
+
 [profile.release]
 codegen-units = 1
 lto = true

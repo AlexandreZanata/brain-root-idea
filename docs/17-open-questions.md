@@ -12,7 +12,7 @@ An item leaves this file only when linked evidence and an ADR or scoped decision
 
 ## IMPORTANT
 
-- **WebView lifecycle:** Measured create/destroy latency, memory release, crash recovery, focus, storage isolation, and whether any platform-specific WARM state is worth supporting.
+- **WebView lifecycle:** Measured create/destroy latency, memory release, crash recovery, focus, storage isolation, and whether any platform-specific WARM state is worth supporting. Partial measurement 2026-09-23 (B08-S01): create/load/destroy, storage isolation, and forced-close recovery are feasible; memory growth over 100 cycles is unclassified and focus/WARM remain unmeasured; see [the Linux child-WebView probe](specs/linux-webview-probe.md).
 - **Checkpoint backend:** Safe Git object strategy without touching user history, non-Git fallback, untracked/ignored/large files, and restore conflicts.
 - **PTY/process library:** Whether `portable-pty`, direct ConPTY/POSIX integration, or another maintained open-source crate best supports process trees and cleanup. Interactive PTY is not automatically required for MVP.
 - **Async/runtime choice:** Smallest Rust concurrency stack consistent with Tauri, cancellation, and process I/O. Scoped B04-S03 decision: one `std::thread` worker exists only while the blocking OpenCode Go request is active, with no new runtime dependency. This does not settle later agent/process concurrency; see issue #35.
@@ -20,7 +20,7 @@ An item leaves this file only when linked evidence and an ADR or scoped decision
 - **Credential abstraction:** exact macOS Keychain, Windows Credential Locker, and Linux Secret Service integration; fallback when a Linux secret service is unavailable.
 - **Human browser policy:** profile creation, cookies, downloads, external navigation, explicit sharing, retention, and delete controls.
 - **Browser data portability:** exact import categories and retained history policy; HTML bookmarks can be proposed first, but direct profile reads, credentials, cookies, and sessions require separate security decisions. See [the Companion Browser plan](specs/companion-browser-plan.md).
-- **Side browser feasibility:** Linux WebKitGTK child-view positioning/resizing under the supported X11/Wayland stacks, profile isolation, resource return, and whether one-HOT switching is fast enough. See [the Companion Browser plan](specs/companion-browser-plan.md) and ADR 0006.
+- **Side browser feasibility:** Linux WebKitGTK child-view positioning/resizing under the supported X11/Wayland stacks, profile isolation, resource return, and whether one-HOT switching is fast enough. Measured 2026-09-23 (B08-S01): child-view position/size is not honored on the Wayland reference stack through Tauri/wry (`GtkBox` hosting), while profile isolation, navigation policy, and recreate pass; ADR 0006 review required before preview implementation. See [the Companion Browser plan](specs/companion-browser-plan.md), ADR 0006, and [the probe record](specs/linux-webview-probe.md).
 - **Preview networking:** localhost origin discovery, port ownership, HTTPS/dev certificates, remote device testing, and SSR/dev-server variants.
 - **External project compatibility:** which ecosystems are supported first and how BrainRoot detects start/test commands without unsafe guessing.
 - **Code signing versus sandboxing:** packaging entitlements may constrain child tools differently per platform.
