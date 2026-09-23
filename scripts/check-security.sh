@@ -117,6 +117,7 @@ allowed_rust = {
     "uuid",
     "tauri-build",
     "gtk",
+    "webkit2gtk",
     "wry",
     "libc",
 }
