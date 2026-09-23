@@ -30,6 +30,11 @@ name = "preview_hosting_probe"
 path = "src/bin/preview_hosting_probe.rs"
 required-features = ["probe"]
 
+[[bin]]
+name = "human_profile_probe"
+path = "src/bin/human_profile_probe.rs"
+required-features = ["probe"]
+
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
 wry = "0.55"
