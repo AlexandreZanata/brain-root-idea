@@ -4,12 +4,13 @@
 
 ## Header
 
-- Status: Ready (awaiting maintainer approval to merge)
+- Status: Released
 - Objective: Resolve the CB-B prerequisites before any Human Browser implementation is assigned — approve the explicit Human Browser policy and prove a persistent, isolated BrainRoot-owned profile — without shipping remote browsing or reordering the roadmap.
-- Branch: `batch/b13-human-browser-prerequisites`
+- Branch: `batch/b13-human-browser-prerequisites` (deleted after merge)
 - Draft/final PR: [#84](https://github.com/AlexandreZanata/brain-root-idea/pull/84)
+- Merge commit: `314275ee1d4ca1f6778fb13dba3af2a95f0a026e`
 - Baseline commit: `065b813` (B12 released)
-- Target/resulting version: `0.0.9` (prerequisites; no artifact)
+- Target/resulting version: `0.0.9` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.9) without artifact)
 - Started/completed: 2026-09-23 / 2026-09-23
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, kernel `7.1.5-76070105-generic`, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned)
 - Repository history mirror: this file (created at batch close)
@@ -37,7 +38,7 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 - Decision (B13-S01): the profile is BrainRoot-owned under the application data directory, never an installed browser directory; agents have no access; deletion/reset are explicit user actions with confirmation.
 - Decision (B13-S01): the policy is approved as a prerequisite while the implementation stays post-MVP (Phase 8); the roadmap order (Phases 3, 5, 6, 7) is unchanged unless the maintainer reorders.
 - Decision (B13-S02): the CB-B profile isolation prerequisite is met with the same `wry`/WebKitGTK stack the product uses — separate role profiles are isolated and persistent, BrainRoot-owned, and clean up; the remaining evidence (cookies/cache, deletion/reset, crash, accessibility) belongs to the implementation batch.
-- Decision (B13-S03): a prerequisites-only batch still changes the version exactly once at finalization (`0.0.9`) per `docs/19-release-and-versioning.md`, with no artifact; merge, tag, and release wait for maintainer approval.
+- Decision (B13-S03): a prerequisites-only batch still changes the version exactly once at finalization (`0.0.9`) per `docs/19-release-and-versioning.md`, with no artifact. Resolution at merge: the authenticated owner cannot self-approve, so the merge used the documented single-maintainer administrator path; the annotated tag was created only after the merge commit existed on `main`.
 
 ## Failures and recovery
 
@@ -45,8 +46,9 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Final gates
 
-- Full CI: `check-full-linux` on the finalization head — run URL recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/86) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B13-Human-Browser-Prerequisites)
-- Review: requested; awaiting maintainer approval (documented single-maintainer administrator path)
+- Full CI: [`check-full-linux` success on the finalization head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35903298949) (8 m 28 s, `4cca217`); post-merge `push` runs on `main` for `314275e` and the finalization commit are recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/86) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B13-Human-Browser-Prerequisites)
+- Review: single-maintainer administrator bypass documented; merged at B13-S03
+- Release: annotated `v0.0.9` on merge commit `314275e`; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.9) without artifact
 - Security/privacy: `check-docs.sh` secret scan green (205 files); `check-security.sh` green with the dependency list unchanged; the policy denies risky schemes, popups, downloads, and permission prompts by default; the probe only used BrainRoot-owned paths and its local fixture
 - Performance: probe-scale only; a fresh profile measured 50 323 bytes; no resident resource added
 - Cleanup: the probe namespace was removed and no process, listener, or fixture server remained
@@ -55,4 +57,4 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Result and next batch
 
-B13 clears the CB-B prerequisites: the Human Browser policy is approved with explicit boundaries, and the profile isolation prerequisite is measured `go` with a persistent BrainRoot-owned profile that is separate from the Preview, shell, and installed browsers. The Human Browser itself remains unimplemented and post-MVP. Next: the roadmap's next capability step (Phases 3/5/6/7) or the CB-B implementation batch once the maintainer schedules it. Rollback: revert the batch commits; no runtime state, tag, or artifact is affected.
+Batch B13 is released as [`v0.0.9`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.9) on merge commit `314275e`: the Human Browser policy is approved with explicit boundaries, and the profile isolation prerequisite is measured `go` with a persistent BrainRoot-owned profile that is separate from the Preview, shell, and installed browsers. The Human Browser itself remains unimplemented and post-MVP. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, CI run, tag, and release URL cannot exist before the merge. Next: the roadmap's next capability step (Phases 3/5/6/7) or the CB-B implementation batch once the maintainer schedules it. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
