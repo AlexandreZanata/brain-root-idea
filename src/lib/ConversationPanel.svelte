@@ -3,6 +3,7 @@
   import Button from "./Button.svelte";
   import Icon from "./Icon.svelte";
   import SuggestionItem from "./SuggestionItem.svelte";
+  import TextArea from "./TextArea.svelte";
   import Turn from "./Turn.svelte";
   import WelcomeCard from "./WelcomeCard.svelte";
   import type { ConversationTurn } from "../conversation";
@@ -29,11 +30,11 @@
     oncancel: () => void;
   } = $props();
 
-  let textarea: HTMLTextAreaElement | undefined;
+  let composer: { focus: () => void } | undefined;
 
   function chooseSuggestion(text: string) {
     prompt = text;
-    textarea?.focus();
+    composer?.focus();
   }
 </script>
 
@@ -75,16 +76,16 @@
       onsubmit();
     }}
   >
-    <label for="prompt" class="br-visually-hidden">What do you want to build?</label>
-    <textarea
+    <!-- composer label <label for="prompt"> is rendered by TextArea with id="prompt" -->
+    <TextArea
       id="prompt"
       name="prompt"
-      rows="3"
-      class="br-field"
+      label="What do you want to build?"
+      rows={3}
       placeholder="Describe what you want to build…"
       bind:value={prompt}
-      bind:this={textarea}
-    ></textarea>
+      bind:this={composer}
+    />
     <div class="composer-bar">
       <span class="br-chip" title="Configured model for MVP-0">glm-5.3-flash</span>
       <span class="composer-state">{statusLabel}</span>

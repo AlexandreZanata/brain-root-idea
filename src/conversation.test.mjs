@@ -8,6 +8,7 @@ import {
   beginTurn,
   boundConversation,
   cancelTurn,
+  clampPanelWidth,
   credentialSetupMessage,
   isConversationEnvelope,
   renderedHistoryBytes,
@@ -89,6 +90,14 @@ test("settleTurn carries the sanitized failure code for technical details", () =
   assert.equal(failed[0].status, "failed");
   assert.equal(failed[0].errorCode, "provider_unavailable");
   assert.equal(failed[0].error, "The provider could not be reached. Check your connection and try again.");
+});
+
+test("clampPanelWidth keeps the agent width inside the resizable range", () => {
+  assert.equal(clampPanelWidth(100, 280, 560), 280);
+  assert.equal(clampPanelWidth(900, 280, 560), 560);
+  assert.equal(clampPanelWidth(368, 280, 560), 368);
+  assert.equal(clampPanelWidth(Number.NaN, 280, 560), 280);
+  assert.equal(clampPanelWidth(Number.POSITIVE_INFINITY, 280, 560), 280);
 });
 
 test("long output stays inside both rendered limits and preserves newest UTF-8", () => {

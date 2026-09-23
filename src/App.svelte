@@ -7,6 +7,7 @@
     appendChunk,
     beginTurn,
     cancelTurn,
+    clampPanelWidth,
     credentialSetupMessage,
     isConversationEnvelope,
     settleTurn,
@@ -19,6 +20,7 @@
   import AppHeader from "./lib/AppHeader.svelte";
   import CanvasPanel from "./lib/CanvasPanel.svelte";
   import ConversationPanel from "./lib/ConversationPanel.svelte";
+  import PanelResizer from "./lib/PanelResizer.svelte";
   import WorkspaceRail from "./lib/WorkspaceRail.svelte";
 
   type HealthState = "checking" | "ready" | "failed";
@@ -63,6 +65,14 @@
   let turns: ConversationTurn[] = $state([]);
   let nextTurnId = 1;
   let activeTurnId: number | null = null;
+  let agentWidth = $state(368);
+  let clampedAgentWidth = $derived(clampPanelWidth(agentWidth, 280, 560));
+
+  $effect(() => {
+    if (agentWidth !== clampedAgentWidth) {
+      agentWidth = clampedAgentWidth;
+    }
+  });
 
   let setupMessage = $derived(
     credentialStatus === null
@@ -284,7 +294,7 @@
 
 <main class="app">
   <AppHeader {healthState} {detail} {theme} ontoggle={toggleTheme} />
-  <div class="workspace">
+  <div class="workspace" style="--agent-width: {clampedAgentWidth}px">
     <WorkspaceRail sections={railSections} />
     <ConversationPanel
       {setupMessage}
@@ -297,6 +307,7 @@
       onsubmit={submitPrompt}
       oncancel={onCancel}
     />
+    <PanelResizer bind:value={agentWidth} min={280} max={560} step={8} />
     <CanvasPanel />
   </div>
 </main>
@@ -310,7 +321,7 @@
 
   .workspace {
     display: grid;
-    grid-template-columns: 4.6rem minmax(19rem, 23rem) minmax(0, 1fr);
+    grid-template-columns: 4.6rem var(--agent-width, 23rem) auto minmax(0, 1fr);
     gap: 0.9rem;
     padding: 0.9rem;
     min-height: 0;
