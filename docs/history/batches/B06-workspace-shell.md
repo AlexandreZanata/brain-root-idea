@@ -8,9 +8,9 @@
 - Objective: The BrainRoot shell adopts the professional workspace look requested by the maintainer — dark chrome, left section rail, agent panel with welcome and suggestion actions, bottom composer with the configured-model chip, and a dominant Canvas with tabs — while every future surface is disabled and labeled MVP-1, so the look matches the product vision without claiming capabilities that do not exist.
 - Branch: `batch/b06-workspace-shell` (deleted after merge)
 - Draft/final PR: [#53](https://github.com/AlexandreZanata/brain-root-idea/pull/53)
-- Merge commit: pending (filled by the post-merge finalization commit)
+- Merge commit: `fa04f24fbc081306b4052b4add03df405f269ac5`
 - Baseline commit: `ce945d673ff537f50a7b352152115a1cdc2deee2`
-- Target/resulting version: `0.0.2` (annotated tag on the merge commit; release URL filled by the post-merge finalization commit)
+- Target/resulting version: `0.0.2` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.2) without artifact)
 - Started/completed: 2026-09-23 / 2026-09-23
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, kernel `7.1.5-76070105-generic`, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned, Node.js v26.3.1, pnpm 11.13.0)
 - Repository history mirror: this file (created at batch close)
@@ -31,6 +31,7 @@
 | B06-S03 | [#55](https://github.com/AlexandreZanata/brain-root-idea/issues/55) | Responsive small-viewports: horizontal icon-only rail below 1080/640px, wrapped header and composer, scrollable Canvas tabs, agent 20rem / Canvas 24rem minimums in stacked mode; orphaned `.rail`/`.agent`/`.canvas` selectors removed | `2ea240f` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/55#issuecomment-5794408775) | No status, prompt, send/cancel, or error is hidden at any width; the rendered result is the maintainer's resized-window confirmation | Closed |
 | B06-S04 | [#56](https://github.com/AlexandreZanata/brain-root-idea/issues/56) | Reference palettes: dark follows Codex (near-black monochrome, zero blue — verified by grep); light follows the reference (white surfaces, dark text, blue primary/links/tint); tabs use link-style underlines; welcome spark and status dot follow the per-theme accent; every text pair ≥ 4.5:1 and UI/focus ≥ 3:1 | `0cd7fd9` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/56#issuecomment-5794633780) | The light `--text-subtle` was set to `#5b6b80` up front after pre-measuring `#64748b` at 4.20/4.47 | Closed |
 | B06-S05 | [#57](https://github.com/AlexandreZanata/brain-root-idea/issues/57) | Resizable chat area + reusable TextArea: `clampPanelWidth` helper, new `TextArea` (label/rows/placeholder/`focus()`) and `PanelResizer` (native range 280–560px, step 8, vertical orientation, hidden when stacked); agent width in-memory only, stacked layout unchanged | `93a5840` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/57#issuecomment-5794885033) | Static a11y gate needs the literal `<label for="prompt">`; the rendered bound label comes from `TextArea` (`for={id}` → `for="prompt"`), documented with a one-line comment, gate unmodified | Closed |
+| B06-S06 | [#58](https://github.com/AlexandreZanata/brain-root-idea/issues/58) | Finalization: version `0.0.2` synchronized across `VERSION`, `Cargo.toml`, `package.json`, and the lockfile; changelog `0.0.2` section; this history record created; PR marked Ready, merged with a merge commit on a green required check, branch deleted, annotated `v0.0.2` with a pre-release, and the Wiki synchronized | `4fdf12f`, `fa04f24` (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/58) | Merge and release used the documented single-maintainer administrator bypass; no artifact for this batch | Closed |
 
 Update one row whenever a microstep closes or is reopened. Never paste secrets or unbounded raw logs.
 
@@ -51,8 +52,9 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Final gates
 
-- Full CI: `check-full-linux` on the final head (run URL filled by the post-merge finalization commit)
+- Full CI: [`check-full-linux` success on the final head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35862613091) (7 m 36 s, `4fdf12f`) and the post-merge `push` run on `main`
 - Review: single-maintainer administrator bypass documented; merged at B06-S06
+- Release: annotated `v0.0.2` on merge commit `fa04f24`; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.2) without artifact
 - Security/privacy: `check-security` gate green; no secret or provider body in markup or evidence; no telemetry or unapproved destination
 - Performance: bundle CSS 11.43 kB (gzip 2.75), JS 63.17 kB (gzip 23.42); no runtime resource added
 - Cleanup: process smoke green on the rebuilt binary; no listener or child process left behind
@@ -61,4 +63,4 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Result and next batch
 
-Batch B06 is released as `v0.0.2` (the tag, merge commit, CI run, and release URL are filled by the post-merge finalization commit): the shell now follows the requested product visual language on one monochrome token system, with responsive and resizable layout, while every future surface stays disabled and labeled MVP-1. This final record is completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, CI runs, tag, and release URL cannot exist before the merge. Next: the post-`0.0.2` batches (Windows minimum environment, then the MVP-1 Linux product loop), each with its own reference environment and records. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
+Batch B06 is released as [`v0.0.2`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.2) on merge commit `fa04f24`: the shell now follows the requested product visual language on one monochrome token system, with responsive and resizable layout, while every future surface stays disabled and labeled MVP-1. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, CI run, tag, and release URL cannot exist before the merge. Next: the post-`0.0.2` batches (Windows minimum environment, then the MVP-1 Linux product loop), each with its own reference environment and records. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
