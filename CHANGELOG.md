@@ -10,6 +10,21 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.4
+
+Batch B08 (Companion Browser prerequisites, CB-A gate) is tracked by [pull/64](https://github.com/AlexandreZanata/brain-root-idea/pull/64) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B08-Preview-Prerequisites).
+
+### Documentation
+
+- The Preview origin policy is approved: only canonical loopback origins on BrainRoot-owned dev-server ports may load, fail-closed, with the denial rules, the Rust-owned enforcement contract, and the negative test corpus for the preview slice ([#65](https://github.com/AlexandreZanata/brain-root-idea/issues/65)).
+- The owned dev-server lifecycle is approved as ADR 0011: one declared-command server per project, an assigned loopback port registered for the preview, process-group termination that never kills foreign processes, no automatic restart loop, stop-on-close idle policy, and untrusted bounded output ([#66](https://github.com/AlexandreZanata/brain-root-idea/issues/66)).
+- A disposable Linux child-WebView probe and its measurement record document what the current Tauri/wry stack supports before any preview implementation is assigned ([#63](https://github.com/AlexandreZanata/brain-root-idea/issues/63)).
+
+### Known limitations
+
+- Child-view position and size are not honored on the Wayland reference stack (`GtkBox` hosting), so the Companion Canvas preview implementation waits for the ADR 0006 review; memory growth over 100 probe cycles is unclassified, and focus/WARM behavior is unmeasured.
+- The probe binary exists only behind the optional `probe` Cargo feature and is not part of the shipped app.
+
 ## 0.0.3
 
 Batch B07 (Companion Browser plan integration, documentation only) is tracked by [pull/60](https://github.com/AlexandreZanata/brain-root-idea/pull/60) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B07-Companion-Browser-Plan).
