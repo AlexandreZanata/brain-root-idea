@@ -60,10 +60,11 @@ fn valid_bounds(bounds: [f64; 4]) -> bool {
 
 #[tauri::command]
 pub fn preview_start(
+    app: tauri::AppHandle,
     state: tauri::State<'_, PreviewState>,
     request: PreviewStartRequest,
 ) -> Result<PreviewStartResponse, PreviewError> {
-    state.supervisor.start(request)
+    state.supervisor.start(request, Some(app))
 }
 
 #[tauri::command]
@@ -175,7 +176,7 @@ pub fn debug_fixture(app: tauri::AppHandle) {
             readiness_timeout_ms: Some(15_000),
             stop_grace_ms: Some(1_000),
         };
-        let Ok(started) = state.supervisor.start(request) else {
+        let Ok(started) = state.supervisor.start(request, Some(app.clone())) else {
             return;
         };
         let deadline = Instant::now() + Duration::from_secs(20);

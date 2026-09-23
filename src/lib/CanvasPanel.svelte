@@ -1,16 +1,8 @@
 <script lang="ts">
-  import ActionCard from "./ActionCard.svelte";
   import Button from "./Button.svelte";
-  import EmptyState from "./EmptyState.svelte";
-  import type { IconName } from "./Icon.svelte";
+  import PreviewPanel from "./PreviewPanel.svelte";
 
   const tabs = ["Preview", "Components", "Logs", "AI Notes"];
-
-  const actions: { icon: IconName; title: string; subtitle: string }[] = [
-    { icon: "code", title: "Generate a UI", subtitle: "Create a modern UI from a prompt" },
-    { icon: "repo", title: "Open a project", subtitle: "Connect an existing folder" },
-    { icon: "grid", title: "Use a template", subtitle: "Start from a ready template" }
-  ];
 </script>
 
 <section class="br-panel canvas" aria-labelledby="canvas-title">
@@ -34,15 +26,7 @@
   </div>
 
   <div class="br-panel__body canvas-body">
-    <EmptyState
-      title="Preview comes in MVP-1."
-      description="Local previews and the full Companion Canvas arrive with the next milestone. The agent loop works today."
-    />
-    <div class="canvas-cards">
-      {#each actions as action (action.title)}
-        <ActionCard icon={action.icon} title={action.title} subtitle={action.subtitle} />
-      {/each}
-    </div>
+    <PreviewPanel />
   </div>
 </section>
 
@@ -53,15 +37,9 @@
 
   .canvas-body {
     display: grid;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: minmax(0, 1fr);
     gap: 1rem;
     padding: 1.25rem;
-  }
-
-  .canvas-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-    gap: 0.6rem;
   }
 
   @media (max-width: 1080px) {

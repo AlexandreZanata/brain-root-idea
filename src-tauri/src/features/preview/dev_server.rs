@@ -15,6 +15,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
 
 const READINESS_MIN_MS: u64 = 1_000;
 const READINESS_MAX_MS: u64 = 60_000;
@@ -23,6 +24,7 @@ const GRACE_MIN_MS: u64 = 200;
 const GRACE_MAX_MS: u64 = 10_000;
 const GRACE_DEFAULT_MS: u64 = 5_000;
 const POLL: Duration = Duration::from_millis(100);
+const MONITOR: Duration = Duration::from_millis(500);
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(250);
 const OUTPUT_CAP_BYTES: usize = 8 * 1024;
 
@@ -140,6 +142,7 @@ struct Inner {
     child: Option<Child>,
     pgid: Option<i32>,
     grace_ms: u64,
+    app: Option<AppHandle>,
 }
 
 pub struct DevServerSupervisor {
@@ -164,6 +167,7 @@ impl DevServerSupervisor {
                 child: None,
                 pgid: None,
                 grace_ms: GRACE_DEFAULT_MS,
+                app: None,
             })),
             output: Arc::new(Mutex::new(CapturedOutput::new())),
         }
@@ -172,6 +176,7 @@ impl DevServerSupervisor {
     pub fn start(
         &self,
         request: PreviewStartRequest,
+        app: Option<AppHandle>,
     ) -> Result<PreviewStartResponse, PreviewError> {
         let command = request.command.trim().to_string();
         if command.is_empty() {
@@ -239,12 +244,16 @@ impl DevServerSupervisor {
         inner.child = Some(child);
         inner.pgid = Some(pgid);
         inner.grace_ms = grace_ms;
+        inner.app = app.clone();
+        let starting = snapshot(&inner);
         drop(inner);
+        emit_status(&app, &starting);
 
         spawn_readiness_worker(
             Arc::clone(&self.inner),
             port,
             Duration::from_millis(readiness_ms),
+            app,
         );
         Ok(PreviewStartResponse { port })
     }
@@ -255,7 +264,7 @@ impl DevServerSupervisor {
 
     pub fn stop(&self, grace_ms: u64) -> Result<PreviewStopResponse, PreviewError> {
         let grace = clamp(grace_ms, GRACE_MIN_MS, GRACE_MAX_MS);
-        let (pgid, mut child) = {
+        let (pgid, mut child, app) = {
             let mut inner = self.inner.lock().expect("preview state");
             match inner.phase {
                 PreviewPhase::Idle | PreviewPhase::Stopped => {
@@ -265,12 +274,16 @@ impl DevServerSupervisor {
                     inner.phase = PreviewPhase::Stopped;
                     inner.reason = None;
                     inner.exit_code = None;
+                    let stopped = snapshot(&inner);
+                    let app = inner.app.clone();
+                    drop(inner);
+                    emit_status(&app, &stopped);
                     return Ok(PreviewStopResponse { stopped: true });
                 }
                 PreviewPhase::Starting | PreviewPhase::Ready | PreviewPhase::Stopping => {}
             }
             inner.phase = PreviewPhase::Stopping;
-            (inner.pgid, inner.child.take())
+            (inner.pgid, inner.child.take(), inner.app.clone())
         };
         if let Some(pgid) = pgid {
             terminate_group(pgid, Duration::from_millis(grace));
@@ -285,29 +298,15 @@ impl DevServerSupervisor {
         inner.exit_code = None;
         inner.child = None;
         inner.pgid = None;
+        let stopped = snapshot(&inner);
+        drop(inner);
+        emit_status(&app, &stopped);
         Ok(PreviewStopResponse { stopped: true })
     }
 
     pub fn status(&self) -> PreviewStatus {
-        let mut inner = self.inner.lock().expect("preview state");
-        if matches!(inner.phase, PreviewPhase::Starting | PreviewPhase::Ready) {
-            if let Some(child) = inner.child.as_mut() {
-                if let Ok(Some(exit)) = child.try_wait() {
-                    inner.phase = PreviewPhase::Failed;
-                    inner.reason = Some("preview_exited_early".to_string());
-                    inner.exit_code = exit.code();
-                    inner.child = None;
-                    inner.pgid = None;
-                    inner.port = None;
-                }
-            }
-        }
-        PreviewStatus {
-            phase: inner.phase,
-            port: inner.port,
-            reason: inner.reason.clone(),
-            exit_code: inner.exit_code,
-        }
+        let inner = self.inner.lock().expect("preview state");
+        snapshot(&inner)
     }
 
     #[cfg(test)]
@@ -379,7 +378,12 @@ fn spawn_reader(
     });
 }
 
-fn spawn_readiness_worker(inner: Arc<Mutex<Inner>>, port: u16, timeout: Duration) {
+fn spawn_readiness_worker(
+    inner: Arc<Mutex<Inner>>,
+    port: u16,
+    timeout: Duration,
+    app: Option<AppHandle>,
+) {
     thread::spawn(move || {
         let deadline = Instant::now() + timeout;
         loop {
@@ -403,6 +407,9 @@ fn spawn_readiness_worker(inner: Arc<Mutex<Inner>>, port: u16, timeout: Duration
                     state.child = None;
                     state.pgid = None;
                     state.port = None;
+                    let failed = snapshot(&state);
+                    drop(state);
+                    emit_status(&app, &failed);
                     return;
                 }
             }
@@ -411,7 +418,10 @@ fn spawn_readiness_worker(inner: Arc<Mutex<Inner>>, port: u16, timeout: Duration
                 if state.phase == PreviewPhase::Starting {
                     state.phase = PreviewPhase::Ready;
                 }
-                return;
+                let ready = snapshot(&state);
+                drop(state);
+                emit_status(&app, &ready);
+                break;
             }
             if Instant::now() >= deadline {
                 let pgid = {
@@ -435,11 +445,63 @@ fn spawn_readiness_worker(inner: Arc<Mutex<Inner>>, port: u16, timeout: Duration
                 state.child = None;
                 state.pgid = None;
                 state.port = None;
+                let failed = snapshot(&state);
+                drop(state);
+                emit_status(&app, &failed);
                 return;
             }
             thread::sleep(POLL);
         }
+
+        // Crash-after-ready monitor: the owned server is watched until the
+        // phase leaves Ready, so a crash becomes a visible failed state
+        // without any frontend polling.
+        loop {
+            thread::sleep(MONITOR);
+            let (status, exited) = {
+                let mut state = inner.lock().expect("preview state");
+                if state.phase != PreviewPhase::Ready {
+                    return;
+                }
+                let exited = match state.child.as_mut() {
+                    Some(child) => match child.try_wait() {
+                        Ok(Some(exit)) => Some(exit),
+                        Ok(None) => None,
+                        Err(_) => None,
+                    },
+                    None => None,
+                };
+                if let Some(exit) = exited {
+                    state.phase = PreviewPhase::Failed;
+                    state.reason = Some("preview_exited_early".to_string());
+                    state.exit_code = exit.code();
+                    state.child = None;
+                    state.pgid = None;
+                    state.port = None;
+                }
+                (snapshot(&state), exited.is_some())
+            };
+            if exited {
+                emit_status(&app, &status);
+                return;
+            }
+        }
     });
+}
+
+fn snapshot(inner: &Inner) -> PreviewStatus {
+    PreviewStatus {
+        phase: inner.phase,
+        port: inner.port,
+        reason: inner.reason.clone(),
+        exit_code: inner.exit_code,
+    }
+}
+
+fn emit_status(app: &Option<AppHandle>, status: &PreviewStatus) {
+    if let Some(app) = app {
+        let _ = app.emit("preview-status", status);
+    }
 }
 
 fn terminate_group(pgid: i32, grace: Duration) {
@@ -502,10 +564,13 @@ mod tests {
     fn readiness_succeeds_and_stop_cleans_up() {
         let supervisor = DevServerSupervisor::new();
         let response = supervisor
-            .start(request(
-                "sh",
-                &["-c", "python3 -m http.server \"$PORT\" --bind 127.0.0.1"],
-            ))
+            .start(
+                request(
+                    "sh",
+                    &["-c", "python3 -m http.server \"$PORT\" --bind 127.0.0.1"],
+                ),
+                None,
+            )
             .expect("start");
         assert!(response.port > 0);
         let status = wait_for_phase(&supervisor, &[PreviewPhase::Ready, PreviewPhase::Failed]);
@@ -526,13 +591,16 @@ mod tests {
     fn grandchild_is_cleaned_up_with_the_group() {
         let supervisor = DevServerSupervisor::new();
         supervisor
-            .start(request(
-                "sh",
-                &[
-                    "-c",
-                    "python3 -m http.server \"$PORT\" --bind 127.0.0.1 & wait",
-                ],
-            ))
+            .start(
+                request(
+                    "sh",
+                    &[
+                        "-c",
+                        "python3 -m http.server \"$PORT\" --bind 127.0.0.1 & wait",
+                    ],
+                ),
+                None,
+            )
             .expect("start");
         let status = wait_for_phase(&supervisor, &[PreviewPhase::Ready, PreviewPhase::Failed]);
         assert_eq!(status.phase, PreviewPhase::Ready, "status: {status:?}");
@@ -551,7 +619,7 @@ mod tests {
         let supervisor = DevServerSupervisor::new();
         let mut start = request("sh", &["-c", "sleep 63"]);
         start.readiness_timeout_ms = Some(1_000);
-        supervisor.start(start).expect("start");
+        supervisor.start(start, None).expect("start");
         let status = wait_for_phase(&supervisor, &[PreviewPhase::Failed]);
         assert_eq!(status.phase, PreviewPhase::Failed, "status: {status:?}");
         assert_eq!(status.reason.as_deref(), Some("preview_not_ready"));
@@ -565,7 +633,7 @@ mod tests {
     fn early_exit_is_detected() {
         let supervisor = DevServerSupervisor::new();
         supervisor
-            .start(request("sh", &["-c", "exit 3"]))
+            .start(request("sh", &["-c", "exit 3"]), None)
             .expect("start");
         let status = wait_for_phase(&supervisor, &[PreviewPhase::Failed]);
         assert_eq!(status.phase, PreviewPhase::Failed, "status: {status:?}");
@@ -574,15 +642,40 @@ mod tests {
     }
 
     #[test]
+    fn crash_after_ready_is_detected() {
+        let supervisor = DevServerSupervisor::new();
+        supervisor
+            .start(
+                request(
+                    "sh",
+                    &[
+                        "-c",
+                        "python3 -m http.server \"$PORT\" --bind 127.0.0.1 & server=$!; sleep 2; kill \"$server\"; wait",
+                    ],
+                ),
+                None,
+            )
+            .expect("start");
+        let ready = wait_for_phase(&supervisor, &[PreviewPhase::Ready, PreviewPhase::Failed]);
+        assert_eq!(ready.phase, PreviewPhase::Ready, "status: {ready:?}");
+        let failed = wait_for_phase(&supervisor, &[PreviewPhase::Failed]);
+        assert_eq!(failed.phase, PreviewPhase::Failed, "status: {failed:?}");
+        assert_eq!(failed.reason.as_deref(), Some("preview_exited_early"));
+    }
+
+    #[test]
     fn duplicate_start_is_rejected() {
         let supervisor = DevServerSupervisor::new();
         supervisor
-            .start(request(
-                "sh",
-                &["-c", "python3 -m http.server \"$PORT\" --bind 127.0.0.1"],
-            ))
+            .start(
+                request(
+                    "sh",
+                    &["-c", "python3 -m http.server \"$PORT\" --bind 127.0.0.1"],
+                ),
+                None,
+            )
             .expect("start");
-        let duplicate = supervisor.start(request("sh", &["-c", "sleep 30"]));
+        let duplicate = supervisor.start(request("sh", &["-c", "sleep 30"]), None);
         assert!(duplicate.is_err(), "duplicate start was accepted");
         assert_eq!(duplicate.expect_err("error").code, "preview_already_active");
         supervisor.stop(500).expect("stop");
@@ -591,21 +684,27 @@ mod tests {
     #[test]
     fn invalidation_is_plain_and_bounded() {
         let supervisor = DevServerSupervisor::new();
-        let missing = supervisor.start(PreviewStartRequest {
-            command: "  ".to_string(),
-            args: Vec::new(),
-            cwd: "/tmp".to_string(),
-            readiness_timeout_ms: None,
-            stop_grace_ms: None,
-        });
+        let missing = supervisor.start(
+            PreviewStartRequest {
+                command: "  ".to_string(),
+                args: Vec::new(),
+                cwd: "/tmp".to_string(),
+                readiness_timeout_ms: None,
+                stop_grace_ms: None,
+            },
+            None,
+        );
         assert_eq!(missing.expect_err("error").code, "preview_command_missing");
-        let relative = supervisor.start(PreviewStartRequest {
-            command: "sh".to_string(),
-            args: Vec::new(),
-            cwd: "relative".to_string(),
-            readiness_timeout_ms: None,
-            stop_grace_ms: None,
-        });
+        let relative = supervisor.start(
+            PreviewStartRequest {
+                command: "sh".to_string(),
+                args: Vec::new(),
+                cwd: "relative".to_string(),
+                readiness_timeout_ms: None,
+                stop_grace_ms: None,
+            },
+            None,
+        );
         assert_eq!(relative.expect_err("error").code, "preview_cwd_invalid");
     }
 
@@ -620,7 +719,7 @@ mod tests {
             ],
         );
         start.readiness_timeout_ms = Some(1_500);
-        supervisor.start(start).expect("start");
+        supervisor.start(start, None).expect("start");
         let status = wait_for_phase(&supervisor, &[PreviewPhase::Failed]);
         assert_eq!(status.phase, PreviewPhase::Failed, "status: {status:?}");
         let (stdout_total, stdout_buffered, _, _) = supervisor.captured_lengths();
