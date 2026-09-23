@@ -1,6 +1,6 @@
 [package]
 name = "brainroot"
-version = "0.0.3"
+version = "0.0.4"
 description = "BrainRoot experimental Linux shell"
 authors = ["BrainRoot contributors"]
 license = "Apache-2.0"
@@ -16,6 +16,14 @@ serde_json = "1"
 ureq = { version = "3.4.2", features = ["json"] }
 keyring = "4.2.0"
 uuid = { version = "1.26.1", features = ["v4"] }
+
+[features]
+probe = ["tauri/unstable"]
+
+[[bin]]
+name = "webview_probe"
+path = "src/bin/webview_probe.rs"
+required-features = ["probe"]
 
 [profile.release]
 codegen-units = 1
