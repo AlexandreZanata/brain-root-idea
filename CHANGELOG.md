@@ -10,6 +10,20 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.9
+
+Batch B13 (Human Browser prerequisites, CB-B gate) is tracked by [pull/84](https://github.com/AlexandreZanata/brain-root-idea/pull/84) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B13-Human-Browser-Prerequisites).
+
+### Documentation
+
+- The Human Browser policy is approved as [ADR 0013](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/adr/0013-human-browser-policy.md): a fourth trust role with no BrainRoot IPC, arbitrary `http`/`https` after explicit user direction, denied schemes/popups/downloads/permission prompts, a BrainRoot-owned persistent profile separate from every other role and installed browsers, one remote HOT view with honest COLD semantics, no ambient sharing, and the implementation explicitly post-MVP ([#83](https://github.com/AlexandreZanata/brain-root-idea/issues/83)).
+- The [profile isolation probe](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/specs/human-profile-isolation-probe.md) measured `go`: two role profiles are isolated in both directions, persist across destroy/recreate, live under the application data directory, and clean up ([#85](https://github.com/AlexandreZanata/brain-root-idea/issues/85)).
+
+### Known limitations
+
+- The Human Browser itself remains unimplemented and post-MVP; no remote browsing, Deck switching, downloads, or sharing flow exists.
+- Cookie/cache isolation, deletion/reset with confirmation, crash recovery, keyboard/focus and accessibility inside remote content, and curated-mode and retention UX stay open for the implementation batch.
+
 ## 0.0.8
 
 Batch B12 (preview quality measurements) is tracked by [pull/81](https://github.com/AlexandreZanata/brain-root-idea/pull/81) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B12-Preview-Quality).
