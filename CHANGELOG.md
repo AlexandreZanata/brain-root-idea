@@ -10,6 +10,20 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.5
+
+Batch B09 (Linux preview hosting decision, CB-A gate 2) is tracked by [pull/69](https://github.com/AlexandreZanata/brain-root-idea/pull/69) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B09-Preview-Hosting).
+
+### Documentation
+
+- The ADR 0006 review is decided as [ADR 0012](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/adr/0012-linux-preview-hosting.md): on Linux the preview is a `wry` WebView hosted in a `GtkFixed` overlay inside the single Tauri window, outside the Tauri webview manager and with no Tauri IPC by construction; one Rust-owned view with shell-reported geometry, the approved origin allowlist, and an isolated profile ([#68](https://github.com/AlexandreZanata/brain-root-idea/issues/68), [#70](https://github.com/AlexandreZanata/brain-root-idea/issues/70)).
+- The hosting probe records the measured `go` on the reference environment — exact bounds for two views, exact resize, `file://` denial, shell allocation unchanged, and clean removal — while keeping focus, zoom/scale, DPR, soak, and crash behavior explicit as preview-slice acceptance checks ([#68](https://github.com/AlexandreZanata/brain-root-idea/issues/68)).
+
+### Known limitations
+
+- The hosting decision is not a preview capability: no preview or dev server ships, and the unmeasured behavior above is not claimed.
+- The optional `gtk`/`wry` direct dependencies exist only behind the `probe` feature; the shipped build and bundle are unchanged.
+
 ## 0.0.4
 
 Batch B08 (Companion Browser prerequisites, CB-A gate) is tracked by [pull/64](https://github.com/AlexandreZanata/brain-root-idea/pull/64) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B08-Preview-Prerequisites).

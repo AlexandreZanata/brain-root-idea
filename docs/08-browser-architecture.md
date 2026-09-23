@@ -13,6 +13,8 @@ Origin, profile, cookies, cache, storage, IPC capability, navigation, downloads,
 
 Use one primary shell WebView plus one on-demand preview child WebView if the platform implementation proves reliable. The preview receives no privileged core API by default. Agent QA runs Playwright as an on-demand child process against localhost rather than reusing a human browsing session.
 
+On Linux the platform evidence is now in: the managed child-WebView path fails geometry (B08-S01), and the preview is a `wry` WebView hosted in a `GtkFixed` overlay inside the same window, outside the Tauri webview manager and with no Tauri IPC by construction (B09-S01). See [ADR 0012](adr/0012-linux-preview-hosting.md) and the [hosting probe](specs/linux-preview-hosting-probe.md).
+
 ## Platform facts and limits
 
 - Windows uses Edge WebView2, macOS uses WKWebView, and Linux uses WebKitGTK through WRY/Tauri.

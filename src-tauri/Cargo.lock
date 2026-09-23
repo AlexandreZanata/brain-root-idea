@@ -334,8 +334,9 @@ dependencies = [
 
 [[package]]
 name = "brainroot"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
+ "gtk",
  "keyring",
  "serde",
  "serde_json",
@@ -343,6 +344,7 @@ dependencies = [
  "tauri-build",
  "ureq",
  "uuid",
+ "wry",
 ]
 
 [[package]]
