@@ -42,6 +42,8 @@ HOT/WARM/COLD/DEAD are product lifecycle states. WARM maps to native throttling 
 
 The agent may use its own browser context for localhost, screenshots, DOM, console, network, and interaction. Access to a Human Browser page requires a specific user-mediated share action describing exactly what becomes visible. Cookies and authenticated storage are never copied to the agent profile automatically.
 
+The Human Browser role and its boundaries are approved in [ADR 0013](adr/0013-human-browser-policy.md): user-directed `http`/`https` with denied schemes, popups, downloads, and permission prompts; a BrainRoot-owned persistent profile separate from every other role and from installed browsers; and no ambient agent access.
+
 ## Navigation and content policy
 
 - Allow only expected localhost origins in MVP preview, exactly as defined by the [localhost preview origin policy](specs/preview-origin-policy.md).
