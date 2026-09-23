@@ -19,12 +19,11 @@ use crate::features::canvas_host as host;
 
 thread_local! {
     static VIEW: RefCell<Option<PreviewView>> = const { RefCell::new(None) };
+    static CONTEXT: RefCell<Option<(PathBuf, WebContext)>> = const { RefCell::new(None) };
 }
 
 struct PreviewView {
     webview: WebView,
-    #[allow(dead_code)]
-    context: WebContext,
     #[allow(dead_code)]
     port: u16,
 }
@@ -64,26 +63,38 @@ pub fn show(app: &AppHandle, port: u16, bounds: Rect, profile_root: PathBuf) -> 
         let window = webview_window.as_ref().window();
         let fixed = host::ensure_fixed(&window)?;
         destroy_current()?;
-        let _ = std::fs::create_dir_all(&profile_root);
-        let mut context = WebContext::new(Some(profile_root.join("preview-profile")));
-        let allowed_port = port;
-        let builder = WebViewBuilder::new_with_web_context(&mut context)
-            .with_url(preview_url(allowed_port))
-            .with_bounds(bounds)
-            .with_navigation_handler(move |candidate| {
-                preview_origin_allowed(&candidate, allowed_port)
+        CONTEXT.with(|slot| {
+            let mut slot = slot.borrow_mut();
+            let needs_context = !matches!(
+                slot.as_ref(),
+                Some((root, _)) if root == &profile_root
+            );
+            if needs_context {
+                let _ = std::fs::create_dir_all(&profile_root);
+                *slot = Some((
+                    profile_root.clone(),
+                    WebContext::new(Some(profile_root.join("preview-profile"))),
+                ));
+            }
+            let context = &mut slot.as_mut().expect("preview context").1;
+            let allowed_port = port;
+            let builder = WebViewBuilder::new_with_web_context(context)
+                .with_url(preview_url(allowed_port))
+                .with_bounds(bounds)
+                .with_navigation_handler(move |candidate| {
+                    preview_origin_allowed(&candidate, allowed_port)
+                });
+            let webview = builder
+                .build_gtk(&fixed)
+                .map_err(|error| format!("preview view failed: {error}"))?;
+            VIEW.with(|view| {
+                *view.borrow_mut() = Some(PreviewView {
+                    webview,
+                    port: allowed_port,
+                });
             });
-        let webview = builder
-            .build_gtk(&fixed)
-            .map_err(|error| format!("preview view failed: {error}"))?;
-        VIEW.with(|view| {
-            *view.borrow_mut() = Some(PreviewView {
-                webview,
-                context,
-                port: allowed_port,
-            });
-        });
-        Ok(())
+            Ok(())
+        })
     })
 }
 
@@ -127,6 +138,11 @@ pub type DebugAllocation = (i32, i32, i32, i32);
 
 /// Debug-only measurements used by the fixture harness: scale factor and the
 /// preview widget's physical allocation. Release builds never compile this.
+#[cfg(debug_assertions)]
+pub fn debug_present(app: &AppHandle) -> bool {
+    host::on_main_thread(app, || VIEW.with(|slot| Ok(slot.borrow().is_some()))).unwrap_or(false)
+}
+
 #[cfg(debug_assertions)]
 pub fn debug_environment(app: &AppHandle) -> Result<(i32, DebugAllocation), String> {
     host::on_main_thread(app, || {

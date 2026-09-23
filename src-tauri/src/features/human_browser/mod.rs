@@ -206,6 +206,12 @@ pub fn human_browser_status(
     Ok(snapshot)
 }
 
+/// Debug-only: whether a live human browser view exists.
+#[cfg(debug_assertions)]
+pub fn debug_view_present(app: &tauri::AppHandle) -> bool {
+    view::debug_present(app)
+}
+
 #[cfg(debug_assertions)]
 pub fn debug_fixture(app: tauri::AppHandle) {
     use std::io::{Read, Write};

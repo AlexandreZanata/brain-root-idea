@@ -8,7 +8,8 @@ mod dev_server;
 mod view;
 
 pub use dev_server::{
-    PreviewError, PreviewStartRequest, PreviewStartResponse, PreviewStatus, PreviewStopResponse,
+    PreviewError, PreviewPhase, PreviewStartRequest, PreviewStartResponse, PreviewStatus,
+    PreviewStopResponse,
 };
 
 use std::sync::{Arc, Mutex};
@@ -202,6 +203,12 @@ fn child_process_count() -> usize {
         }
     }
     count
+}
+
+/// Debug-only: whether a live preview view exists.
+#[cfg(debug_assertions)]
+pub fn debug_view_present(app: &tauri::AppHandle) -> bool {
+    view::debug_present(app)
 }
 
 /// Debug-only fixture harness: starts the owned server with a local HTTP

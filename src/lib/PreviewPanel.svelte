@@ -267,7 +267,8 @@
     <p class="preview-lede">
       BrainRoot runs one command you choose, on one folder, and shows only the local
       address it starts. Nothing else is started, and it stops when you stop it or
-      close BrainRoot.
+      close BrainRoot. Switching Canvas tabs closes the preview view; the app reloads
+      when you return, and the dev server keeps running until you stop it.
     </p>
     <div class="preview-fields">
       <label for="preview-command">Command</label>
