@@ -36,6 +36,10 @@ fn main() {
             if std::env::var("BRAINROOT_HUMAN_FIXTURE").as_deref() == Ok("1") {
                 features::human_browser::debug_fixture(app.handle().clone());
             }
+            #[cfg(debug_assertions)]
+            if std::env::var("BRAINROOT_DECK_FIXTURE").as_deref() == Ok("1") {
+                features::deck::debug_fixture(app.handle().clone());
+            }
             Ok(())
         })
         .on_window_event(|window, event| {

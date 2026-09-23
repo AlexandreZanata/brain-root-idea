@@ -22,12 +22,11 @@ use crate::features::canvas_host as host;
 
 thread_local! {
     static VIEW: RefCell<Option<HumanView>> = const { RefCell::new(None) };
+    static CONTEXT: RefCell<Option<(PathBuf, WebContext)>> = const { RefCell::new(None) };
 }
 
 struct HumanView {
     webview: WebView,
-    #[allow(dead_code)]
-    context: WebContext,
 }
 
 /// The shell-visible status of the Human Browser.
@@ -87,8 +86,6 @@ pub fn show(
         let window = webview_window.as_ref().window();
         let fixed = host::ensure_fixed(&window)?;
         destroy_current()?;
-        let _ = std::fs::create_dir_all(&profile_root);
-        let mut context = WebContext::new(Some(profile_root.join("human-profile")));
 
         let nav_status = Arc::clone(&status);
         let popup_status = Arc::clone(&status);
@@ -99,49 +96,65 @@ pub fn show(
         let download_app = handle.clone();
         let title_app = handle.clone();
         let initial_url = url.clone();
-        let builder = WebViewBuilder::new_with_web_context(&mut context)
-            .with_url(url)
-            .with_bounds(bounds)
-            .with_navigation_handler(move |candidate| {
-                let allowed = match decide_navigation(&candidate) {
-                    NavigationDecision::Allow => {
-                        record_allowed(&nav_status, &candidate);
-                        true
+        CONTEXT.with::<_, Result<(), String>>(|slot| {
+            let mut slot = slot.borrow_mut();
+            let needs_context = !matches!(
+                slot.as_ref(),
+                Some((root, _)) if root == &profile_root
+            );
+            if needs_context {
+                let _ = std::fs::create_dir_all(&profile_root);
+                *slot = Some((
+                    profile_root.clone(),
+                    WebContext::new(Some(profile_root.join("human-profile"))),
+                ));
+            }
+            let context = &mut slot.as_mut().expect("human context").1;
+            let builder = WebViewBuilder::new_with_web_context(context)
+                .with_url(url)
+                .with_bounds(bounds)
+                .with_navigation_handler(move |candidate| {
+                    let allowed = match decide_navigation(&candidate) {
+                        NavigationDecision::Allow => {
+                            record_allowed(&nav_status, &candidate);
+                            true
+                        }
+                        NavigationDecision::OpenExternal => {
+                            record_denial(&nav_status, "human_external_open");
+                            false
+                        }
+                        NavigationDecision::Deny { code } => {
+                            record_denial(&nav_status, &code);
+                            false
+                        }
+                    };
+                    emit_status(&nav_app, &nav_status);
+                    allowed
+                })
+                .with_new_window_req_handler(move |_url, _features| {
+                    record_denial(&popup_status, "human_popup_denied");
+                    emit_status(&popup_app, &popup_status);
+                    NewWindowResponse::Deny
+                })
+                .with_download_started_handler(move |_url, _path| {
+                    record_denial(&download_status, "human_download_denied");
+                    emit_status(&download_app, &download_status);
+                    false
+                })
+                .with_document_title_changed_handler(move |title| {
+                    if let Ok(mut status) = title_status.lock() {
+                        status.title = Some(title);
                     }
-                    NavigationDecision::OpenExternal => {
-                        record_denial(&nav_status, "human_external_open");
-                        false
-                    }
-                    NavigationDecision::Deny { code } => {
-                        record_denial(&nav_status, &code);
-                        false
-                    }
-                };
-                emit_status(&nav_app, &nav_status);
-                allowed
-            })
-            .with_new_window_req_handler(move |_url, _features| {
-                record_denial(&popup_status, "human_popup_denied");
-                emit_status(&popup_app, &popup_status);
-                NewWindowResponse::Deny
-            })
-            .with_download_started_handler(move |_url, _path| {
-                record_denial(&download_status, "human_download_denied");
-                emit_status(&download_app, &download_status);
-                false
-            })
-            .with_document_title_changed_handler(move |title| {
-                if let Ok(mut status) = title_status.lock() {
-                    status.title = Some(title);
-                }
-                emit_status(&title_app, &title_status);
+                    emit_status(&title_app, &title_status);
+                });
+            let webview = builder
+                .build_gtk(&fixed)
+                .map_err(|error| format!("human view failed: {error}"))?;
+            VIEW.with(|slot| {
+                *slot.borrow_mut() = Some(HumanView { webview });
             });
-        let webview = builder
-            .build_gtk(&fixed)
-            .map_err(|error| format!("human view failed: {error}"))?;
-        VIEW.with(|slot| {
-            *slot.borrow_mut() = Some(HumanView { webview, context });
-        });
+            Ok(())
+        })?;
         if let Ok(mut status) = status.lock() {
             status.visible = true;
             status.url = Some(initial_url);

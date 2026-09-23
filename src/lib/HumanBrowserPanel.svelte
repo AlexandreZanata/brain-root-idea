@@ -240,6 +240,7 @@
       <p class="browser-placeholder">
         Enter a web address to open it here. This browser is separate from your
         installed browsers and blocked from opening downloads or popups.
+        Switching Canvas tabs closes this page; in-memory state may be lost.
       </p>
     {/if}
   </div>

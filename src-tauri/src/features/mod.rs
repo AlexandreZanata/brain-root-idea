@@ -5,6 +5,7 @@
 
 pub mod canvas_host;
 pub mod conversation;
+pub mod deck;
 pub mod health;
 pub mod human_browser;
 pub mod preview;
