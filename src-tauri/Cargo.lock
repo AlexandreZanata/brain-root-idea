@@ -334,10 +334,11 @@ dependencies = [
 
 [[package]]
 name = "brainroot"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "gtk",
  "keyring",
+ "libc",
  "serde",
  "serde_json",
  "tauri",

@@ -1,6 +1,6 @@
 [package]
 name = "brainroot"
-version = "0.0.5"
+version = "0.0.6"
 description = "BrainRoot experimental Linux shell"
 authors = ["BrainRoot contributors"]
 license = "Apache-2.0"
@@ -18,7 +18,7 @@ keyring = "4.2.0"
 uuid = { version = "1.26.1", features = ["v4"] }
 
 [features]
-probe = ["tauri/unstable", "dep:gtk", "dep:wry"]
+probe = ["tauri/unstable"]
 
 [[bin]]
 name = "webview_probe"
@@ -31,8 +31,11 @@ path = "src/bin/preview_hosting_probe.rs"
 required-features = ["probe"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
-gtk = { version = "0.18", optional = true }
-wry = { version = "0.55", optional = true }
+gtk = "0.18"
+wry = "0.55"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [profile.release]
 codegen-units = 1
