@@ -4,12 +4,13 @@
 
 ## Header
 
-- Status: Ready (awaiting maintainer approval to merge)
+- Status: Released
 - Objective: Deny every web permission fail-closed with recorded codes and let the user clear the BrainRoot-owned browser data, with the deny/clear paths measured before any permission UX ships.
-- Branch: `batch/b16-permission-controls`
+- Branch: `batch/b16-permission-controls` (deleted after merge)
 - Draft/final PR: [#95](https://github.com/AlexandreZanata/brain-root-idea/pull/95)
+- Merge commit: `2bf1c262e64126f75ccfadc7ccf7d357b2dda663`
 - Baseline commit: `7de12cf` (B15 released)
-- Target/resulting version: `0.0.12` (permission controls; no artifact)
+- Target/resulting version: `0.0.12` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.12) without artifact)
 - Started/completed: 2026-09-23 / 2026-09-23
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned)
 - Repository history mirror: this file (created at batch close)
@@ -34,7 +35,7 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 - Decision (B16-S01): permission requests are denied fail-closed with an honest kind code; a new WebKit permission type is denied without a code change.
 - Decision (B16-S01): in the current single-profile design, clear site data and profile reset are the same operation — BrainRoot owns the whole profile and there is no separate settings store; the command is labeled "clear browser data".
 - Decision (B16-S02): the surface never offers a permission grant; the denial is explained in product language and the clear action requires an explicit confirmation.
-- Decision (B16-S03): a capability batch still changes the version exactly once at finalization (`0.0.12`) per `docs/19-release-and-versioning.md`, with no artifact; merge, tag, and release wait for maintainer approval.
+- Decision (B16-S03): a capability batch still changes the version exactly once at finalization (`0.0.12`) per `docs/19-release-and-versioning.md`, with no artifact. Resolution at merge: the authenticated owner cannot self-approve, so the merge used the documented single-maintainer administrator path; the annotated tag was created only after the merge commit existed on `main`.
 
 ## Failures and recovery
 
@@ -42,8 +43,9 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Final gates
 
-- Full CI: `check-full-linux` on the finalization head — run URL recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/97) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B16-Permission-Controls)
-- Review: requested; awaiting maintainer approval (documented single-maintainer administrator path)
+- Full CI: [`check-full-linux` success on the finalization head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35915859872) (`f564a68`); post-merge `push` runs on `main` for `2bf1c26` and the finalization commit are recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/97) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B16-Permission-Controls)
+- Review: single-maintainer administrator bypass documented; merged at B16-S03
+- Release: annotated `v0.0.12` on merge commit `2bf1c26`; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.12) without artifact
 - Security/privacy: every permission denied fail-closed; clear-data removes only the BrainRoot-owned profile; the harness runs against a probe root
 - Performance: no new resource; denial is in-process
 - Cleanup: all three harnesses exit 0 with no process, listener, or probe profile behind
@@ -52,4 +54,4 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Result and next batch
 
-B16 closes the CB-B permission candidate: the browser denies every web permission fail-closed with plain-language reporting and clears its BrainRoot-owned data on explicit confirmation. Next: the remaining browser candidates (portable import, phone presentation) or the roadmap's deferred phases. Rollback: revert the batch commits; the profile can be cleared at any time by the user.
+Batch B16 is released as [`v0.0.12`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.12) on merge commit `2bf1c26`: the browser denies every web permission fail-closed with plain-language reporting and clears its BrainRoot-owned data on explicit confirmation. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, CI run, tag, and release URL cannot exist before the merge. Next: the remaining browser candidates (portable import, phone presentation) or the roadmap's deferred phases. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
