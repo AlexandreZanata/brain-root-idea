@@ -42,7 +42,7 @@ The agent may use its own browser context for localhost, screenshots, DOM, conso
 
 ## Navigation and content policy
 
-- Allow only expected localhost origins in MVP preview.
+- Allow only expected localhost origins in MVP preview, exactly as defined by the [localhost preview origin policy](specs/preview-origin-policy.md).
 - Deny privileged IPC from remote and preview origins.
 - Open unapproved schemes and external domains through an explicit decision.
 - Restrict downloads, file URLs, new windows, permission prompts, and cross-origin navigation.

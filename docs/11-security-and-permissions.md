@@ -57,6 +57,8 @@ Record principal, capability, action, resource scope, purpose, session/task, dec
 
 Tauri capabilities authorize UI-to-core IPC but do not sandbox arbitrary commands. The initial product must report its actual enforcement level per platform and never market UI approval as containment.
 
+The Preview role has an approved allowlist rather than generic localhost trust: only canonical loopback hosts (`127.0.0.1`, `::1`, `localhost`) on BrainRoot-owned dev-server ports may load, fail-closed, with no privileged IPC and no in-preview permission prompts. The exact rules and the negative corpus are in the [localhost preview origin policy](specs/preview-origin-policy.md); enforcement and its tests belong to CB-A A4 and are not claimed before then.
+
 ## Secrets
 
 Secrets never enter `.brainroot/`, SQLite logs, task history, screenshots, or source control. Store small provider credentials through macOS Keychain, Windows Credential Locker, and a compatible Linux Secret Service when available; define a secure failure UX when no store exists. [Apple Keychain](https://developer.apple.com/documentation/security/keychain-services) and [Windows Credential Locker](https://learn.microsoft.com/en-us/windows/apps/develop/security/credential-locker). Tauri Stronghold is an encrypted vault option, not automatically equivalent to OS credential storage and requires a key-unlock design.
