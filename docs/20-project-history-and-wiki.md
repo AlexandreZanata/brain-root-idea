@@ -52,6 +52,10 @@ Wiki capabilities and page naming are initialized in B00. If nested names are no
 - Copy the final normalized record into `docs/history/batches/Bxx-<name>.md` through the batch PR.
 - Verify bidirectional repository/Wiki links and update Current Status.
 
+### While final CI is running
+
+The last implementation task records `CI_PENDING`, PR URL, submitted head SHA, and next owner/action in the PR and Wiki, then ends without waiting. A later task checks the latest head and required checks once. Pending remains open; failure creates a tracked remediation issue; success still requires review and all merge gates. The final CI result, merge SHA, and tag are recorded only when known. Never pre-fill them as passing or repeatedly poll within a task.
+
 ## Required history content
 
 Every batch record answers:
@@ -84,4 +88,3 @@ Do not erase a failed experiment after the solution works. The failed path is pa
 Final batch CI cannot directly prove the remote Wiki is synchronized without additional GitHub credentials. The finalization issue therefore requires a maintainer-visible Wiki link and a manual comparison. Future automation may clone the Wiki repository read-only and compare normalized metadata, but it must not receive broader repository authority than needed.
 
 If the Wiki is unavailable, the repository history is completed, the batch remains unmergeable unless a maintainer explicitly records a temporary exception, and the Wiki-sync task remains open. Never claim the Wiki was updated when it was not.
-

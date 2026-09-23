@@ -1,0 +1,11 @@
+---
+description: Never wait for BrainRoot batch CI within an agent task; hand off and finalize later.
+alwaysApply: true
+---
+
+# Asynchronous batch CI
+
+- Complete each issue's exact local micro-gate before closing it.
+- At the last issue, update version/history/Wiki, mark the batch PR Ready, record `CI_PENDING` and its head SHA, then end the task without polling or waiting.
+- In a future task, inspect the PR's latest head, required CI, review, and conversations once. Pending: stop. Failed: track remediation in an issue. Green and approved: merge and tag per `docs/18-mvp-execution-plan.md`.
+- Never merge on stale checks, bypass protected-branch gates, or start dependent implementation from an unmerged batch. Independent preparation may proceed.

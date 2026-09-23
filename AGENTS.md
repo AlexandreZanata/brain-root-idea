@@ -115,7 +115,7 @@ Implementation work follows `docs/18-mvp-execution-plan.md`. This protocol is ma
 - Make one focused commit per completed issue and reference the issue number. Never combine unrelated issues in one commit.
 - Run the issue's local micro-gate before closing it. Post evidence in the issue, link it to the batch PR, update the PR checklist, then close it manually.
 - Do not use `Closes #N` for a microstep that must close before the batch PR merges; use `Refs #N`. Reopen the issue if later batch work invalidates its acceptance evidence.
-- Do not wait for the full CI after each microstep. Full CI is required on the latest batch head after all planned issues are complete and before merge to `main`.
+- Never wait or poll for full CI inside a task. After the final microstep, mark the PR Ready, record the head SHA and a `CI_PENDING` handoff in the PR/Wiki, and end the task. A later task checks the latest-head result once and handles merge or remediation. Full CI and review remain mandatory before merge to `main`.
 - A failing final CI creates a new remediation issue or reopens the responsible issue. Never patch an untracked failure silently.
 - Update the repository history record and GitHub Wiki batch page before merge.
 - Version only at batch/release boundaries according to `docs/19-release-and-versioning.md`; never invent version numbers.

@@ -39,6 +39,10 @@ List each added/removed dependency and link its approved issue evidence. Write `
 
 ## Final evidence
 
+- Handoff state: `DRAFT | CI_PENDING | CI_FAILED | CI_GREEN | MERGED`
+- Submitted head SHA:
+- Last non-blocking CI observation (time/result/head):
+- Next owner/action:
 - Full Linux CI run:
 - Review approval:
 - Test environment:
@@ -59,4 +63,3 @@ List each added/removed dependency and link its approved issue evidence. Write `
 - [ ] Wiki and repository history synchronized.
 - [ ] Rollback/recovery path documented.
 - [ ] Merge commit strategy selected; branch deleted after merge.
-
