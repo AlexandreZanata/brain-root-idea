@@ -10,6 +10,20 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.7
+
+Batch B11 (responsive viewport presets) is tracked by [pull/78](https://github.com/AlexandreZanata/brain-root-idea/pull/78) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B11-Responsive-Viewport).
+
+### Added
+
+- The preview can be viewed at Desktop (1280 × 800), Tablet (834 × 1112), Phone (390 × 844), and Custom sizes; changing a preset re-bounds the existing view in place without restarting the owned server or reloading the page ([#77](https://github.com/AlexandreZanata/brain-root-idea/issues/77)).
+- When the Canvas area is smaller than a preset, the preview uses the available area and the UI states the actual size; the feature is labelled as a responsive viewport preview, not device emulation.
+
+### Known limitations
+
+- Visual confirmation of the preset behavior still needs the rendered check; focus/keyboard routing, zoom/scale, DPR, and soak remain unmeasured.
+- The chosen preset is not persisted across restarts.
+
 ## 0.0.6
 
 Batch B10 (adjacent localhost preview) is tracked by [pull/73](https://github.com/AlexandreZanata/brain-root-idea/pull/73) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B10-Adjacent-Preview).
