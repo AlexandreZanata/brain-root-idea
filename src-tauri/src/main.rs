@@ -26,6 +26,13 @@ fn main() {
         .manage(provider_state)
         .manage(conversation_session)
         .manage(features::preview::PreviewState::default())
+        .setup(|app| {
+            #[cfg(debug_assertions)]
+            if std::env::var("BRAINROOT_PREVIEW_FIXTURE").as_deref() == Ok("1") {
+                features::preview::debug_fixture(app.handle().clone());
+            }
+            Ok(())
+        })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 use tauri::Manager;
@@ -34,7 +41,7 @@ fn main() {
                     let _ = session.cancel();
                 }
                 let preview = window.state::<features::preview::PreviewState>();
-                preview.stop_now();
+                preview.shutdown(&window.app_handle().clone());
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -44,7 +51,11 @@ fn main() {
             features::conversation::conversation_cancel,
             features::preview::preview_start,
             features::preview::preview_stop,
-            features::preview::preview_status
+            features::preview::preview_status,
+            features::preview::preview_show,
+            features::preview::preview_set_bounds,
+            features::preview::preview_view_status,
+            features::preview::preview_hide
         ])
         .run(tauri::generate_context!())
         .expect("error while running BrainRoot");

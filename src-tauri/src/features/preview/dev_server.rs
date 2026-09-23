@@ -74,7 +74,7 @@ pub struct PreviewError {
 }
 
 impl PreviewError {
-    fn new(code: &str, message: &str) -> Self {
+    pub(crate) fn new(code: &str, message: &str) -> Self {
         Self {
             code: code.to_string(),
             message: message.to_string(),
