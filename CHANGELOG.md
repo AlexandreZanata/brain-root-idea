@@ -10,6 +10,22 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.11
+
+Batch B15 (deck switching and resource return) is tracked by [pull/92](https://github.com/AlexandreZanata/brain-root-idea/pull/92) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B15-Deck-Switching).
+
+### Fixed
+
+- Switching between Preview and Browser no longer leaks a WebKit process per switch: each role caches one `WebContext` keyed by its profile root, so the footprint is bounded and does not grow across cycles ([#91](https://github.com/AlexandreZanata/brain-root-idea/issues/91)).
+
+### Changed
+
+- Deck switching is proven as a destroy/recreate lifecycle: exactly one content view exists after every switch, the previous view is destroyed, switch latency measures 0–3 ms at the view layer, and the surfaces state honestly that switching tabs closes the page and may lose in-memory state.
+
+### Known limitations
+
+- COLD placeholders/snapshots, more than two destinations, permission controls, and browser-data import remain unimplemented.
+
 ## 0.0.10
 
 Batch B14 (Human Browser: minimal human navigation) is tracked by [pull/88](https://github.com/AlexandreZanata/brain-root-idea/pull/88) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B14-Human-Browser).
