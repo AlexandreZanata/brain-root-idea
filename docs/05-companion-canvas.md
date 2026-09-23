@@ -18,6 +18,8 @@ The first Canvas supports one local preview surface:
 
 Remote browsing, social destinations, multi-card Deck navigation, and phone swipe interaction are post-MVP.
 
+The staged interaction, isolation, and import plan for a future integrated side browser is in [the Companion Browser plan](specs/companion-browser-plan.md). It preserves the local-preview-first MVP boundary.
+
 ## Surfaces
 
 - **Preview:** localhost/project output; first-class MVP surface.
@@ -52,4 +54,3 @@ Phone is a Deck presentation mode, not a TikTok feature. Presets include phone/9
 ## Privacy and focus
 
 Human browsing data is never automatically copied to agent context. Screenshots, DOM, console, network information, and cookies each require an applicable permission. BrainRoot must provide a reliable keyboard command to move focus out of embedded content.
-
