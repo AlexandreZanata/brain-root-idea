@@ -4,12 +4,13 @@
 
 ## Header
 
-- Status: Ready (awaiting maintainer approval to merge)
+- Status: Released
 - Objective: Add the first user-directed Human Browser slice per ADR 0013 — typed navigation policy, one isolated remote view with a persistent BrainRoot-owned profile and no BrainRoot IPC, and a Canvas surface with address entry, back/forward/reload, title/URL, external-open, and clear error states — explicitly reordering the roadmap to prioritize the browser.
-- Branch: `batch/b14-human-browser`
+- Branch: `batch/b14-human-browser` (deleted after merge)
 - Draft/final PR: [#88](https://github.com/AlexandreZanata/brain-root-idea/pull/88)
+- Merge commit: `c88574394b4a607719c4117adc816db9bd6ab6fd`
 - Baseline commit: `6bf6526` (B13 released)
-- Target/resulting version: `0.0.10` (Human Browser slice; no artifact)
+- Target/resulting version: `0.0.10` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.10) without artifact)
 - Started/completed: 2026-09-23 / 2026-09-23
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, kernel `7.1.5-76070105-generic`, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned)
 - Repository history mirror: this file (created at batch close)
@@ -38,7 +39,7 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 - Decision (B14-S02): the Canvas has two live destinations (Preview and Browser) and one content slot: switching tabs unmounts the other surface, whose cleanup hides its view; link-driven changes reach the shell through the typed `human-browser-status` event, not polling.
 - Decision (B14-S02): the address field normalizes a bare host to `https://` and passes explicit schemes through so the engine policy stays the only authority.
 - Roadmap deviation (B14, maintainer order): the Human Browser slice was implemented ahead of the roadmap's Phases 3/5/6/7; the reorder is explicit and recorded, and the remaining browser work (Deck, permissions, import) stays open.
-- Decision (B14-S03): a capability batch still changes the version exactly once at finalization (`0.0.10`) per `docs/19-release-and-versioning.md`, with no artifact; merge, tag, and release wait for maintainer approval.
+- Decision (B14-S03): a capability batch still changes the version exactly once at finalization (`0.0.10`) per `docs/19-release-and-versioning.md`, with no artifact. Resolution at merge: the authenticated owner cannot self-approve, so the merge used the documented single-maintainer administrator path; the annotated tag was created only after the merge commit existed on `main`.
 
 ## Failures and recovery
 
@@ -47,8 +48,9 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Final gates
 
-- Full CI: `check-full-linux` on the finalization head — run URL recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/90) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B14-Human-Browser)
-- Review: requested; awaiting maintainer approval (documented single-maintainer administrator path)
+- Full CI: [`check-full-linux` success on the finalization head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35908488331) (`d711b95`); post-merge `push` runs on `main` for `c885743` and the finalization commit are recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/90) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B14-Human-Browser)
+- Review: single-maintainer administrator bypass documented; merged at B14-S03
+- Release: annotated `v0.0.10` on merge commit `c885743`; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.10) without artifact
 - Security/privacy: the policy denies risky schemes, userinfo URLs, popups, and downloads; the view has no BrainRoot IPC and uses a BrainRoot-owned persistent profile; `check-security.sh` green with `webkit2gtk` on the approved list
 - Performance: one remote view at most, created on demand and destroyed on hide or close; no polling
 - Cleanup: both harnesses exited 0 with no process, listener, or probe profile left behind
@@ -57,4 +59,4 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Result and next batch
 
-B14 delivers the first user-visible Human Browser slice: a typed policy that allows `http`/`https` and denies the risky surface, one isolated remote view with a BrainRoot-owned profile and no IPC, and a Canvas Browser tab with address entry, navigation controls, truthful states, and plain-language denials. The maintainer explicitly reordered the roadmap for this work. Next: the remaining browser candidates (Deck switching, permission controls, import) or the roadmap's deferred phases, whichever the maintainer schedules. Rollback: revert the batch commits; the browser profile directory can be removed by the user.
+Batch B14 is released as [`v0.0.10`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.10) on merge commit `c885743`: a typed policy that allows `http`/`https` and denies the risky surface, one isolated remote view with a BrainRoot-owned profile and no IPC, and a Canvas Browser tab with address entry, navigation controls, truthful states, and plain-language denials. The maintainer explicitly reordered the roadmap for this work. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, CI run, tag, and release URL cannot exist before the merge. Next: the remaining browser candidates (Deck switching, permission controls, import) or the roadmap's deferred phases, whichever the maintainer schedules. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
