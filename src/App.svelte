@@ -7,6 +7,7 @@
     appendChunk,
     beginTurn,
     cancelTurn,
+    clampPanelWidth,
     credentialSetupMessage,
     isConversationEnvelope,
     settleTurn,
@@ -16,9 +17,44 @@
     type CredentialStatus
   } from "./conversation";
   import { requestHealth } from "./health";
+  import AppHeader from "./lib/AppHeader.svelte";
+  import CanvasPanel from "./lib/CanvasPanel.svelte";
+  import ConversationPanel from "./lib/ConversationPanel.svelte";
+  import PanelResizer from "./lib/PanelResizer.svelte";
+  import WorkspaceRail from "./lib/WorkspaceRail.svelte";
 
   type HealthState = "checking" | "ready" | "failed";
+  type Theme = "dark" | "light";
 
+  const railSections = [
+    { id: "build", label: "Build", active: true },
+    { id: "agents", label: "Agents", active: false },
+    { id: "browser", label: "Browser", active: false },
+    { id: "files", label: "Files", active: false },
+    { id: "terminal", label: "Terminal", active: false },
+    { id: "settings", label: "Settings", active: false }
+  ];
+
+  const suggestions = [
+    {
+      label: "Explain what this MVP-0 experiment does",
+      prompt: "Explain what this MVP-0 experiment does, in three sentences."
+    },
+    {
+      label: "Write a short tagline for BrainRoot",
+      prompt: "Write a short, honest tagline for BrainRoot."
+    },
+    {
+      label: "Summarize the last release in three bullets",
+      prompt: "Summarize the last BrainRoot release in three bullets."
+    },
+    {
+      label: "Draft a friendly reply to a bug report",
+      prompt: "Draft a friendly first reply to a user who reported a bug."
+    }
+  ];
+
+  let theme = $state<Theme>(initialTheme());
   let healthState = $state<HealthState>("checking");
   let detail = $state("Waiting for the core health result.");
   let conversationState = $state<ConversationState>("empty");
@@ -29,6 +65,14 @@
   let turns: ConversationTurn[] = $state([]);
   let nextTurnId = 1;
   let activeTurnId: number | null = null;
+  let agentWidth = $state(368);
+  let clampedAgentWidth = $derived(clampPanelWidth(agentWidth, 280, 560));
+
+  $effect(() => {
+    if (agentWidth !== clampedAgentWidth) {
+      agentWidth = clampedAgentWidth;
+    }
+  });
 
   let setupMessage = $derived(
     credentialStatus === null
@@ -50,6 +94,31 @@
       !isBusy &&
       prompt.trim().length > 0
   );
+  let statusLabel = $derived.by(() => {
+    switch (conversationState) {
+      case "sending":
+        return "Starting…";
+      case "streaming":
+        return "Building…";
+      case "cancelling":
+        return "Cancelling…";
+      case "succeeded":
+        return "Done";
+      case "failed":
+        return "Needs attention";
+      default:
+        return setupMessage ? "Needs setup" : "Ready for a request";
+    }
+  });
+
+  $effect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("brainroot-theme", theme);
+    } catch {
+      // A missing storage backend must not break the shell.
+    }
+  });
 
   onMount(() => {
     let disposed = false;
@@ -101,8 +170,23 @@
     };
   });
 
-  async function onPromptSubmit(event: SubmitEvent) {
-    event.preventDefault();
+  function initialTheme(): Theme {
+    try {
+      const stored = localStorage.getItem("brainroot-theme");
+      if (stored === "light" || stored === "dark") {
+        return stored;
+      }
+    } catch {
+      // Fall through to the system preference.
+    }
+    return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  }
+
+  function toggleTheme() {
+    theme = theme === "dark" ? "light" : "dark";
+  }
+
+  async function submitPrompt() {
     const message = prompt.trim();
     if (!canSend || message.length === 0) {
       return;
@@ -209,354 +293,51 @@
 </script>
 
 <main class="app">
-  <header class="chrome">
-    <h1>BrainRoot</h1>
-    <div class="core">
-      <p class="core-status" aria-live="polite">
-        {#if healthState === "checking"}
-          Checking the core…
-        {:else if healthState === "ready"}
-          Ready
-        {:else}
-          Not ready
-        {/if}
-      </p>
-      <p class="core-detail">{detail}</p>
-    </div>
-  </header>
-
-  <div class="workspace">
-    <section class="agent" aria-labelledby="agent-title">
-      <h2 id="agent-title">Build</h2>
-      <p class="conversation-status" aria-live="polite">
-        {#if conversationState === "sending"}
-          Starting…
-        {:else if conversationState === "streaming"}
-          Building…
-        {:else if conversationState === "cancelling"}
-          Cancelling…
-        {:else if conversationState === "succeeded"}
-          Done
-        {:else if conversationState === "failed"}
-          Needs attention
-        {:else if setupMessage}
-          Needs setup
-        {:else}
-          Ready for a request
-        {/if}
-      </p>
-
-      {#if setupMessage}
-        <p class="setup" role="status">{setupMessage}</p>
-      {/if}
-
-      <div class="conversation-history" aria-label="Conversation">
-        {#each turns as turn (turn.id)}
-          <article class="turn">
-            <p class="message-label">You</p>
-            <p class="message user-message">{turn.prompt}</p>
-            {#if turn.response.length > 0}
-              <p class="message-label">BrainRoot</p>
-              <p class="message assistant-message">{turn.response}</p>
-            {/if}
-            {#if turn.status === "cancelled"}
-              <p class="turn-cancelled">Cancelled.</p>
-            {:else if turn.error.length > 0}
-              <p class="turn-error" role="alert">{turn.error}</p>
-              {#if turn.errorCode.length > 0}
-                <details class="technical">
-                  <summary>Technical details</summary>
-                  <code>{turn.errorCode}</code>
-                </details>
-              {/if}
-            {/if}
-          </article>
-        {/each}
-      </div>
-
-      <form class="prompt" onsubmit={onPromptSubmit}>
-        <label for="prompt">What do you want to build?</label>
-        <textarea id="prompt" name="prompt" rows="4" bind:value={prompt}></textarea>
-        <div class="actions">
-          <button class="send" type="submit" aria-disabled={!canSend}>Send</button>
-          <button
-            class="cancel"
-            type="button"
-            aria-disabled={!isCancellable}
-            onclick={onCancel}
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </section>
-
-    <section class="canvas" aria-labelledby="canvas-title">
-      <h2 id="canvas-title">Companion Canvas</h2>
-      <p>Preview comes in MVP-1.</p>
-    </section>
+  <AppHeader {healthState} {detail} {theme} ontoggle={toggleTheme} />
+  <div class="workspace" style="--agent-width: {clampedAgentWidth}px">
+    <WorkspaceRail sections={railSections} />
+    <ConversationPanel
+      {setupMessage}
+      {turns}
+      {statusLabel}
+      {canSend}
+      {isCancellable}
+      bind:prompt={prompt}
+      {suggestions}
+      onsubmit={submitPrompt}
+      oncancel={onCancel}
+    />
+    <PanelResizer bind:value={agentWidth} min={280} max={560} step={8} />
+    <CanvasPanel />
   </div>
 </main>
 
 <style>
-  :global(html),
-  :global(body) {
-    margin: 0;
-    height: 100%;
-  }
-
-  :global(body) {
-    background: #0f1115;
-    color: #e8eef5;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-
   .app {
     display: grid;
-    grid-template-rows: auto 1fr;
-    gap: 1rem;
-    min-height: 100vh;
-    padding: 1.25rem;
-    box-sizing: border-box;
-  }
-
-  .chrome {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.25rem 1rem;
-  }
-
-  h1 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 0.9375rem;
-    font-weight: 600;
-  }
-
-  .core {
-    text-align: right;
-  }
-
-  .core-status {
-    margin: 0;
-    font-size: 0.875rem;
-  }
-
-  .core-detail {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: #9aa7b4;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100vh;
   }
 
   .workspace {
     display: grid;
-    grid-template-columns: minmax(18rem, 30%) minmax(0, 1fr);
-    gap: 1rem;
+    grid-template-columns: 4.6rem var(--agent-width, 23rem) auto minmax(0, 1fr);
+    gap: 0.9rem;
+    padding: 0.9rem;
     min-height: 0;
   }
 
-  .agent,
-  .canvas {
-    border: 1px solid #2a323c;
-    border-radius: 0.75rem;
-    padding: 1rem;
-    background: #171c22;
-  }
-
-  .agent {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    min-height: 0;
-  }
-
-  .conversation-status {
-    margin: 0;
-    color: #9aa7b4;
-    font-size: 0.8125rem;
-  }
-
-  .conversation-history {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 0.75rem;
-    min-height: 8rem;
-    overflow: auto;
-  }
-
-  .turn {
-    display: grid;
-    gap: 0.25rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid #2a323c;
-  }
-
-  .message-label,
-  .message,
-  .turn-error,
-  .turn-cancelled {
-    margin: 0;
-  }
-
-  .message-label {
-    color: #9aa7b4;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .message,
-  .turn-error,
-  .turn-cancelled {
-    overflow-wrap: anywhere;
-    font-size: 0.875rem;
-    line-height: 1.45;
-    white-space: pre-wrap;
-  }
-
-  .user-message {
-    color: #cdd9e5;
-  }
-
-  .turn-error {
-    color: #ffb4ab;
-  }
-
-  .turn-cancelled {
-    color: #9aa7b4;
-  }
-
-  .setup {
-    margin: 0;
-    color: #cdd9e5;
-    font-size: 0.875rem;
-  }
-
-  .technical {
-    margin: 0;
-    color: #9aa7b4;
-    font-size: 0.8125rem;
-  }
-
-  .technical summary {
-    cursor: pointer;
-  }
-
-  .technical code {
-    color: #cdd9e5;
-  }
-
-  .prompt {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .prompt label {
-    font-size: 0.875rem;
-    color: #cdd9e5;
-  }
-
-  textarea {
-    min-height: 6rem;
-    resize: vertical;
-    padding: 0.625rem 0.75rem;
-    border: 1px solid #2a323c;
-    border-radius: 0.5rem;
-    background: #0f1115;
-    color: #e8eef5;
-    font: inherit;
-    font-size: 0.9375rem;
-    line-height: 1.4;
-  }
-
-  .actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .send {
-    padding: 0.5rem 1rem;
-    border: 1px solid transparent;
-    border-radius: 0.5rem;
-    background: #2f6feb;
-    color: #ffffff;
-    font: inherit;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 120ms ease;
-  }
-
-  .send:hover {
-    background: #1f5fd8;
-  }
-
-  .send[aria-disabled="true"] {
-    background: #39424d;
-    color: #cdd9e5;
-    cursor: not-allowed;
-  }
-
-  .cancel {
-    padding: 0.5rem 1rem;
-    border: 1px solid #2a323c;
-    border-radius: 0.5rem;
-    background: transparent;
-    color: #e8eef5;
-    font: inherit;
-    font-size: 0.875rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .cancel:hover:not([aria-disabled="true"]) {
-    background: #232a33;
-  }
-
-  .cancel[aria-disabled="true"] {
-    color: #9aa7b4;
-    cursor: not-allowed;
-  }
-
-  :focus-visible {
-    outline: 2px solid #8ab4ff;
-    outline-offset: 2px;
-  }
-
-  .canvas {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    min-height: 60vh;
-  }
-
-  .canvas p {
-    margin: 0;
-    font-size: 0.9375rem;
-    color: #9aa7b4;
-  }
-
-  @media (max-width: 840px) {
+  @media (max-width: 1080px) {
     .workspace {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .canvas {
-      min-height: 40vh;
+      grid-template-columns: 1fr;
+      overflow-y: auto;
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .send {
-      transition: none;
+  @media (max-width: 640px) {
+    .workspace {
+      padding: 0.6rem;
+      gap: 0.6rem;
     }
   }
 </style>

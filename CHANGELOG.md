@@ -10,6 +10,24 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.2
+
+Batch B06 (workspace shell in the product visual language) is tracked by [pull/53](https://github.com/AlexandreZanata/brain-root-idea/pull/53) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B06-Workspace-Shell).
+
+### Added
+
+- A reusable monochrome component set on one token source (`src/lib/theme.css`): `Icon`, `Button`, `Badge`, `NavItem`, `SuggestionItem`, `Turn`, `WelcomeCard`, `EmptyState`, `ActionCard`, `ThemeToggle`, `AppHeader`, `WorkspaceRail`, `ConversationPanel`, `CanvasPanel`, plus `TextArea` and `PanelResizer`, with a persisted light/dark theme toggle and the accessibility gate covering the whole frontend ([#54](https://github.com/AlexandreZanata/brain-root-idea/issues/54), [#57](https://github.com/AlexandreZanata/brain-root-idea/issues/57)).
+- A resizable agent panel (280–560 px, in-memory only) with a native, keyboard-operable vertical handle that is hidden when the workspace stacks below 1080 px ([#57](https://github.com/AlexandreZanata/brain-root-idea/issues/57)).
+
+### Changed
+
+- The workspace shell follows the requested product visual language: left section rail, agent panel with welcome and suggestion actions, bottom composer with the configured-model chip, and a dominant Canvas with tabs; every future surface is `aria-disabled` and labeled MVP-1 instead of pretending to be live ([#52](https://github.com/AlexandreZanata/brain-root-idea/issues/52)).
+- Dark follows the Codex monochrome palette with no blue, light follows the reference palette with the blue accent, and tabs use link-style underlines; the workspace stacks below 1080 px and compacts below 640 px ([#55](https://github.com/AlexandreZanata/brain-root-idea/issues/55), [#56](https://github.com/AlexandreZanata/brain-root-idea/issues/56)).
+
+### Known limitations
+
+- Future surfaces remain disabled placeholders; the rendered window still has no UI automation; the panel width is not persisted across restarts.
+
 ## 0.0.1
 
 Batch B05 (Linux MVP-0 hardening and release) is tracked by [pull/44](https://github.com/AlexandreZanata/brain-root-idea/pull/44) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B05-Linux-MVP0-Release).

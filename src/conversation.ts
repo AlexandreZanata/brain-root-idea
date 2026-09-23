@@ -198,6 +198,19 @@ export function boundConversation(
   return turns;
 }
 
+export function clampPanelWidth(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+  if (value < min) {
+    return min;
+  }
+  if (value > max) {
+    return max;
+  }
+  return value;
+}
+
 function bytes(value: string): number {
   return encoder.encode(value).byteLength;
 }
