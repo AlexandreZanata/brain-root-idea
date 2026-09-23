@@ -10,6 +10,19 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.12
+
+Batch B16 (Human Browser permission controls) is tracked by [pull/95](https://github.com/AlexandreZanata/brain-root-idea/pull/95) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B16-Permission-Controls).
+
+### Added
+
+- Every web permission request (camera, microphone, geolocation, notifications, pointer lock, device info, encrypted media, website data access) is denied fail-closed and recorded with an honest kind code, shown in plain language on the Browser surface ([#94](https://github.com/AlexandreZanata/brain-root-idea/issues/94), [#96](https://github.com/AlexandreZanata/brain-root-idea/issues/96)).
+- A confirmed **Clear browser data** action removes cookies, storage, and cache for the BrainRoot-owned browser profile; in the single-profile design this is also the profile reset ([#94](https://github.com/AlexandreZanata/brain-root-idea/issues/94), [#96](https://github.com/AlexandreZanata/brain-root-idea/issues/96)).
+
+### Known limitations
+
+- Permissions are deny-only; there is no grant path, downloads and import remain unimplemented, and the failure/compatibility UX stays minimal.
+
 ## 0.0.11
 
 Batch B15 (deck switching and resource return) is tracked by [pull/92](https://github.com/AlexandreZanata/brain-root-idea/pull/92) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B15-Deck-Switching).

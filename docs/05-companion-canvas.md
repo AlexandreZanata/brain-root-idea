@@ -22,7 +22,7 @@ The staged interaction, isolation, and import plan for a future integrated side 
 
 ### Human Browser surface (implemented slice)
 
-The Canvas Browser tab hosts the user-directed Human Browser from [ADR 0013](adr/0013-human-browser-policy.md): an address entry, Back/Forward/Reload controls with truthful enabled states, the page title and current address, and a plain-language line when a link is blocked. The remote view uses a persistent BrainRoot-owned profile, has no BrainRoot IPC, and occupies the same content slot as the Preview; switching tabs hides the other surface. Downloads, popups, permission prompts, and agent sharing are not part of this slice.
+The Canvas Browser tab hosts the user-directed Human Browser from [ADR 0013](adr/0013-human-browser-policy.md): an address entry, Back/Forward/Reload controls with truthful enabled states, the page title and current address, and a plain-language line when a link is blocked. The remote view uses a persistent BrainRoot-owned profile, has no BrainRoot IPC, and occupies the same content slot as the Preview; switching tabs hides the other surface. Every web permission request is denied with a plain-language explanation, and a confirmed **Clear browser data** action removes cookies, storage, and cache for the BrainRoot profile. Downloads, popups, and agent sharing are not part of this slice.
 
 ### Responsive viewport presets (implemented)
 

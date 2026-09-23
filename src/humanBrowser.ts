@@ -42,6 +42,9 @@ export function normalizeAddress(input: string): string {
 }
 
 export function humanErrorMessage(code: string | null | undefined): string {
+  if (typeof code === "string" && code.startsWith("human_permission_denied")) {
+    return "This page asked for a permission. BrainRoot blocks camera, microphone, location, notifications, and clipboard in this browser.";
+  }
   switch (code) {
     case "human_scheme_denied":
       return "This link type is not opened in the browser.";
@@ -111,4 +114,8 @@ export function humanHide(): Promise<HumanStatus> {
 
 export function humanStatus(): Promise<HumanStatus> {
   return call<HumanStatus>("human_browser_status");
+}
+
+export function humanClearData(): Promise<HumanStatus> {
+  return call<HumanStatus>("human_browser_clear_data");
 }

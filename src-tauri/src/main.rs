@@ -74,7 +74,8 @@ fn main() {
             features::human_browser::human_browser_reload,
             features::human_browser::human_browser_set_bounds,
             features::human_browser::human_browser_hide,
-            features::human_browser::human_browser_status
+            features::human_browser::human_browser_status,
+            features::human_browser::human_browser_clear_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running BrainRoot");

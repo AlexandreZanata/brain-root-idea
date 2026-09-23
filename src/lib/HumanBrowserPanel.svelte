@@ -3,6 +3,7 @@
   import { onDestroy, onMount } from "svelte";
   import {
     humanBack,
+    humanClearData,
     humanErrorMessage,
     humanForward,
     humanHide,
@@ -22,6 +23,7 @@
   let address = $state("");
   let status = $state<HumanStatus | null>(null);
   let error = $state("");
+  let confirmingClear = $state(false);
   let slot = $state<HTMLDivElement | null>(null);
   let unlisten: UnlistenFn | undefined;
   let frame = 0;
@@ -184,6 +186,16 @@
     }
   }
 
+  async function onClearData() {
+    try {
+      status = await humanClearData();
+      error = "";
+    } catch (failure) {
+      error = humanErrorMessage(errorCode(failure));
+    }
+    confirmingClear = false;
+  }
+
   async function onReload() {
     if (!visible) {
       return;
@@ -216,6 +228,22 @@
     />
     <Button variant="primary" type="submit" inactive={!canGo} onclick={onGo}>Go</Button>
   </form>
+
+  <div class="browser-controls">
+    {#if confirmingClear}
+      <span class="browser-confirm">
+        This removes cookies, storage, and cache for the BrainRoot browser.
+      </span>
+      <Button variant="secondary" onclick={() => void onClearData()}>
+        Clear everything
+      </Button>
+      <Button variant="secondary" onclick={() => (confirmingClear = false)}>Cancel</Button>
+    {:else}
+      <Button variant="secondary" onclick={() => (confirmingClear = true)}>
+        Clear browser data
+      </Button>
+    {/if}
+  </div>
 
   <div class="browser-controls">
     <Button variant="secondary" inactive={!canBack} onclick={() => void onBack()}>
@@ -277,7 +305,14 @@
 
   .browser-controls {
     display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 0.5rem;
+  }
+
+  .browser-confirm {
+    color: var(--text-subtle);
+    font-size: 0.78rem;
   }
 
   .browser-page,

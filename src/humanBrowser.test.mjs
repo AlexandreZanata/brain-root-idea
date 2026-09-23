@@ -38,6 +38,14 @@ test("maps engine denial codes to plain language", () => {
     "Downloads are blocked in this version."
   );
   assert.equal(
+    humanErrorMessage("human_permission_denied:geolocation"),
+    "This page asked for a permission. BrainRoot blocks camera, microphone, location, notifications, and clipboard in this browser."
+  );
+  assert.equal(
+    humanErrorMessage("human_permission_denied:media"),
+    "This page asked for a permission. BrainRoot blocks camera, microphone, location, notifications, and clipboard in this browser."
+  );
+  assert.equal(
     humanErrorMessage("something_unknown"),
     "The browser request could not be completed."
   );

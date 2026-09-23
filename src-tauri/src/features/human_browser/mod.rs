@@ -51,11 +51,34 @@ impl HumanError {
 #[derive(Default)]
 pub struct HumanBrowserState {
     status: Arc<Mutex<HumanStatus>>,
+    #[cfg(debug_assertions)]
+    profile_override: Arc<Mutex<Option<std::path::PathBuf>>>,
 }
 
 impl HumanBrowserState {
     fn status(&self) -> Arc<Mutex<HumanStatus>> {
         Arc::clone(&self.status)
+    }
+
+    /// Debug-only: points the harness at a probe profile instead of the real
+    /// application data directory. Release builds never compile this.
+    #[cfg(debug_assertions)]
+    pub fn debug_set_profile_root(&self, root: std::path::PathBuf) {
+        if let Ok(mut override_root) = self.profile_override.lock() {
+            *override_root = Some(root);
+        }
+    }
+
+    fn profile_root(&self, app: &tauri::AppHandle) -> Result<std::path::PathBuf, HumanError> {
+        #[cfg(debug_assertions)]
+        if let Ok(override_root) = self.profile_override.lock() {
+            if let Some(root) = override_root.as_ref() {
+                return Ok(root.clone());
+            }
+        }
+        app.path()
+            .app_data_dir()
+            .map_err(|_| HumanError::from_code("human_profile_unavailable"))
     }
 
     /// Destroys the view and clears the status; used by the close path, which
@@ -196,6 +219,19 @@ pub fn human_browser_hide(
 }
 
 #[tauri::command]
+pub fn human_browser_clear_data(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, HumanBrowserState>,
+) -> Result<HumanStatus, HumanError> {
+    let profile_root = state.profile_root(&app)?;
+    let status = state.status();
+    view::clear_data(&app, profile_root, Arc::clone(&status))
+        .map_err(|error| HumanError::from_code(&error))?;
+    let snapshot = status.lock().expect("human status").clone();
+    Ok(snapshot)
+}
+
+#[tauri::command]
 pub fn human_browser_status(
     app: tauri::AppHandle,
     state: tauri::State<'_, HumanBrowserState>,
@@ -273,6 +309,7 @@ pub fn debug_fixture(app: tauri::AppHandle) {
             Ok(root) => root.join("human-browser-probe"),
             Err(_) => return,
         };
+        state.debug_set_profile_root(probe_root.clone());
         let mut report = serde_json::Map::new();
         let mut reasons: Vec<String> = Vec::new();
         let page_a = format!("{base_url}a");
@@ -334,6 +371,46 @@ pub fn debug_fixture(app: tauri::AppHandle) {
             reasons.push("file scheme was not denied".to_string());
         }
 
+        // Permission denial: geolocation and user media must be denied and
+        // recorded, never prompted.
+        let _ = view::debug_evaluate(
+            &app,
+            "navigator.geolocation.getCurrentPosition(() => {}, () => {});              navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => {}); 'probe'",
+        );
+        let permission_denied = wait_for(&app, &status, |status| {
+            status
+                .last_denial
+                .as_deref()
+                .map(|code| code.starts_with("human_permission_denied"))
+                .unwrap_or(false)
+        });
+        if !permission_denied {
+            reasons.push("permission request was not denied".to_string());
+        }
+
+        // Browser data: write a marker, clear the data, reload, and expect the
+        // marker to be gone with a fresh profile.
+        let _ = view::debug_evaluate(&app, "localStorage.setItem('probe', 'value'); 'ok'");
+        let before_clear =
+            view::debug_evaluate(&app, "localStorage.getItem('probe')").unwrap_or_default();
+        let _ = human_browser_clear_data(app.clone(), app.state::<HumanBrowserState>());
+        let _ = view::show(
+            &app,
+            probe_root.clone(),
+            page_a.clone(),
+            bounds_rect([40.0, 80.0, 560.0, 380.0]),
+            Arc::clone(&status),
+        );
+        let _ = wait_for(&app, &status, |status| {
+            status.title.as_deref() == Some("page-a")
+        });
+        let after_clear =
+            view::debug_evaluate(&app, "localStorage.getItem('probe')").unwrap_or_default();
+        let data_cleared = before_clear.contains("value") && after_clear.contains("null");
+        if !data_cleared {
+            reasons.push("browser data was not cleared".to_string());
+        }
+
         let _ = view::hide(&app, Arc::clone(&status));
         thread::sleep(Duration::from_millis(300));
         let hidden = !view::debug_present(&app);
@@ -351,6 +428,11 @@ pub fn debug_fixture(app: tauri::AppHandle) {
         report.insert("back_ok".to_string(), serde_json::json!(back_ok));
         report.insert("forward_ok".to_string(), serde_json::json!(forward_ok));
         report.insert("denial_code".to_string(), serde_json::json!(denial_code));
+        report.insert(
+            "permission_denied".to_string(),
+            serde_json::json!(permission_denied),
+        );
+        report.insert("data_cleared".to_string(), serde_json::json!(data_cleared));
         report.insert("final_url".to_string(), serde_json::json!(final_url));
         report.insert("hidden".to_string(), serde_json::json!(hidden));
         report.insert("reasons".to_string(), serde_json::json!(reasons));
