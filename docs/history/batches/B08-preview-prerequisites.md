@@ -4,12 +4,13 @@
 
 ## Header
 
-- Status: Ready (awaiting maintainer approval to merge)
+- Status: Released
 - Objective: Resolve the CB-A prerequisites for the Companion Canvas before any preview implementation is assigned — the Linux child-WebView probe with a measured go/no-go, the approved localhost preview origin policy, and the owned dev-server lifecycle contract — without shipping any preview, browser, or navigation capability.
-- Branch: `batch/b08-preview-prerequisites`
+- Branch: `batch/b08-preview-prerequisites` (deleted after merge)
 - Draft/final PR: [#64](https://github.com/AlexandreZanata/brain-root-idea/pull/64)
+- Merge commit: `a00dd9b2afe76aaca60a59c27014eec28bbafd5b`
 - Baseline commit: `b3b07adf7f855b48f5064af80b15210460b1e291`
-- Target/resulting version: `0.0.4` (prerequisites only; no artifact)
+- Target/resulting version: `0.0.4` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.4) without artifact)
 - Started/completed: 2026-09-23 / 2026-09-23
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, kernel `7.1.5-76070105-generic`, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned, Node.js v26.3.1, pnpm 11.13.0)
 - Repository history mirror: this file (created at batch close)
@@ -28,7 +29,7 @@
 | B08-S01 | [#63](https://github.com/AlexandreZanata/brain-root-idea/issues/63) | Disposable Linux child-WebView probe built behind an optional `probe` feature: 100/100 create/load/destroy cycles, profile isolation, forced-close recovery, and `file://` navigation denial pass; child-view position/size is not honored on the Wayland stack (children pack into the window `GtkBox`); measurements and a **no-go on geometry** are recorded in `docs/specs/linux-webview-probe.md`, and the ADR 0006 review is required before preview work | `f4d1b44` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/63#issuecomment-5796469358) | The spike's decisive result is a no-go on one CB-A assumption; the shipped app and default build are unchanged | Closed |
 | B08-S02 | [#65](https://github.com/AlexandreZanata/brain-root-idea/issues/65) | The Preview origin policy is approved: canonical loopback schemes/hosts on BrainRoot-owned dev-server ports, fail-closed denial rules, denial behavior, the Rust-owned A4 enforcement contract, and the negative test corpus; linked from `docs/08`, `docs/11`, and `docs/17`; no runtime code ships | `7696830` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/65#issuecomment-5796515026) | The policy is explicitly **not yet enforced**; enforcement and its tests belong to CB-A A4 | Closed |
 | B08-S03 | [#66](https://github.com/AlexandreZanata/brain-root-idea/issues/66) | The owned dev-server lifecycle contract is approved as ADR 0011: single owner per project, declared command only, assigned loopback port and registry entry, process-group termination with bounded grace, readiness/crash handling without restart loops, stop-on-close idle policy, untrusted bounded output, and the A4 evidence list; linked from `docs/09` and `docs/17` | `47df101` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/66#issuecomment-5796555299) | No dependency is approved; process-group termination review belongs to the implementing issue | Closed |
-| B08-S04 | [#67](https://github.com/AlexandreZanata/brain-root-idea/issues/67) | Finalization: version `0.0.4` synchronized across `VERSION`, `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`; changelog `0.0.4` section; this history record created; PR #64 marked Ready and the full Linux gate run on the latest head; merge/tag deferred to maintainer approval | pending | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/67) | The authenticated repository owner cannot approve its own PR; no tag is created before the merge commit exists on `main` | In review |
+| B08-S04 | [#67](https://github.com/AlexandreZanata/brain-root-idea/issues/67) | Finalization: version `0.0.4` synchronized across `VERSION`, `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/Cargo.lock`; changelog `0.0.4` section; this history record created; PR #64 marked Ready, merged with a merge commit through the documented single-maintainer administrator bypass, branch deleted, annotated `v0.0.4` tagged with a pre-release, and this record completed on `main` | `e937f6b`, `a00dd9b` (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/67) | Merge and release used the documented single-maintainer administrator bypass; no artifact for this batch | Closed |
 
 Update one row whenever a microstep closes or is reopened. Never paste secrets or unbounded raw logs.
 
@@ -40,6 +41,7 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 - Decision (B08-S03): the preview dev server is owned by the Rust core — one per project, declared command only, BrainRoot-assigned loopback port registered for the preview origin, process-group termination that never kills foreign processes, no automatic restart loop, stop-on-close idle policy, and untrusted bounded output; implementation and its evidence land in CB-A A4 after the ADR 0006 review, and no dependency is approved. See ADR 0011.
 - Assumption tested and rejected (Companion Browser plan): a child WebView can be positioned and resized on the Linux reference stack. Evidence: `docs/specs/linux-webview-probe.md`. Result: rejected for now; CB-A implementation is blocked on the ADR 0006 review.
 - The remaining prerequisites (origin policy and dev-server lifecycle) are independent of the geometry result and are approved in B08.
+- Decision (B08-S04): a prerequisites-only batch still changes the version exactly once at finalization (`0.0.4`) per `docs/19-release-and-versioning.md`, with no artifact. Resolution at merge: the authenticated owner cannot self-approve, so the merge used the documented single-maintainer administrator path in `docs/specs/repository-rules-runbook.md`; the annotated tag was created only after the merge commit existed on `main`.
 
 ## Failures and recovery
 
@@ -47,9 +49,10 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Final gates
 
-- Full CI: `check-full-linux` on the finalization head — run URL recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/67) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B08-Preview-Prerequisites)
-- Review: requested; awaiting maintainer approval (documented single-maintainer administrator path)
-- Security/privacy: `check-docs.sh` secret scan and `check-security.sh` green; the probe only contacts its own `127.0.0.1` fixture; no runtime surface or destination added to the product
+- Full CI: [`check-full-linux` success on the finalization head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35874100384) (6 m 48 s, `e937f6b`); post-merge `push` runs on `main` for `a00dd9b` and the finalization commit are recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/67) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B08-Preview-Prerequisites)
+- Review: single-maintainer administrator bypass documented; merged at B08-S04
+- Release: annotated `v0.0.4` on merge commit `a00dd9b`; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.4) without artifact
+- Security/privacy: `check-docs.sh` secret scan green (185 files), `check-security.sh` green with the dependency list unchanged, and the probe only contacts its own `127.0.0.1` fixture
 - Performance: probe measurements recorded with `MEASURED` labels; no budget claimed
 - Cleanup: probe process exited 0 with no remaining probe process; one shared WebKit process outlives all closed views and is recorded as an observation
 - Artifact/checksum: none for this batch
@@ -57,4 +60,4 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Result and next batch
 
-B08 resolves the CB-A prerequisites: the probe measured what the current stack supports and rejected the geometry assumption with evidence, the preview origin policy is approved with its negative corpus, and the owned dev-server lifecycle is accepted as ADR 0011. The preview capability itself remains unimplemented. Next: the ADR 0006 review with the probe's recorded options (a `GtkFixed` hosting path, a native-window preview surface, upstream support, or the X11 native-child path); after that decision, the CB-A implementation batch is assigned with the origin policy and lifecycle contract as its acceptance constraints. Rollback: revert the batch commits; no runtime state, tag, or artifact is affected.
+Batch B08 is released as [`v0.0.4`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.4) on merge commit `a00dd9b`: the probe measured what the current stack supports and rejected the geometry assumption with evidence, the preview origin policy is approved with its negative corpus, and the owned dev-server lifecycle is accepted as ADR 0011. The preview capability itself remains unimplemented. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, CI run, tag, and release URL cannot exist before the merge. Next: the ADR 0006 review with the probe's recorded options (a `GtkFixed` hosting path, a native-window preview surface, upstream support, or the X11 native-child path); after that decision, the CB-A implementation batch is assigned with the origin policy and lifecycle contract as its acceptance constraints. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
