@@ -18,6 +18,8 @@ The first Canvas supports one local preview surface:
 
 Remote browsing, social destinations, multi-card Deck navigation, and phone swipe interaction are post-MVP.
 
+The staged interaction, isolation, and import plan for a future integrated side browser is in [the Companion Browser plan](specs/companion-browser-plan.md). It preserves the local-preview-first MVP boundary.
+
 ## Surfaces
 
 - **Preview:** localhost/project output; first-class MVP surface.

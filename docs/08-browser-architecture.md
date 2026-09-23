@@ -53,3 +53,5 @@ The agent may use its own browser context for localhost, screenshots, DOM, conso
 
 Build a minimal multi-platform probe measuring create/destroy latency, memory release, focus, resize, localhost navigation, crash recovery, cookie isolation, storage directory behavior, screenshots, background throttling, and repeated lifecycle leaks. Results become MEASURED entries in the performance contract and may revise ADR 0006.
 
+The [Companion Browser plan](specs/companion-browser-plan.md) sequences Linux local preview, an isolated Human Browser, opt-in data portability, Deck switching, and phone-width presentation. Importing portable bookmarks is not equivalent to reusing Chrome/Firefox profiles, cookies, passwords, or extensions.
+
