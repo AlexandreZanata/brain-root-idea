@@ -31,6 +31,67 @@ export type CanvasRect = {
   height: number;
 };
 
+export type ViewportPresetId = "desktop" | "tablet" | "phone" | "custom";
+
+export type ViewportSize = {
+  width: number;
+  height: number;
+  exact: boolean;
+};
+
+export const CUSTOM_LIMITS = {
+  minWidth: 240,
+  maxWidth: 1920,
+  minHeight: 240,
+  maxHeight: 1200
+};
+
+export const VIEWPORT_PRESETS: Record<
+  Exclude<ViewportPresetId, "custom">,
+  { width: number; height: number; label: string }
+> = {
+  desktop: { width: 1280, height: 800, label: "Desktop" },
+  tablet: { width: 834, height: 1112, label: "Tablet" },
+  phone: { width: 390, height: 844, label: "Phone" }
+};
+
+export function presetLabel(preset: ViewportPresetId): string {
+  return preset === "custom" ? "Custom" : VIEWPORT_PRESETS[preset].label;
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  if (!Number.isFinite(value)) {
+    return minimum;
+  }
+  return Math.min(maximum, Math.max(minimum, Math.round(value)));
+}
+
+export function customViewportSize(custom?: { width: number; height: number }): {
+  width: number;
+  height: number;
+} {
+  return {
+    width: clamp(custom?.width ?? 390, CUSTOM_LIMITS.minWidth, CUSTOM_LIMITS.maxWidth),
+    height: clamp(custom?.height ?? 844, CUSTOM_LIMITS.minHeight, CUSTOM_LIMITS.maxHeight)
+  };
+}
+
+export function viewportSize(
+  preset: ViewportPresetId,
+  available: { width: number; height: number },
+  custom?: { width: number; height: number }
+): ViewportSize {
+  const nominal =
+    preset === "custom" ? customViewportSize(custom) : VIEWPORT_PRESETS[preset];
+  const width = Math.max(1, Math.min(nominal.width, Math.floor(available.width)));
+  const height = Math.max(1, Math.min(nominal.height, Math.floor(available.height)));
+  return {
+    width,
+    height,
+    exact: width === nominal.width && height === nominal.height
+  };
+}
+
 export function isPreviewStatus(value: unknown): value is PreviewStatus {
   if (typeof value !== "object" || value === null) {
     return false;

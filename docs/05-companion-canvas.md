@@ -20,6 +20,10 @@ Remote browsing, social destinations, multi-card Deck navigation, and phone swip
 
 The staged interaction, isolation, and import plan for a future integrated side browser is in [the Companion Browser plan](specs/companion-browser-plan.md). It preserves the local-preview-first MVP boundary.
 
+### Responsive viewport presets (implemented)
+
+The Preview supports Desktop (1280 × 800), Tablet (834 × 1112), Phone (390 × 844), and Custom sizes. Changing a preset re-bounds the existing preview view in place; the owned dev server and the loaded page are not restarted. When the Canvas area is smaller than the nominal size, the preview uses the available area and the UI states the actual size instead of the nominal one. The feature is labelled **responsive viewport preview**, not device emulation: OS engine, touch, DPR, user agent, fonts, and device APIs can differ.
+
 ## Surfaces
 
 - **Preview:** localhost/project output; first-class MVP surface.

@@ -2,12 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CUSTOM_LIMITS,
   MIN_PREVIEW_SIDE,
+  VIEWPORT_PRESETS,
+  customViewportSize,
   isPreviewStatus,
   isPreviewViewStatus,
   normalizeCanvasRect,
   parseCommandLine,
-  previewReasonMessage
+  presetLabel,
+  previewReasonMessage,
+  viewportSize
 } from "./preview.ts";
 
 test("maps known preview reasons to plain language and falls back", () => {
@@ -92,4 +97,46 @@ test("guards preview status and view status payloads", () => {
   );
   assert.equal(isPreviewViewStatus({ visible: "yes", port: null, bounds: null }), false);
   assert.equal(isPreviewViewStatus({ visible: true, port: null, bounds: [0, 0] }), false);
+});
+
+test("resolves viewport presets against the available Canvas area", () => {
+  const roomy = { width: 1600, height: 1200 };
+  assert.deepEqual(viewportSize("desktop", roomy), {
+    width: 1280,
+    height: 800,
+    exact: true
+  });
+  assert.deepEqual(viewportSize("tablet", roomy), {
+    width: 834,
+    height: 1112,
+    exact: true
+  });
+  assert.deepEqual(viewportSize("phone", roomy), {
+    width: 390,
+    height: 844,
+    exact: true
+  });
+  const tight = { width: 700, height: 500 };
+  assert.deepEqual(viewportSize("desktop", tight), {
+    width: 700,
+    height: 500,
+    exact: false
+  });
+});
+
+test("clamps custom viewport sizes and labels presets", () => {
+  assert.deepEqual(customViewportSize({ width: 100, height: 9000 }), {
+    width: CUSTOM_LIMITS.minWidth,
+    height: CUSTOM_LIMITS.maxHeight
+  });
+  assert.deepEqual(
+    viewportSize(
+      "custom",
+      { width: 1600, height: 1200 },
+      { width: 500, height: 700 }
+    ),
+    { width: 500, height: 700, exact: true }
+  );
+  assert.equal(presetLabel("custom"), "Custom");
+  assert.equal(presetLabel("phone"), VIEWPORT_PRESETS.phone.label);
 });

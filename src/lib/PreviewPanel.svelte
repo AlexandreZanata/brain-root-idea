@@ -2,10 +2,12 @@
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
   import {
+    customViewportSize,
     hidePreview,
     isPreviewStatus,
     normalizeCanvasRect,
     parseCommandLine,
+    presetLabel,
     PREVIEW_STATUS_EVENT,
     previewReasonMessage,
     previewStatus,
@@ -13,12 +15,15 @@
     showPreview,
     startPreview,
     stopPreview,
-    type PreviewPhase
+    viewportSize,
+    type PreviewPhase,
+    type ViewportPresetId
   } from "../preview";
   import Button from "./Button.svelte";
 
   const LOOPBACK_HOST = "127.0.0.1";
   const PREVIEW_SCHEME = "http";
+  const presetIds: ViewportPresetId[] = ["desktop", "tablet", "phone", "custom"];
 
   let phase = $state<PreviewPhase>("idle");
   let port = $state<number | null>(null);
@@ -27,8 +32,21 @@
   let folder = $state("");
   let errorDetail = $state("");
   let slot = $state<HTMLDivElement | null>(null);
+  let stage = $state<HTMLDivElement | null>(null);
+  let preset = $state<ViewportPresetId>("desktop");
+  let customWidth = $state(390);
+  let customHeight = $state(844);
+  let available = $state({ width: 0, height: 0 });
   let unlisten: UnlistenFn | undefined;
   let frame = 0;
+
+  let custom = $derived(customViewportSize({ width: customWidth, height: customHeight }));
+  let viewport = $derived(viewportSize(preset, available, custom));
+  let actualSize = $derived(
+    viewport.exact
+      ? `${viewport.width} × ${viewport.height}`
+      : `${viewport.width} × ${viewport.height} — limited by the Canvas area`
+  );
 
   let busy = $derived(phase === "starting" || phase === "stopping");
   let ready = $derived(phase === "ready");
@@ -60,6 +78,21 @@
     const observer = new ResizeObserver(scheduleBounds);
     observer.observe(slot);
     scheduleBounds();
+    return () => observer.disconnect();
+  });
+
+  $effect(() => {
+    if (!stage) {
+      return;
+    }
+    const element = stage;
+    const observer = new ResizeObserver(() => {
+      const rect = element.getBoundingClientRect();
+      available = { width: rect.width, height: rect.height };
+    });
+    observer.observe(element);
+    const rect = element.getBoundingClientRect();
+    available = { width: rect.width, height: rect.height };
     return () => observer.disconnect();
   });
 
@@ -277,19 +310,71 @@
     </div>
   {/if}
 
-  <div class="preview-slot" bind:this={slot}>
-    {#if !ready}
-      <p class="preview-placeholder">
-        Your app appears here once the preview is running.
-      </p>
-    {/if}
+  <div class="preview-presets" role="group" aria-label="Viewport size">
+    {#each presetIds as id (id)}
+      <Button
+        variant="tab"
+        current={preset === id}
+        inactive={preset !== id}
+        onclick={() => {
+          preset = id;
+        }}
+      >
+        {presetLabel(id)}
+      </Button>
+    {/each}
+  </div>
+
+  {#if preset === "custom"}
+    <div class="preview-custom">
+      <label for="preview-width">Width</label>
+      <input
+        id="preview-width"
+        name="preview-width"
+        class="br-field preview-field"
+        type="number"
+        min="240"
+        max="1920"
+        step="10"
+        bind:value={customWidth}
+      />
+      <label for="preview-height">Height</label>
+      <input
+        id="preview-height"
+        name="preview-height"
+        class="br-field preview-field"
+        type="number"
+        min="240"
+        max="1200"
+        step="10"
+        bind:value={customHeight}
+      />
+    </div>
+  {/if}
+
+  <p class="preview-size">
+    {actualSize} · Responsive viewport preview — not device emulation.
+  </p>
+
+  <div class="preview-stage" bind:this={stage}>
+    <div
+      class="preview-slot"
+      bind:this={slot}
+      style="width: {viewport.width}px; height: {viewport.height}px;"
+    >
+      {#if !ready}
+        <p class="preview-placeholder">
+          Your app appears here once the preview is running.
+        </p>
+      {/if}
+    </div>
   </div>
 </div>
 
 <style>
   .preview {
-    display: grid;
-    grid-template-rows: auto auto 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 0.75rem;
     height: 100%;
     min-height: 0;
@@ -314,7 +399,8 @@
     gap: 0.4rem 0.6rem;
   }
 
-  .preview-fields label {
+  .preview-fields label,
+  .preview-custom label {
     color: var(--text-subtle);
     font-size: 0.72rem;
     font-weight: 700;
@@ -332,7 +418,21 @@
     gap: 0.5rem;
   }
 
-  .preview-status {
+  .preview-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .preview-custom {
+    display: grid;
+    grid-template-columns: auto minmax(0, 6rem) auto minmax(0, 6rem);
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+  }
+
+  .preview-status,
+  .preview-size {
     margin: 0;
     color: var(--text-subtle);
     font-size: 0.8rem;
@@ -344,9 +444,17 @@
     font-size: 0.82rem;
   }
 
+  .preview-stage {
+    flex: 1;
+    display: grid;
+    place-items: start center;
+    overflow: auto;
+    min-height: 8rem;
+  }
+
   .preview-slot {
     position: relative;
-    min-height: 8rem;
+    max-width: 100%;
     border: 1px dashed var(--border);
     border-radius: var(--radius-control);
     background: var(--surface-raised);
@@ -360,7 +468,8 @@
   }
 
   @media (max-width: 640px) {
-    .preview-fields {
+    .preview-fields,
+    .preview-custom {
       grid-template-columns: 1fr;
     }
   }
