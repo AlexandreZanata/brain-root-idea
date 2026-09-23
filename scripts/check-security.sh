@@ -118,6 +118,7 @@ allowed_rust = {
     "tauri-build",
     "gtk",
     "wry",
+    "libc",
 }
 for extra in sorted(rust_dependencies - allowed_rust):
     problems.append(f"unapproved Rust dependency {extra!r}")

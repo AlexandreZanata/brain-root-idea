@@ -338,6 +338,7 @@ version = "0.0.5"
 dependencies = [
  "gtk",
  "keyring",
+ "libc",
  "serde",
  "serde_json",
  "tauri",

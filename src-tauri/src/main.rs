@@ -25,6 +25,7 @@ fn main() {
     tauri::Builder::default()
         .manage(provider_state)
         .manage(conversation_session)
+        .manage(features::preview::PreviewState::default())
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 use tauri::Manager;
@@ -32,13 +33,18 @@ fn main() {
                 if session.is_active() {
                     let _ = session.cancel();
                 }
+                let preview = window.state::<features::preview::PreviewState>();
+                preview.stop_now();
             }
         })
         .invoke_handler(tauri::generate_handler![
             features::health::health,
             provider::credential::provider_status,
             features::conversation::conversation_send,
-            features::conversation::conversation_cancel
+            features::conversation::conversation_cancel,
+            features::preview::preview_start,
+            features::preview::preview_stop,
+            features::preview::preview_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running BrainRoot");

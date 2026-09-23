@@ -31,6 +31,7 @@ allowed = re.compile(
     r"features::(?:"
     r"conversation::(?:ConversationSession|conversation_send|conversation_cancel)"
     r"|health::health"
+    r"|preview::(?:PreviewState|preview_start|preview_stop|preview_status)"
     r")\b"
 )
 
