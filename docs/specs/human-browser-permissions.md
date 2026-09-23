@@ -41,6 +41,10 @@ The human harness (`BRAINROOT_HUMAN_FIXTURE=1`, debug builds only) now triggers 
 
 All `MEASURED` on the frozen Pop!_OS 24.04 reference environment (Wayland, WebKitGTK 2.52.6); the app exited `0` and left no process, listener, or probe profile behind. The permission check observed the geolocation/media denial path; the other kinds share the same handler.
 
+## Canvas control (B16-S02)
+
+The Browser surface shows the permission denial as a plain-language line ("This page asked for a permission. BrainRoot blocks camera, microphone, location, notifications, and clipboard in this browser.") and offers a **Clear browser data** action that reveals "Clear everything" / "Cancel" before running `human_browser_clear_data`; the action never runs without the explicit confirmation.
+
 ## Remaining
 
 - Downloads and popups were already denied in B14; unsafe schemes are denied by the navigation policy.
