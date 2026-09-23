@@ -1,6 +1,6 @@
 [package]
 name = "brainroot"
-version = "0.0.9"
+version = "0.0.10"
 description = "BrainRoot experimental Linux shell"
 authors = ["BrainRoot contributors"]
 license = "Apache-2.0"
@@ -37,6 +37,7 @@ required-features = ["probe"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
+webkit2gtk = "2.0"
 wry = "0.55"
 
 [target.'cfg(unix)'.dependencies]

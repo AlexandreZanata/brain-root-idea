@@ -26,10 +26,15 @@ fn main() {
         .manage(provider_state)
         .manage(conversation_session)
         .manage(features::preview::PreviewState::default())
+        .manage(features::human_browser::HumanBrowserState::default())
         .setup(|app| {
             #[cfg(debug_assertions)]
             if std::env::var("BRAINROOT_PREVIEW_FIXTURE").as_deref() == Ok("1") {
                 features::preview::debug_fixture(app.handle().clone());
+            }
+            #[cfg(debug_assertions)]
+            if std::env::var("BRAINROOT_HUMAN_FIXTURE").as_deref() == Ok("1") {
+                features::human_browser::debug_fixture(app.handle().clone());
             }
             Ok(())
         })
@@ -42,6 +47,8 @@ fn main() {
                 }
                 let preview = window.state::<features::preview::PreviewState>();
                 preview.shutdown(&window.app_handle().clone());
+                let human = window.state::<features::human_browser::HumanBrowserState>();
+                human.shutdown(&window.app_handle().clone());
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -55,7 +62,15 @@ fn main() {
             features::preview::preview_show,
             features::preview::preview_set_bounds,
             features::preview::preview_view_status,
-            features::preview::preview_hide
+            features::preview::preview_hide,
+            features::human_browser::human_browser_show,
+            features::human_browser::human_browser_navigate,
+            features::human_browser::human_browser_back,
+            features::human_browser::human_browser_forward,
+            features::human_browser::human_browser_reload,
+            features::human_browser::human_browser_set_bounds,
+            features::human_browser::human_browser_hide,
+            features::human_browser::human_browser_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running BrainRoot");

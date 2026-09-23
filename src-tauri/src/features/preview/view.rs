@@ -8,28 +8,17 @@
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use gtk::prelude::*;
 use tauri::{AppHandle, Manager};
 use wry::dpi::{LogicalPosition, LogicalSize};
 use wry::{Rect, WebContext, WebView, WebViewBuilder, WebViewBuilderExtUnix, WebViewExtUnix};
 
-const MAIN_THREAD_TIMEOUT: Duration = Duration::from_secs(10);
+use crate::features::canvas_host as host;
 
 thread_local! {
     static VIEW: RefCell<Option<PreviewView>> = const { RefCell::new(None) };
-    static HOST: RefCell<Option<PreviewHost>> = const { RefCell::new(None) };
-}
-
-struct PreviewHost {
-    #[allow(dead_code)]
-    gtk_window: gtk::ApplicationWindow,
-    #[allow(dead_code)]
-    overlay: gtk::Overlay,
-    #[allow(dead_code)]
-    vbox: gtk::Box,
-    fixed: gtk::Fixed,
 }
 
 struct PreviewView {
@@ -68,42 +57,38 @@ pub fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
 
 pub fn show(app: &AppHandle, port: u16, bounds: Rect, profile_root: PathBuf) -> Result<(), String> {
     let handle = app.clone();
-    on_main_thread(app, move || {
+    host::on_main_thread(app, move || {
         let webview_window = handle
             .get_webview_window("main")
             .ok_or("main window missing")?;
         let window = webview_window.as_ref().window();
-        ensure_host(&window)?;
+        let fixed = host::ensure_fixed(&window)?;
         destroy_current()?;
         let _ = std::fs::create_dir_all(&profile_root);
-        HOST.with(|slot| {
-            let host = slot.borrow();
-            let host = host.as_ref().ok_or("preview host missing")?;
-            let mut context = WebContext::new(Some(profile_root.join("preview-profile")));
-            let allowed_port = port;
-            let builder = WebViewBuilder::new_with_web_context(&mut context)
-                .with_url(preview_url(allowed_port))
-                .with_bounds(bounds)
-                .with_navigation_handler(move |candidate| {
-                    preview_origin_allowed(&candidate, allowed_port)
-                });
-            let webview = builder
-                .build_gtk(&host.fixed)
-                .map_err(|error| format!("preview view failed: {error}"))?;
-            VIEW.with(|view| {
-                *view.borrow_mut() = Some(PreviewView {
-                    webview,
-                    context,
-                    port: allowed_port,
-                });
+        let mut context = WebContext::new(Some(profile_root.join("preview-profile")));
+        let allowed_port = port;
+        let builder = WebViewBuilder::new_with_web_context(&mut context)
+            .with_url(preview_url(allowed_port))
+            .with_bounds(bounds)
+            .with_navigation_handler(move |candidate| {
+                preview_origin_allowed(&candidate, allowed_port)
             });
-            Ok(())
-        })
+        let webview = builder
+            .build_gtk(&fixed)
+            .map_err(|error| format!("preview view failed: {error}"))?;
+        VIEW.with(|view| {
+            *view.borrow_mut() = Some(PreviewView {
+                webview,
+                context,
+                port: allowed_port,
+            });
+        });
+        Ok(())
     })
 }
 
 pub fn set_bounds(app: &AppHandle, bounds: Rect) -> Result<(), String> {
-    on_main_thread(app, move || {
+    host::on_main_thread(app, move || {
         VIEW.with(|slot| {
             let view = slot.borrow();
             let view = view.as_ref().ok_or("preview view is not visible")?;
@@ -115,7 +100,7 @@ pub fn set_bounds(app: &AppHandle, bounds: Rect) -> Result<(), String> {
 }
 
 pub fn destroy(app: &AppHandle) -> Result<(), String> {
-    on_main_thread(app, destroy_current)
+    host::on_main_thread(app, destroy_current)
 }
 
 /// Destroys the preview view. Must run on the GTK main thread; used by the
@@ -136,48 +121,6 @@ fn destroy_current() -> Result<(), String> {
     Ok(())
 }
 
-fn ensure_host(window: &tauri::Window) -> Result<(), String> {
-    HOST.with(|slot| {
-        if slot.borrow().is_some() {
-            return Ok(());
-        }
-        let gtk_window = window.gtk_window().map_err(|error| error.to_string())?;
-        let child = gtk_window.child().ok_or("window has no GTK child")?;
-        let vbox = child
-            .downcast::<gtk::Box>()
-            .map_err(|_| "window child is not a gtk::Box".to_string())?;
-        let overlay = gtk::Overlay::new();
-        gtk_window.remove(&vbox);
-        overlay.add(&vbox);
-        let fixed = gtk::Fixed::new();
-        overlay.add_overlay(&fixed);
-        gtk_window.add(&overlay);
-        gtk_window.show_all();
-        *slot.borrow_mut() = Some(PreviewHost {
-            gtk_window,
-            overlay,
-            vbox,
-            fixed,
-        });
-        Ok(())
-    })
-}
-
-fn on_main_thread<T, F>(app: &AppHandle, task: F) -> Result<T, String>
-where
-    T: Send + 'static,
-    F: FnOnce() -> Result<T, String> + Send + 'static,
-{
-    let (sender, receiver) = mpsc::channel();
-    app.run_on_main_thread(move || {
-        let _ = sender.send(task());
-    })
-    .map_err(|error| error.to_string())?;
-    receiver
-        .recv_timeout(MAIN_THREAD_TIMEOUT)
-        .map_err(|_| "preview view operation timed out".to_string())?
-}
-
 /// Debug-only allocation rectangle: x, y, width, height in physical pixels.
 #[cfg(debug_assertions)]
 pub type DebugAllocation = (i32, i32, i32, i32);
@@ -186,26 +129,22 @@ pub type DebugAllocation = (i32, i32, i32, i32);
 /// preview widget's physical allocation. Release builds never compile this.
 #[cfg(debug_assertions)]
 pub fn debug_environment(app: &AppHandle) -> Result<(i32, DebugAllocation), String> {
-    on_main_thread(app, || {
-        HOST.with(|slot| {
-            let host = slot.borrow();
-            let host = host.as_ref().ok_or("preview host missing")?;
-            let scale = host.gtk_window.scale_factor();
-            let allocation = VIEW
-                .with(|view| {
-                    view.borrow().as_ref().map(|view| {
-                        let (rectangle, _) = view.webview.webview().allocated_size();
-                        (
-                            rectangle.x(),
-                            rectangle.y(),
-                            rectangle.width(),
-                            rectangle.height(),
-                        )
-                    })
+    host::on_main_thread(app, || {
+        let scale = host::scale_factor()?;
+        let allocation = VIEW
+            .with(|view| {
+                view.borrow().as_ref().map(|view| {
+                    let (rectangle, _) = view.webview.webview().allocated_size();
+                    (
+                        rectangle.x(),
+                        rectangle.y(),
+                        rectangle.width(),
+                        rectangle.height(),
+                    )
                 })
-                .ok_or("preview view missing")?;
-            Ok((scale, allocation))
-        })
+            })
+            .ok_or("preview view missing")?;
+        Ok((scale, allocation))
     })
 }
 
@@ -213,21 +152,17 @@ pub fn debug_environment(app: &AppHandle) -> Result<(i32, DebugAllocation), Stri
 /// plus the host window's active state.
 #[cfg(debug_assertions)]
 pub fn debug_focus(app: &AppHandle) -> Result<(bool, bool), String> {
-    on_main_thread(app, || {
-        HOST.with(|slot| {
-            let host = slot.borrow();
-            let host = host.as_ref().ok_or("preview host missing")?;
-            let window_active = host.gtk_window.is_active();
-            let focused = VIEW
-                .with(|view| {
-                    view.borrow().as_ref().map(|view| {
-                        let _ = view.webview.focus();
-                        view.webview.webview().has_focus()
-                    })
+    host::on_main_thread(app, || {
+        let window_active = host::window_active()?;
+        let focused = VIEW
+            .with(|view| {
+                view.borrow().as_ref().map(|view| {
+                    let _ = view.webview.focus();
+                    view.webview.webview().has_focus()
                 })
-                .unwrap_or(false);
-            Ok((focused, window_active))
-        })
+            })
+            .unwrap_or(false);
+        Ok((focused, window_active))
     })
 }
 
@@ -235,7 +170,7 @@ pub fn debug_focus(app: &AppHandle) -> Result<(bool, bool), String> {
 #[cfg(debug_assertions)]
 pub fn debug_inner_width(app: &AppHandle) -> Result<f64, String> {
     let (sender, receiver) = mpsc::channel::<String>();
-    on_main_thread(app, move || {
+    host::on_main_thread(app, move || {
         VIEW.with(|slot| {
             let view = slot.borrow();
             let view = view.as_ref().ok_or("preview view missing")?;
@@ -247,7 +182,7 @@ pub fn debug_inner_width(app: &AppHandle) -> Result<f64, String> {
         })
     })?;
     let value = receiver
-        .recv_timeout(MAIN_THREAD_TIMEOUT)
+        .recv_timeout(host::MAIN_THREAD_TIMEOUT)
         .map_err(|_| "innerWidth readback timed out".to_string())?;
     let cleaned = value.trim().trim_matches('"');
     cleaned
@@ -259,7 +194,7 @@ pub fn debug_inner_width(app: &AppHandle) -> Result<f64, String> {
 #[cfg(debug_assertions)]
 pub fn debug_device_pixel_ratio(app: &AppHandle) -> Result<f64, String> {
     let (sender, receiver) = mpsc::channel::<String>();
-    on_main_thread(app, move || {
+    host::on_main_thread(app, move || {
         VIEW.with(|slot| {
             let view = slot.borrow();
             let view = view.as_ref().ok_or("preview view missing")?;
@@ -271,7 +206,7 @@ pub fn debug_device_pixel_ratio(app: &AppHandle) -> Result<f64, String> {
         })
     })?;
     let value = receiver
-        .recv_timeout(MAIN_THREAD_TIMEOUT)
+        .recv_timeout(host::MAIN_THREAD_TIMEOUT)
         .map_err(|_| "devicePixelRatio readback timed out".to_string())?;
     value
         .trim()
@@ -283,7 +218,7 @@ pub fn debug_device_pixel_ratio(app: &AppHandle) -> Result<f64, String> {
 /// Debug-only zoom setter.
 #[cfg(debug_assertions)]
 pub fn debug_zoom(app: &AppHandle, scale: f64) -> Result<(), String> {
-    on_main_thread(app, move || {
+    host::on_main_thread(app, move || {
         VIEW.with(|slot| {
             let view = slot.borrow();
             let view = view.as_ref().ok_or("preview view missing")?;
@@ -296,7 +231,7 @@ pub fn debug_zoom(app: &AppHandle, scale: f64) -> Result<(), String> {
 /// and returns the p50 and max per-update latency in microseconds.
 #[cfg(debug_assertions)]
 pub fn debug_soak(app: &AppHandle, updates: usize) -> Result<(u128, u128), String> {
-    on_main_thread(app, move || {
+    host::on_main_thread(app, move || {
         VIEW.with(|slot| {
             let view = slot.borrow();
             let view = view.as_ref().ok_or("preview view missing")?;
