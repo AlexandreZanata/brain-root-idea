@@ -16,6 +16,7 @@ ADRs preserve why a durable decision was made. They are not implementation tutor
 | [0008](0008-zero-idle-architecture.md) | Event-driven zero-idle resource ownership | Accepted |
 | [0009](0009-linux-first-opencode-go-mvp0.md) | Linux-first MVP-0 with OpenCode Go model gateway | Accepted for experiment |
 | [0010](0010-project-license.md) | Apache-2.0 with BrainRoot NOTICE attribution | Accepted |
+| [0011](0011-dev-server-lifecycle.md) | Owned one-per-project dev-server lifecycle for preview | Accepted, implementation deferred to CB-A A4 |
 
 ## Required sections
 
