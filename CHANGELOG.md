@@ -10,6 +10,21 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.10
+
+Batch B14 (Human Browser: minimal human navigation) is tracked by [pull/88](https://github.com/AlexandreZanata/brain-root-idea/pull/88) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B14-Human-Browser).
+
+### Added
+
+- The Companion Canvas has a Browser tab for user-directed web pages: an address entry, Back/Forward/Reload controls with truthful states, the page title and current address, and a plain-language line when a link is blocked ([#89](https://github.com/AlexandreZanata/brain-root-idea/issues/89)).
+- The Human Browser engine implements the ADR 0013 policy: only `http`/`https` load, external handlers become an explicit action, and `file:`/`javascript:`/`data:`/`blob:`/`about:`/`view-source:`/application schemes, userinfo URLs, popups, and downloads are denied with reason codes ([#87](https://github.com/AlexandreZanata/brain-root-idea/issues/87)).
+- The remote view uses a persistent BrainRoot-owned `human-profile`, has no BrainRoot IPC, and shares one Canvas content slot with the Preview; states arrive through typed events instead of polling.
+
+### Known limitations
+
+- Downloads, permission prompts, history/bookmark/cookie import, agent sharing, Deck switching, and phone presentation remain unimplemented; the maintainer explicitly reordered the roadmap for this browser slice.
+- Site compatibility findings, cookie/cache isolation, deletion/reset, crash recovery, and accessibility inside remote content remain open.
+
 ## 0.0.9
 
 Batch B13 (Human Browser prerequisites, CB-B gate) is tracked by [pull/84](https://github.com/AlexandreZanata/brain-root-idea/pull/84) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B13-Human-Browser-Prerequisites).
