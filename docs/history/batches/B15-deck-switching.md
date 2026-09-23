@@ -4,12 +4,13 @@
 
 ## Header
 
-- Status: Ready (awaiting maintainer approval to merge)
+- Status: Released
 - Objective: Prove Preview ↔ Browser switching as a destroy/recreate lifecycle — exactly one view after every switch, the previous view destroyed, bounded latency and a bounded per-role resource footprint — and state the state-loss behavior honestly on both surfaces.
-- Branch: `batch/b15-deck-switching`
+- Branch: `batch/b15-deck-switching` (deleted after merge)
 - Draft/final PR: [#92](https://github.com/AlexandreZanata/brain-root-idea/pull/92)
+- Merge commit: `772e0ba426e0d3c8cbad1cde94abea72bd82d609`
 - Baseline commit: `e6c017a` (B14 released)
-- Target/resulting version: `0.0.11` (deck lifecycle proof; no artifact)
+- Target/resulting version: `0.0.11` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.11) without artifact)
 - Started/completed: 2026-09-23 / 2026-09-23
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, kernel `7.1.5-76070105-generic`, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned)
 - Repository history mirror: this file (created at batch close)
@@ -33,7 +34,7 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 - Decision (B15-S01): switching destroys the previous view and recreates the target; exactly one content view exists after each switch and the presence check fails the run otherwise.
 - Decision (B15-S01): each role caches one `WebContext` (keyed by the profile root) for the application lifetime, which bounds the WebKit footprint and keeps the profile ownership; the harness proves no growth across cycles.
 - Decision (B15-S01): state-loss messaging is explicit — the Browser states that switching tabs closes the page and in-memory state may be lost; the Preview states that the view closes and the app reloads on return while the dev server keeps running until stopped.
-- Decision (B15-S02): a lifecycle batch still changes the version exactly once at finalization (`0.0.11`) per `docs/19-release-and-versioning.md`, with no artifact; merge, tag, and release wait for maintainer approval.
+- Decision (B15-S02): a lifecycle batch still changes the version exactly once at finalization (`0.0.11`) per `docs/19-release-and-versioning.md`, with no artifact. Resolution at merge: the authenticated owner cannot self-approve, so the merge used the documented single-maintainer administrator path; the annotated tag was created only after the merge commit existed on `main`.
 
 ## Failures and recovery
 
@@ -42,8 +43,9 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Final gates
 
-- Full CI: `check-full-linux` on the finalization head — run URL recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/93) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B15-Deck-Switching)
-- Review: requested; awaiting maintainer approval (documented single-maintainer administrator path)
+- Full CI: [`check-full-linux` success on the finalization head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35912384727) (7 m 59 s, `6d1205f`); post-merge `push` runs on `main` for `772e0ba` and the finalization commit are recorded in the [issue evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/93) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B15-Deck-Switching)
+- Review: single-maintainer administrator bypass documented; merged at B15-S02
+- Release: annotated `v0.0.11` on merge commit `772e0ba`; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.11) without artifact
 - Security/privacy: no policy or permission change; the harness only uses the owned fixture and BrainRoot-owned profiles
 - Performance: switch latency 0–3 ms; footprint bounded by one context per role; RSS +4 MB across two cycles
 - Cleanup: harness exit 0 with no process, listener, or view left behind
@@ -52,4 +54,4 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Result and next batch
 
-B15 proves the deck destroy/recreate lifecycle and fixes the per-switch context leak it found: switching shows exactly one content view, destroys the previous one, keeps latency at a few milliseconds, and bounds the WebKit footprint to one context per role. Next: the remaining browser candidates (permission controls, import) or the roadmap's deferred phases. Rollback: revert the batch commits; the commands and surfaces are unchanged.
+Batch B15 is released as [`v0.0.11`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.11) on merge commit `772e0ba`: switching shows exactly one content view, destroys the previous one, keeps latency at a few milliseconds, and bounds the WebKit footprint to one context per role. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, CI run, tag, and release URL cannot exist before the merge. Next: the remaining browser candidates (permission controls, import) or the roadmap's deferred phases. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
