@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use webkit2gtk::WebViewExt as _;
 use wry::{
     NewWindowResponse, Rect, WebContext, WebView, WebViewBuilder, WebViewBuilderExtUnix,
@@ -40,6 +40,12 @@ pub struct HumanStatus {
     pub can_go_back: bool,
     pub can_go_forward: bool,
     pub last_denial: Option<String>,
+}
+
+fn emit_status(app: &AppHandle, status: &Arc<Mutex<HumanStatus>>) {
+    if let Ok(status) = status.lock() {
+        let _ = app.emit("human-browser-status", &*status);
+    }
 }
 
 fn record_denial(status: &Arc<Mutex<HumanStatus>>, code: &str) {
@@ -88,36 +94,47 @@ pub fn show(
         let popup_status = Arc::clone(&status);
         let download_status = Arc::clone(&status);
         let title_status = Arc::clone(&status);
+        let nav_app = handle.clone();
+        let popup_app = handle.clone();
+        let download_app = handle.clone();
+        let title_app = handle.clone();
         let initial_url = url.clone();
         let builder = WebViewBuilder::new_with_web_context(&mut context)
             .with_url(url)
             .with_bounds(bounds)
-            .with_navigation_handler(move |candidate| match decide_navigation(&candidate) {
-                NavigationDecision::Allow => {
-                    record_allowed(&nav_status, &candidate);
-                    true
-                }
-                NavigationDecision::OpenExternal => {
-                    record_denial(&nav_status, "human_external_open");
-                    false
-                }
-                NavigationDecision::Deny { code } => {
-                    record_denial(&nav_status, &code);
-                    false
-                }
+            .with_navigation_handler(move |candidate| {
+                let allowed = match decide_navigation(&candidate) {
+                    NavigationDecision::Allow => {
+                        record_allowed(&nav_status, &candidate);
+                        true
+                    }
+                    NavigationDecision::OpenExternal => {
+                        record_denial(&nav_status, "human_external_open");
+                        false
+                    }
+                    NavigationDecision::Deny { code } => {
+                        record_denial(&nav_status, &code);
+                        false
+                    }
+                };
+                emit_status(&nav_app, &nav_status);
+                allowed
             })
             .with_new_window_req_handler(move |_url, _features| {
                 record_denial(&popup_status, "human_popup_denied");
+                emit_status(&popup_app, &popup_status);
                 NewWindowResponse::Deny
             })
             .with_download_started_handler(move |_url, _path| {
                 record_denial(&download_status, "human_download_denied");
+                emit_status(&download_app, &download_status);
                 false
             })
             .with_document_title_changed_handler(move |title| {
                 if let Ok(mut status) = title_status.lock() {
                     status.title = Some(title);
                 }
+                emit_status(&title_app, &title_status);
             });
         let webview = builder
             .build_gtk(&fixed)
@@ -129,6 +146,7 @@ pub fn show(
             status.visible = true;
             status.url = Some(initial_url);
         }
+        emit_status(&handle, &status);
         Ok(())
     })
 }

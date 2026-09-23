@@ -36,7 +36,10 @@ The Human Browser view is a `wry` WebView built into the shared Canvas `GtkFixed
 
 All `MEASURED` on the frozen Pop!_OS 24.04 reference environment (Wayland, WebKitGTK 2.52.6); the app exited `0` and left no process or listener behind. History navigation uses `webkit2gtk` `can_go_back`/`can_go_forward`/`go_back`/`go_forward`, the only source for that state that wry does not surface.
 
+## Canvas surface (B14-S02)
+
+The Browser tab in the Canvas provides the address entry, Back/Forward/Reload controls with truthful `aria-disabled` states, the page title and current address, and a `role="alert"` line for blocked links. Geometry is synchronized from the slot element (`ResizeObserver` plus `requestAnimationFrame`), the view is shown on the first Go and re-bounded while live, and switching Canvas tabs unmounts the surface, which hides its view so one content slot stays visible. Link-driven changes arrive through the typed `human-browser-status` event; the shell does not poll. The address entered by the user is normalized (a bare host gains `https://`) and the engine policy remains the authority for what loads.
+
 ## Open for the next microsteps
 
-- The Canvas surface (address entry, back/forward/reload controls, title/URL display, error states) is B14-S02.
 - Deck switching, permission prompts, downloads, deletion/reset, cookie/cache isolation, crash recovery, and accessibility inside remote content remain open; the policy is not changed by this record.
