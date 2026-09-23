@@ -8,12 +8,12 @@
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gtk::prelude::*;
 use tauri::{AppHandle, Manager};
 use wry::dpi::{LogicalPosition, LogicalSize};
-use wry::{Rect, WebContext, WebView, WebViewBuilder, WebViewBuilderExtUnix};
+use wry::{Rect, WebContext, WebView, WebViewBuilder, WebViewBuilderExtUnix, WebViewExtUnix};
 
 const MAIN_THREAD_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -176,6 +176,149 @@ where
     receiver
         .recv_timeout(MAIN_THREAD_TIMEOUT)
         .map_err(|_| "preview view operation timed out".to_string())?
+}
+
+/// Debug-only allocation rectangle: x, y, width, height in physical pixels.
+#[cfg(debug_assertions)]
+pub type DebugAllocation = (i32, i32, i32, i32);
+
+/// Debug-only measurements used by the fixture harness: scale factor and the
+/// preview widget's physical allocation. Release builds never compile this.
+#[cfg(debug_assertions)]
+pub fn debug_environment(app: &AppHandle) -> Result<(i32, DebugAllocation), String> {
+    on_main_thread(app, || {
+        HOST.with(|slot| {
+            let host = slot.borrow();
+            let host = host.as_ref().ok_or("preview host missing")?;
+            let scale = host.gtk_window.scale_factor();
+            let allocation = VIEW
+                .with(|view| {
+                    view.borrow().as_ref().map(|view| {
+                        let (rectangle, _) = view.webview.webview().allocated_size();
+                        (
+                            rectangle.x(),
+                            rectangle.y(),
+                            rectangle.width(),
+                            rectangle.height(),
+                        )
+                    })
+                })
+                .ok_or("preview view missing")?;
+            Ok((scale, allocation))
+        })
+    })
+}
+
+/// Debug-only focus probe: focuses the preview and reads the GTK widget focus
+/// plus the host window's active state.
+#[cfg(debug_assertions)]
+pub fn debug_focus(app: &AppHandle) -> Result<(bool, bool), String> {
+    on_main_thread(app, || {
+        HOST.with(|slot| {
+            let host = slot.borrow();
+            let host = host.as_ref().ok_or("preview host missing")?;
+            let window_active = host.gtk_window.is_active();
+            let focused = VIEW
+                .with(|view| {
+                    view.borrow().as_ref().map(|view| {
+                        let _ = view.webview.focus();
+                        view.webview.webview().has_focus()
+                    })
+                })
+                .unwrap_or(false);
+            Ok((focused, window_active))
+        })
+    })
+}
+
+/// Debug-only page-zoom readback: returns `window.innerWidth` in CSS pixels.
+#[cfg(debug_assertions)]
+pub fn debug_inner_width(app: &AppHandle) -> Result<f64, String> {
+    let (sender, receiver) = mpsc::channel::<String>();
+    on_main_thread(app, move || {
+        VIEW.with(|slot| {
+            let view = slot.borrow();
+            let view = view.as_ref().ok_or("preview view missing")?;
+            view.webview
+                .evaluate_script_with_callback("window.innerWidth", move |value| {
+                    let _ = sender.send(value);
+                })
+                .map_err(|error| error.to_string())
+        })
+    })?;
+    let value = receiver
+        .recv_timeout(MAIN_THREAD_TIMEOUT)
+        .map_err(|_| "innerWidth readback timed out".to_string())?;
+    let cleaned = value.trim().trim_matches('"');
+    cleaned
+        .parse::<f64>()
+        .map_err(|_| "unexpected innerWidth value".to_string())
+}
+
+/// Debug-only device-pixel-ratio readback from the preview content.
+#[cfg(debug_assertions)]
+pub fn debug_device_pixel_ratio(app: &AppHandle) -> Result<f64, String> {
+    let (sender, receiver) = mpsc::channel::<String>();
+    on_main_thread(app, move || {
+        VIEW.with(|slot| {
+            let view = slot.borrow();
+            let view = view.as_ref().ok_or("preview view missing")?;
+            view.webview
+                .evaluate_script_with_callback("window.devicePixelRatio", move |value| {
+                    let _ = sender.send(value);
+                })
+                .map_err(|error| error.to_string())
+        })
+    })?;
+    let value = receiver
+        .recv_timeout(MAIN_THREAD_TIMEOUT)
+        .map_err(|_| "devicePixelRatio readback timed out".to_string())?;
+    value
+        .trim()
+        .trim_matches('"')
+        .parse::<f64>()
+        .map_err(|_| "unexpected devicePixelRatio value".to_string())
+}
+
+/// Debug-only zoom setter.
+#[cfg(debug_assertions)]
+pub fn debug_zoom(app: &AppHandle, scale: f64) -> Result<(), String> {
+    on_main_thread(app, move || {
+        VIEW.with(|slot| {
+            let view = slot.borrow();
+            let view = view.as_ref().ok_or("preview view missing")?;
+            view.webview.zoom(scale).map_err(|error| error.to_string())
+        })
+    })
+}
+
+/// Debug-only bounds soak: runs `updates` alternating resizes on the preview
+/// and returns the p50 and max per-update latency in microseconds.
+#[cfg(debug_assertions)]
+pub fn debug_soak(app: &AppHandle, updates: usize) -> Result<(u128, u128), String> {
+    on_main_thread(app, move || {
+        VIEW.with(|slot| {
+            let view = slot.borrow();
+            let view = view.as_ref().ok_or("preview view missing")?;
+            let mut timings = Vec::with_capacity(updates);
+            for index in 0..updates {
+                let bounds = if index % 2 == 0 {
+                    rect(40.0, 80.0, 420.0, 320.0)
+                } else {
+                    rect(40.0, 80.0, 520.0, 380.0)
+                };
+                let started = Instant::now();
+                view.webview
+                    .set_bounds(bounds)
+                    .map_err(|error| error.to_string())?;
+                timings.push(started.elapsed().as_micros());
+            }
+            timings.sort_unstable();
+            let p50 = timings[timings.len() / 2];
+            let max = *timings.last().unwrap_or(&0);
+            Ok((p50, max))
+        })
+    })
 }
 
 #[cfg(test)]
