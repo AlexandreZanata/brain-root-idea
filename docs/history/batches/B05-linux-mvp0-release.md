@@ -4,14 +4,14 @@
 
 ## Header
 
-- Status: Release candidate (version `0.0.1`, scope frozen)
+- Status: Released
 - Objective: A reproducible experimental Linux build demonstrates the complete MVP-0 loop — launch → Ready → configured fake → discover → prompt → stream → complete → second prompt → cancel → close — with security/privacy, performance/soak, packaging, documentation, and release evidence, while the product itself still has no tools, project mutation, or Canvas.
 - Branch: `batch/b05-linux-mvp0-release` (deleted after merge)
 - Draft/final PR: [#44](https://github.com/AlexandreZanata/brain-root-idea/pull/44)
-- Merge commit: pending (finalized at B05-S07)
+- Merge commit: `606f616823c0d1ce6d557fba348b2d4a2e1dbe67`
 - Baseline commit: `430f8743a3535360b51c922a4067b8669c99f639`
-- Target/resulting version: `0.0.1` (set at B05-S06; annotated tag on the merge commit at B05-S07)
-- Started/completed: 2026-09-22 / —
+- Target/resulting version: `0.0.1` (annotated tag on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1) with `BrainRoot_0.0.1_amd64.deb`)
+- Started/completed: 2026-09-22 / 2026-09-23
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, kernel `7.1.5-76070105-generic`, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned)
 
 ## Non-goals
@@ -31,7 +31,7 @@
 | B05-S05 | [#48](https://github.com/AlexandreZanata/brain-root-idea/issues/48) | Documentation and history synchronized: README status, MVP-0 status, measured performance status, architecture/security evidence, open questions, changelog, and this record | `79af85b` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/48#issuecomment-5783641269) | The record is finalized with merge/CI/tag/checksum at B05-S07 | Closed |
 | B05-S06 | [#49](https://github.com/AlexandreZanata/brain-root-idea/issues/49) | Version `0.0.1` synchronized across `VERSION`, `Cargo.toml`, `package.json`, and the lockfile; changelog `0.0.1` section; release artifact rebuilt (`BrainRoot_0.0.1_amd64.deb`, 3,383,162 bytes, sha256 `d03154c9…`); full CI on the frozen head; quality gates verified | `b4dd8dc` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/49#issuecomment-5784086086) | The first packaging run exposed a stale-artifact selection in `scripts/package-linux.sh`; fixed in this issue before the recorded identity. The required CI failed on a missing Node pin and was superseded by B05-R01 | Closed |
 | B05-R01 | [#50](https://github.com/AlexandreZanata/brain-root-idea/issues/50) | `actions/setup-node` v7.0.0 pinned to Node `26.3.1` before pnpm, matching the reference environment; required check green | `90e7c8d` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/50#issuecomment-5784080988) | The earlier CI failure is superseded; no application, test, dependency, or artifact change | Closed |
-| B05-S07 | [#51](https://github.com/AlexandreZanata/brain-root-idea/issues/51) | Merge, tag, and release: merge commit on `main`, annotated `v0.0.1`, pre-release with the verified Debian artifact, and finalized history/Wiki records | pending (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/51) | Artifact verification uses the extracted package (no root install in this environment); the root install/remove steps stay documented | Closed |
+| B05-S07 | [#51](https://github.com/AlexandreZanata/brain-root-idea/issues/51) | Merge, tag, and release: merge commit on `main`, annotated `v0.0.1`, pre-release with the verified Debian artifact, and finalized history/Wiki records | `5a3fd63`, `606f616` (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/51#issuecomment-5793788701) | Artifact verification uses the extracted package (no root install in this environment); the root install/remove steps stay documented | Closed |
 | B05-S07 | merge, tag, release | pending | — | — | — | Planned |
 
 ## Decisions and changed assumptions
@@ -51,8 +51,9 @@
 
 ## Final gates
 
-- Full CI: [`check-full-linux` success on the release-candidate head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35782968080) (6 m 23 s, `90e7c8d`); post-merge `push` run and tag URLs filled by the post-merge finalization commit
+- Full CI: [`check-full-linux` success on the final head](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35784152020) (7 m 35 s, `5a3fd63`) and [`push` run success on `main`](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35851650891)
 - Review: single-maintainer administrator bypass documented; merged at B05-S07
+- Release: annotated `v0.0.1` on the merge commit; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1) with the checksum-verified artifact attached
 - Security/privacy: `check-security.sh` gate and OSV audit clean on 2026-09-22; secret scans clean; no telemetry or unapproved destination
 - Performance: [b05-mvp0-soak](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/specs/performance-reports/b05-mvp0-soak.md) — startup and cancellation pass; idle CPU warn; memory TARGET fails; live cancellation latency UNKNOWN
 - Cleanup: the e2e journey and soak assert zero active requests and joined workers; eight open/close cycles left no process, listener, or extra WebView
@@ -62,4 +63,4 @@
 
 ## Result and next batch
 
-Batch B05 is released as `v0.0.1` (the pre-release URL, merge commit, and tag are filled by the post-merge finalization commit): the first reproducible experimental Linux build of the MVP-0 model loop, with the security, performance, packaging, accessibility, and documentation evidence recorded above and its failing memory TARGET stated plainly. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
+Batch B05 is released as [`v0.0.1`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.1) on merge commit `606f616`: the first reproducible experimental Linux build of the MVP-0 model loop, with the security, performance, packaging, accessibility, and documentation evidence recorded above, a checksum-verified Debian artifact, and the failing memory TARGET stated plainly. This final record was completed in one documented post-merge commit on `main` through the administrator bypass because the merge commit, CI runs, tag, and release URL cannot exist before the merge. Next: post-`0.0.1` platform and product batches (Windows minimum environment, then the MVP-1 Linux product loop), each with its own reference environment and records. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
