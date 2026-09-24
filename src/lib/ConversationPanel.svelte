@@ -140,7 +140,7 @@
     <div class="composer-bar">
       <span class="br-chip" title="Configured model for MVP-0">glm-5.3-flash</span>
       <span class="composer-state">{statusLabel}</span>
-      <div class="actions">
+      <div class="br-btn-group">
         <Button variant="primary" type="submit" inactive={!canSend}>
           <span>Send</span>
           <Icon name="send" size="sm" />
@@ -162,54 +162,49 @@
   .history {
     display: flex;
     flex-direction: column;
-    gap: 0.9rem;
-    padding: 1rem;
+    gap: var(--space-4);
+    padding: var(--space-4);
   }
 
   .suggestions {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: var(--space-2);
   }
 
   .jump-row {
     display: flex;
     justify-content: center;
-    padding: 0 1rem 0.5rem;
+    padding: 0 var(--space-4) var(--space-2);
   }
 
   .setup {
     margin: 0;
-    padding: 0.6rem 1rem;
+    padding: var(--space-2) var(--space-4);
     border-bottom: 1px solid var(--border);
     color: var(--text);
-    font-size: 0.78rem;
+    font-size: var(--text-body);
   }
 
   .composer {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem 1rem;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4) var(--space-4);
     border-top: 1px solid var(--border);
   }
 
   .composer-bar {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-2);
   }
 
   .composer-state {
     flex: 1;
     text-align: right;
     color: var(--text-muted);
-    font-size: 0.72rem;
-  }
-
-  .actions {
-    display: flex;
-    gap: 0.4rem;
+    font-size: var(--text-supporting);
   }
 
   @media (max-width: 1080px) {
@@ -220,12 +215,12 @@
 
   @media (max-width: 640px) {
     .composer {
-      padding: 0.65rem 0.75rem 0.85rem;
+      padding: var(--space-3) var(--space-3) var(--space-3);
     }
 
     .composer-bar {
       flex-wrap: wrap;
-      row-gap: 0.4rem;
+      row-gap: var(--space-2);
     }
 
     .composer-state {
