@@ -342,8 +342,8 @@
   .workspace {
     display: grid;
     grid-template-columns: 4.6rem var(--agent-width, 23rem) auto minmax(0, 1fr);
-    gap: 0.9rem;
-    padding: 0.9rem;
+    gap: var(--space-4);
+    padding: var(--space-4);
     min-height: 0;
   }
 
@@ -387,8 +387,8 @@
 
   @media (max-width: 640px) {
     .workspace {
-      padding: 0.6rem;
-      gap: 0.6rem;
+      padding: var(--space-2);
+      gap: var(--space-2);
     }
   }
 </style>
