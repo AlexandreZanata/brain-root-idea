@@ -20,6 +20,7 @@
   import { acceptsEvent, taskStatus } from "./presentation";
   import { createStreamBuffer } from "./streamBuffer";
   import AppHeader from "./lib/AppHeader.svelte";
+  import Button from "./lib/Button.svelte";
   import CanvasPanel from "./lib/CanvasPanel.svelte";
   import ConversationPanel from "./lib/ConversationPanel.svelte";
   import PanelResizer from "./lib/PanelResizer.svelte";
@@ -80,6 +81,14 @@
   );
   let agentWidth = $state(368);
   let clampedAgentWidth = $derived(clampPanelWidth(agentWidth, 280, 560));
+  let canvasOnLeft = $state(false);
+  let sideNote = $derived(
+    canvasOnLeft ? "Canvas on the left, chat on the right." : "Canvas on the right, chat on the left."
+  );
+
+  function toggleSides() {
+    canvasOnLeft = !canvasOnLeft;
+  }
 
   $effect(() => {
     if (agentWidth !== clampedAgentWidth) {
@@ -301,7 +310,11 @@
 
 <main class="app">
   <AppHeader {healthState} {detail} {theme} ontoggle={toggleTheme} />
-  <div class="workspace" style="--agent-width: {clampedAgentWidth}px">
+  <div class="workspace-bar">
+    <Button variant="secondary" onclick={toggleSides}>Swap sides</Button>
+    <p class="workspace-side-note" role="status">{sideNote}</p>
+  </div>
+  <div class="workspace" class:canvas-left={canvasOnLeft} style="--agent-width: {clampedAgentWidth}px">
     <WorkspaceRail sections={railSections} />
     <ConversationPanel
       {setupMessage}
@@ -322,7 +335,7 @@
 <style>
   .app {
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     height: 100vh;
   }
 
@@ -332,6 +345,37 @@
     gap: 0.9rem;
     padding: 0.9rem;
     min-height: 0;
+  }
+
+  /* Swap sides without remounting Canvas: DOM order stays
+     rail → chat → resizer → Canvas, so component and WebView
+     instances survive the toggle. Only visual order changes. */
+  .workspace > :global(.br-rail) {
+    order: 1;
+  }
+
+  .workspace > :global(.agent) {
+    order: 2;
+  }
+
+  .workspace > :global(.br-resizer) {
+    order: 3;
+  }
+
+  .workspace > :global(.canvas) {
+    order: 4;
+  }
+
+  .workspace.canvas-left {
+    grid-template-columns: 4.6rem minmax(0, 1fr) auto var(--agent-width, 23rem);
+  }
+
+  .workspace.canvas-left > :global(.agent) {
+    order: 4;
+  }
+
+  .workspace.canvas-left > :global(.canvas) {
+    order: 2;
   }
 
   @media (max-width: 1080px) {
