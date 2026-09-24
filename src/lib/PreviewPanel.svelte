@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import {
     customViewportSize,
+    DEFAULT_PREVIEW_PRESET,
     hidePreview,
     isPreviewStatus,
     normalizeCanvasRect,
@@ -33,7 +34,7 @@
   let errorDetail = $state("");
   let slot = $state<HTMLDivElement | null>(null);
   let stage = $state<HTMLDivElement | null>(null);
-  let preset = $state<ViewportPresetId>("desktop");
+  let preset = $state<ViewportPresetId>(DEFAULT_PREVIEW_PRESET);
   let customWidth = $state(390);
   let customHeight = $state(844);
   let available = $state({ width: 0, height: 0 });

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   CUSTOM_LIMITS,
+  DEFAULT_PREVIEW_PRESET,
   MIN_PREVIEW_SIDE,
   VIEWPORT_PRESETS,
   customViewportSize,
@@ -101,6 +102,15 @@ test("guards preview status and view status payloads", () => {
   );
   assert.equal(isPreviewViewStatus({ visible: "yes", port: null, bounds: null }), false);
   assert.equal(isPreviewViewStatus({ visible: true, port: null, bounds: [0, 0] }), false);
+});
+
+test("the phone preset is the B18 default and clamps to a tight area", () => {
+  assert.equal(DEFAULT_PREVIEW_PRESET, "phone");
+  assert.deepEqual(viewportSize(DEFAULT_PREVIEW_PRESET, { width: 320, height: 480 }), {
+    width: 320,
+    height: 480,
+    exact: false
+  });
 });
 
 test("resolves viewport presets against the available Canvas area", () => {

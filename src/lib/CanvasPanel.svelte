@@ -14,7 +14,7 @@
     { id: null, label: "AI Notes" }
   ];
 
-  let active = $state<CanvasTab>("preview");
+  let active = $state<CanvasTab>("browser");
   let transition = $state<CanvasTransition | null>(null);
 
   function selectTab(tab: CanvasTab) {

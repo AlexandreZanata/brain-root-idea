@@ -17,14 +17,17 @@
     HUMAN_STATUS_EVENT,
     type HumanStatus
   } from "../humanBrowser";
-  import { normalizeCanvasRect } from "../preview";
+  import { DEFAULT_PREVIEW_PRESET, normalizeCanvasRect, viewportSize } from "../preview";
   import Button from "./Button.svelte";
 
   let address = $state("");
   let status = $state<HumanStatus | null>(null);
   let error = $state("");
   let confirmingClear = $state(false);
+  let stage = $state<HTMLDivElement | null>(null);
   let slot = $state<HTMLDivElement | null>(null);
+  let slotWidth = $state(0);
+  let slotHeight = $state(0);
   let unlisten: UnlistenFn | undefined;
   let frame = 0;
 
@@ -39,11 +42,15 @@
   );
 
   $effect(() => {
-    if (!slot) {
+    if (!stage) {
       return;
     }
-    const observer = new ResizeObserver(scheduleBounds);
-    observer.observe(slot);
+    const observer = new ResizeObserver(() => {
+      updateSlotSize();
+      scheduleBounds();
+    });
+    observer.observe(stage);
+    updateSlotSize();
     scheduleBounds();
     return () => observer.disconnect();
   });
@@ -95,6 +102,19 @@
   onDestroy(() => {
     void humanHide().catch(() => undefined);
   });
+
+  function updateSlotSize() {
+    if (!stage) {
+      return;
+    }
+    const rect = stage.getBoundingClientRect();
+    const size = viewportSize(DEFAULT_PREVIEW_PRESET, {
+      width: rect.width,
+      height: rect.height
+    });
+    slotWidth = size.width;
+    slotHeight = size.height;
+  }
 
   function scheduleBounds() {
     if (frame !== 0) {
@@ -263,14 +283,20 @@
     <p class="browser-page" role="status">{pageLine}</p>
   {/if}
 
-  <div class="browser-slot" bind:this={slot}>
-    {#if !visible}
-      <p class="browser-placeholder">
-        Enter a web address to open it here. This browser is separate from your
-        installed browsers and blocked from opening downloads or popups.
-        Switching Canvas tabs closes this page; in-memory state may be lost.
-      </p>
-    {/if}
+  <div class="browser-stage" bind:this={stage}>
+    <div
+      class="browser-slot"
+      bind:this={slot}
+      style="width: {slotWidth}px; height: {slotHeight}px"
+    >
+      {#if !visible}
+        <p class="browser-placeholder">
+          Enter a web address to open it here. This browser is separate from your
+          installed browsers and blocked from opening downloads or popups.
+          Switching Canvas tabs closes this page; in-memory state may be lost.
+        </p>
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -329,13 +355,23 @@
     color: var(--text);
   }
 
-  .browser-slot {
+  .browser-stage {
     flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .browser-slot {
     position: relative;
-    min-height: 10rem;
+    min-width: 1px;
+    min-height: 1px;
     border: 1px dashed var(--border);
     border-radius: var(--radius-control);
     background: var(--surface-raised);
+    overflow: hidden;
   }
 
   .browser-placeholder {

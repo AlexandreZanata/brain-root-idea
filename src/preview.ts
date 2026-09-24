@@ -55,6 +55,8 @@ export const VIEWPORT_PRESETS: Record<
   phone: { width: 390, height: 844, label: "Phone" }
 };
 
+export const DEFAULT_PREVIEW_PRESET: ViewportPresetId = "phone";
+
 export function presetLabel(preset: ViewportPresetId): string {
   return preset === "custom" ? "Custom" : VIEWPORT_PRESETS[preset].label;
 }
