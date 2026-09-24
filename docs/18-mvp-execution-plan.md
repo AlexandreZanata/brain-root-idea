@@ -29,6 +29,8 @@ Do not access OpenCode credentials from `~/.local/share/opencode/auth.json`. Bra
 
 The release-only test cadence in [ADR 0014](adr/0014-release-only-test-cadence.md) applies from B17 onward. B00–B16 records and the historical detailed packets below describe the earlier, test-per-microstep process; do not rewrite their evidence.
 
+The proposed next frontend-only Linux batch is [B18 fluid Canvas and phone-first Browser](specs/b18-frontend-fluidity-phone-browser.md). Its listed packets are planning candidates, not executable issues: apply this document's one-issue/one-commit and final-release-gate rules when opening the actual batch.
+
 ## 4. Mandatory repository workflow
 
 ### 4.1 Start a batch

@@ -51,6 +51,8 @@ Only externally useful actions, decisions, results, and blockers appear. Never d
 5. Show the first preview automatically when ready.
 6. End with result, tests performed, change count, and Accept / Undo / Show changes.
 
+The proposed [B18 phone-first Browser phase](specs/b18-frontend-fluidity-phone-browser.md) refines step 5 for the post-MVP Canvas: Browser/phone is the initial destination; a newly ready project Preview may open automatically only if the user has not already selected a different destination in that session. A startup Browser tab is not permission to fetch a remote page without an address.
+
 ## Language system
 
 Primary: Build, Fix, Test, Preview, Publish, Undo, Restore, Show changes, Open project, Needs your approval, and Technical details.
@@ -64,4 +66,3 @@ Technical-detail only: checkout, rebase, stash, worktree, PTY, LSP, AST, hydrati
 - Destructive actions state what will change and how recovery works.
 - Progress is state-based, not a fake percentage.
 - Reduced-motion mode replaces large transitions with direct state changes.
-
