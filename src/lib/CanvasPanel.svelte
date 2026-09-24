@@ -2,6 +2,7 @@
   import Button from "./Button.svelte";
   import HumanBrowserPanel from "./HumanBrowserPanel.svelte";
   import PreviewPanel from "./PreviewPanel.svelte";
+  import { canvasTransition, type CanvasTransition } from "../presentation";
 
   type CanvasTab = "preview" | "browser";
 
@@ -14,6 +15,15 @@
   ];
 
   let active = $state<CanvasTab>("preview");
+  let transition = $state<CanvasTransition | null>(null);
+
+  function selectTab(tab: CanvasTab) {
+    if (tab === active) {
+      return;
+    }
+    transition = canvasTransition(tab);
+    active = tab;
+  }
 </script>
 
 <section class="br-panel canvas" aria-labelledby="canvas-title">
@@ -21,6 +31,11 @@
     <div>
       <h2 id="canvas-title" class="br-panel__title">Preview / Canvas</h2>
       <p class="br-panel__subtitle">The result lives here — dominant by design.</p>
+      {#if transition}
+        <p class="canvas-transition" role="status">
+          {transition.label} — {transition.note}
+        </p>
+      {/if}
     </div>
     <div class="br-tabs" aria-label="Canvas views">
       {#each tabs as tab (tab.label)}
@@ -31,7 +46,7 @@
           title={tab.id === null ? `${tab.label} — planned for MVP-1` : tab.label}
           onclick={() => {
             if (tab.id) {
-              active = tab.id;
+              selectTab(tab.id);
             }
           }}
         >
@@ -53,6 +68,12 @@
 <style>
   .canvas {
     height: 100%;
+  }
+
+  .canvas-transition {
+    margin: 0.35rem 0 0;
+    color: var(--text-subtle);
+    font-size: 0.72rem;
   }
 
   .canvas-body {

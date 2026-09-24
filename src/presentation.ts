@@ -124,3 +124,26 @@ export function responsePreview(text: string, limit = RESPONSE_PREVIEW_CHARS): s
   const preview = boundary > limit / 2 ? clipped.slice(0, boundary) : clipped;
   return `${preview.trimEnd()}…`;
 }
+
+export type CanvasDestination = "preview" | "browser";
+
+export type CanvasTransition = {
+  destination: CanvasDestination;
+  label: string;
+  note: string;
+};
+
+export function canvasTransition(next: CanvasDestination): CanvasTransition {
+  if (next === "preview") {
+    return {
+      destination: "preview",
+      label: "Opening Preview",
+      note: "The preview view was closed when you switched tabs; it reloads when you return, and the dev server keeps running until you stop it."
+    };
+  }
+  return {
+    destination: "browser",
+    label: "Opening Browser",
+    note: "The browser page was closed when you switched tabs; it reloads when you return, and in-memory state may be lost."
+  };
+}

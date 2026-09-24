@@ -61,6 +61,8 @@
         return "Preview ready";
       case "stopping":
         return "Stopping the preview…";
+      case "stopped":
+        return "Preview stopped.";
       default:
         return "";
     }
@@ -242,7 +244,10 @@
     try {
       await stopPreview();
     } catch {
-      errorDetail = "The preview did not stop cleanly. Try again.";
+      phase = "failed";
+      reason = "preview_stop_failed";
+      errorDetail = "";
+      return;
     }
     phase = "idle";
     port = null;

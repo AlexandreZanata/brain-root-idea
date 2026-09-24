@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   RESPONSE_PREVIEW_CHARS,
   acceptsEvent,
+  canvasTransition,
   composerKeyAction,
   isPinnedToBottom,
   presentTurn,
@@ -166,4 +167,20 @@ test("isPinnedToBottom keeps the reader's position unless near the bottom", () =
   assert.equal(isPinnedToBottom(800, 100, 1000), false);
   assert.equal(isPinnedToBottom(0, 500, 300), true);
   assert.equal(isPinnedToBottom(700, 100, 1000, 0), false);
+});
+
+test("canvasTransition states the honest reload rule for each destination", () => {
+  const preview = canvasTransition("preview");
+
+  assert.equal(preview.destination, "preview");
+  assert.equal(preview.label, "Opening Preview");
+  assert.match(preview.note, /reloads when you return/);
+  assert.match(preview.note, /dev server keeps running/);
+
+  const browser = canvasTransition("browser");
+
+  assert.equal(browser.destination, "browser");
+  assert.equal(browser.label, "Opening Browser");
+  assert.match(browser.note, /reloads when you return/);
+  assert.match(browser.note, /in-memory state may be lost/);
 });
