@@ -4,14 +4,14 @@
 
 ## Header
 
-- Status: In review (`CI_PENDING`)
+- Status: Released
 - Objective: Make the conversation surface read as one compact, truthful task narrative, stream without visual churn, keep keyboard/focus/scroll predictable, and switch the Canvas between Preview and Browser with honest loading/COLD states — under the release-gate test cadence of ADR 0014.
 - Branch: `batch/b17-interaction-polish`
 - Draft/final PR: [#99](https://github.com/AlexandreZanata/brain-root-idea/pull/99)
-- Merge commit: pending
+- Merge commit: `e25f32f51c06bcf12b2eb4ab6ad233f4e373bdde`
 - Baseline commit: `0f8cdb5` (B16 released)
 - Target/resulting version: `0.0.13` (no artifact)
-- Started/completed: 2026-09-24 / —
+- Started/completed: 2026-09-24 / 2026-09-24
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, Wayland, WebKitGTK 2.52.6, rustc 1.96.0 pinned)
 - Repository history mirror: this file (created at batch close)
 
@@ -32,7 +32,7 @@
 | B17-S04 | [#103](https://github.com/AlexandreZanata/brain-root-idea/issues/103) | Adds per-turn status chips and word-bounded collapsing of old long answers with an accessible Show full answer / Show less toggle; failures, cancellations, and technical details stay visible | `9983bed` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/103#issuecomment-5813353547) | Static checks green; expanded/collapsed accessibility cases remain a manual probe | Closed |
 | B17-S05 | [#104](https://github.com/AlexandreZanata/brain-root-idea/issues/104) | Makes the composer predictable (Enter submits, Shift+Enter newline, IME safe, Escape cancels with focus return) and preserves the reading position with a Jump to latest control | `07cf77f` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/104#issuecomment-5813403228) | Static checks green; keyboard/scroll probe remains manual; WebView focus escape stays out of scope | Closed |
 | B17-S06 | [#105](https://github.com/AlexandreZanata/brain-root-idea/issues/105) | Announces Canvas destination changes honestly (Preview view reloads; Browser page reloads and may lose state) via `canvasTransition`, fixes the `stopped` status line, and surfaces stop failures as a real alert; one-HOT unchanged | `a687a70` | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/105#issuecomment-5813454587) | Static checks green; one-HOT/cleanup executed at this gate via the deck harness | Closed |
-| B17-S07 | [#106](https://github.com/AlexandreZanata/brain-root-idea/issues/106) | Release gate: version `0.0.13` synchronized; changelog section; this record created; complete Linux suite executed on the application head; baseline probes executed; PR marked Ready with the `CI_PENDING` handoff | pending | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/106) | Merge/tag deferred to a later task per ADR 0014 | In review |
+| B17-S07 | [#106](https://github.com/AlexandreZanata/brain-root-idea/issues/106) | Release gate: version `0.0.13` synchronized; changelog section; this record created; complete Linux suite executed on the application head; baseline probes executed; PR marked Ready, CI green on `d48b5f4`, merged with a merge commit, tagged `v0.0.13`, and released | `d48b5f4`, `e25f32f` (merge) | [evidence](https://github.com/AlexandreZanata/brain-root-idea/issues/106#issuecomment-5813623285) | Merge used the documented single-maintainer administrator bypass; CI passed before merge | Closed |
 
 Update one row whenever a microstep closes or is reopened. Never paste secrets or unbounded raw logs.
 
@@ -51,8 +51,9 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 ## Final gates
 
 - Local release gate on the application head `a687a70` (finalization changes are version/docs only): `sh scripts/check-full-linux.sh` passed — Rust fmt/clippy/tests (151 passed, 3 ignored), svelte-check, production frontend build, Tauri release build, security/modules/accessibility gates, fake-provider e2e, process smoke (readiness observed; main and child processes exited; no listeners remained), docs, version consistency, license artifacts.
-- CI handoff: PR #99 marked Ready; `CI_PENDING` with the submitted head SHA recorded in the PR and Wiki; a later task checks the latest head once and handles merge or remediation.
-- Review: pending
+- CI: required `check-full-linux` passed on the submitted head `d48b5f4` ([run 35996141045](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/35996141045)); the PR was merged with a merge commit after the single-maintainer administrator bypass.
+- Review: single-maintainer administrator bypass documented; merged at B17-S07
+- Release: annotated `v0.0.13` on merge commit `e25f32f`; [pre-release](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.13) without artifact
 - Performance (MEASURED on the reference host, `BRAINROOT_MEASURE_SKIP_BUILD=1 sh scripts/measure-linux.sh`, commit `a687a70`, load average 3.66): startup n=10 median 0.907 s, p95 1.033 s (TARGET ≤ 1.0 s p50); idle CPU median 1.724 % across 5 windows (windows 4–5 at 0.103 % and 0.069 %; the `< 1 %` budget is exceeded on this busy host and is reported, not excused); PSS median 266.3 MB (the 150 MB target still fails, as since B01); binary 8,081,576 bytes; frontend JS 82,068 B (gzip 28,529 B) and CSS 14,635 B (gzip 3,225 B).
 - Cleanup/one-HOT (MEASURED): `BRAINROOT_DECK_FIXTURE=1` returned `decision: go` with switches 0–12 ms, children bounded at 6 after two cycles and 4 after cleanup, and no leftover process or listener.
 - Deferred/manual: first visible stream content, input-feedback latency, and the keyboard/focus/scroll probes remain `UNKNOWN` without interactive automation; the buffer's coalescing/bound/order/dispose cases passed in the frontend suite.
@@ -62,4 +63,4 @@ Update one row whenever a microstep closes or is reopened. Never paste secrets o
 
 ## Result and next batch
 
-Pending merge. Intended result: the conversation reads as a compact task narrative with bounded streaming, predictable composer/focus/scroll, and honest Canvas transitions under the ADR 0014 release-gate cadence. Next: portable import, phone presentation, or the roadmap's deferred phases. Rollback: revert the batch commits before any tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
+Batch B17 is released as [`v0.0.13`](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.13) on merge commit `e25f32f`: the conversation reads as a compact task narrative with bounded streaming, predictable composer/focus/scroll, and honest Canvas transitions under the ADR 0014 release-gate cadence. The installed application on the maintainer machine was refreshed from this head (`~/.local/bin/brainroot`, sha256 `5378a55f…`, verified by the process smoke). Next: portable import, phone presentation, or the roadmap's deferred phases. Rollback: revert the batch commits before the tag; after tagging, the tag is never moved and a failed candidate gets a new prerelease identifier.
