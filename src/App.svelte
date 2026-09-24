@@ -17,6 +17,7 @@
     type CredentialStatus
   } from "./conversation";
   import { requestHealth } from "./health";
+  import { acceptsEvent, taskStatus } from "./presentation";
   import AppHeader from "./lib/AppHeader.svelte";
   import CanvasPanel from "./lib/CanvasPanel.svelte";
   import ConversationPanel from "./lib/ConversationPanel.svelte";
@@ -94,22 +95,7 @@
       !isBusy &&
       prompt.trim().length > 0
   );
-  let statusLabel = $derived.by(() => {
-    switch (conversationState) {
-      case "sending":
-        return "Starting…";
-      case "streaming":
-        return "Building…";
-      case "cancelling":
-        return "Cancelling…";
-      case "succeeded":
-        return "Done";
-      case "failed":
-        return "Needs attention";
-      default:
-        return setupMessage ? "Needs setup" : "Ready for a request";
-    }
-  });
+  let task = $derived(taskStatus(conversationState, setupMessage));
 
   $effect(() => {
     document.documentElement.dataset.theme = theme;
@@ -224,6 +210,9 @@
     if (turnId === null) {
       return;
     }
+    if (!acceptsEvent(conversationState, envelope.event.type)) {
+      return;
+    }
 
     switch (envelope.event.type) {
       case "started":
@@ -299,7 +288,7 @@
     <ConversationPanel
       {setupMessage}
       {turns}
-      {statusLabel}
+      statusLabel={task.label}
       {canSend}
       {isCancellable}
       bind:prompt={prompt}
