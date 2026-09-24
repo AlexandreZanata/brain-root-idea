@@ -211,6 +211,111 @@ export function normalizeCanvasRect(
   return [x, y, width, height];
 }
 
+export type CanvasBounds = [number, number, number, number];
+
+export function sameCanvasBounds(
+  a: CanvasBounds | null,
+  b: CanvasBounds | null
+): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a === null || b === null) {
+    return false;
+  }
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+}
+
+export type BoundsSync = {
+  schedule: (bounds: CanvasBounds | null) => void;
+  dispose: () => void;
+  sentCount: () => number;
+  suppressedCount: () => number;
+};
+
+// Serializes native bounds traffic: at most one send in flight plus one
+// latest pending rectangle. Duplicate rectangles are suppressed, the final
+// rectangle of a burst is always applied, and a disposed sync never applies.
+// Sends are strictly sequential, so results settle in initiation order; the
+// caller still guards domain staleness (for example navigation vs bounds) in
+// `apply`. Counters are local-only release-probe instrumentation.
+export function createBoundsSync<T>(options: {
+  send: (bounds: CanvasBounds) => Promise<T>;
+  apply: (result: T) => void;
+  onError: () => void;
+}): BoundsSync {
+  const { send, apply, onError } = options;
+  let disposed = false;
+  let inFlight = false;
+  let pending: CanvasBounds | null = null;
+  let lastSent: CanvasBounds | null = null;
+  let sent = 0;
+  let suppressed = 0;
+
+  function pump() {
+    if (disposed || inFlight || pending === null) {
+      return;
+    }
+    const next = pending;
+    pending = null;
+    if (sameCanvasBounds(next, lastSent)) {
+      suppressed += 1;
+      return;
+    }
+    inFlight = true;
+    lastSent = next;
+    sent += 1;
+    void send(next).then(
+      (result) => {
+        inFlight = false;
+        if (!disposed) {
+          apply(result);
+        }
+        pump();
+      },
+      () => {
+        inFlight = false;
+        if (disposed) {
+          return;
+        }
+        // Allow an identical retry to re-send instead of being deduped.
+        lastSent = null;
+        onError();
+        pump();
+      }
+    );
+  }
+
+  return {
+    schedule(bounds: CanvasBounds | null) {
+      if (disposed || bounds === null) {
+        return;
+      }
+      if (sameCanvasBounds(bounds, pending)) {
+        suppressed += 1;
+        return;
+      }
+      if (sameCanvasBounds(bounds, lastSent)) {
+        suppressed += 1;
+        return;
+      }
+      if (pending !== null) {
+        // A newer rectangle replaces the waiting one; it never sends.
+        suppressed += 1;
+      }
+      pending = bounds;
+      pump();
+    },
+    dispose() {
+      disposed = true;
+      pending = null;
+      inFlight = false;
+    },
+    sentCount: () => sent,
+    suppressedCount: () => suppressed
+  };
+}
+
 export async function startPreview(request: {
   command: string;
   args: string[];

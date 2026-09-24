@@ -17,7 +17,8 @@
     HUMAN_STATUS_EVENT,
     type HumanStatus
   } from "../humanBrowser";
-  import { DEFAULT_PREVIEW_PRESET, normalizeCanvasRect, viewportSize } from "../preview";
+  import { DEFAULT_PREVIEW_PRESET, createBoundsSync, normalizeCanvasRect, viewportSize } from "../preview";
+  import type { CanvasBounds } from "../preview";
   import Button from "./Button.svelte";
 
   let address = $state("");
@@ -31,6 +32,23 @@
   let slotHeight = $state(0);
   let unlisten: UnlistenFn | undefined;
   let frame = 0;
+  let boundsError = $state("");
+
+  // B18-S06: one bounds send in flight plus one latest pending rectangle.
+  // The echoed status is adopted only when no newer navigation state landed
+  // meanwhile; failures surface a retry instead of failing silently.
+  const boundsSync = createBoundsSync<HumanStatus>({
+    send: (bounds) => humanSetBounds(bounds),
+    apply: (result) => {
+      boundsError = "";
+      if (status?.visible === result.visible && status?.url === result.url) {
+        status = result;
+      }
+    },
+    onError: () => {
+      boundsError = "The browser view could not be resized. Try again.";
+    }
+  });
 
   const plannedDestinations = ["Files", "Terminal", "Changes"];
 
@@ -99,6 +117,8 @@
       disposed = true;
       window.removeEventListener("resize", scheduleBounds);
       unlisten?.();
+      cancelBoundsFrame();
+      boundsSync.dispose();
     };
   });
 
@@ -130,12 +150,25 @@
     frame = requestAnimationFrame(() => {
       frame = 0;
       if (visible) {
-        void syncBounds();
+        boundsSync.schedule(currentBounds());
       }
     });
   }
 
-  function currentBounds(): [number, number, number, number] | null {
+  function cancelBoundsFrame() {
+    if (frame !== 0) {
+      cancelAnimationFrame(frame);
+      frame = 0;
+    }
+  }
+
+  function retryBounds() {
+    boundsError = "";
+    cancelBoundsFrame();
+    scheduleBounds();
+  }
+
+  function currentBounds(): CanvasBounds | null {
     if (!slot) {
       return null;
     }
@@ -144,18 +177,6 @@
       { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       { width: window.innerWidth, height: window.innerHeight }
     );
-  }
-
-  async function syncBounds() {
-    const bounds = currentBounds();
-    if (!bounds) {
-      return;
-    }
-    try {
-      status = await humanSetBounds(bounds);
-    } catch {
-      // A stale rectangle is corrected on the next resize.
-    }
   }
 
   function errorCode(value: unknown): string {
@@ -291,6 +312,13 @@
     <p class="browser-page" role="status">{pageLine}</p>
   {/if}
 
+  {#if boundsError}
+    <div class="browser-bounds">
+      <p class="browser-error" role="alert">{boundsError}</p>
+      <Button variant="secondary" onclick={retryBounds}>Retry</Button>
+    </div>
+  {/if}
+
   <div class="browser-stage" bind:this={stage}>
     <div
       class="browser-slot"
@@ -375,6 +403,13 @@
 
   .browser-page {
     color: var(--text-subtle);
+  }
+
+  .browser-bounds {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .browser-error {

@@ -6,6 +6,7 @@ import {
   DEFAULT_PREVIEW_PRESET,
   MIN_PREVIEW_SIDE,
   VIEWPORT_PRESETS,
+  createBoundsSync,
   customViewportSize,
   isPreviewStatus,
   isPreviewViewStatus,
@@ -13,6 +14,7 @@ import {
   parseCommandLine,
   presetLabel,
   previewReasonMessage,
+  sameCanvasBounds,
   viewportSize
 } from "./preview.ts";
 
@@ -153,4 +155,129 @@ test("clamps custom viewport sizes and labels presets", () => {
   );
   assert.equal(presetLabel("custom"), "Custom");
   assert.equal(presetLabel("phone"), VIEWPORT_PRESETS.phone.label);
+});
+
+// B18-S06 deferred release cases (written now, executed only at the S07
+// versioned gate per ADR 0014; promises and microtasks only, no timers).
+
+test("compares canvas bounds rectangles", () => {
+  assert.equal(sameCanvasBounds(null, null), true);
+  assert.equal(sameCanvasBounds([0, 0, 100, 100], null), false);
+  assert.equal(sameCanvasBounds(null, [0, 0, 100, 100]), false);
+  assert.equal(sameCanvasBounds([1, 2, 3, 4], [1, 2, 3, 4]), true);
+  assert.equal(sameCanvasBounds([1, 2, 3, 4], [1, 2, 3, 5]), false);
+});
+
+test("bounds sync applies only the final rectangle of a rapid burst", async () => {
+  const sent = [];
+  const applied = [];
+  const sync = createBoundsSync({
+    send: (bounds) => {
+      sent.push([...bounds]);
+      return Promise.resolve(bounds);
+    },
+    apply: (result) => {
+      applied.push([...result]);
+    },
+    onError: () => {
+      throw new Error("unexpected bounds error");
+    }
+  });
+  sync.schedule([0, 0, 100, 100]);
+  sync.schedule([0, 0, 120, 100]);
+  sync.schedule([0, 0, 140, 100]);
+  sync.schedule([0, 0, 140, 100]);
+  for (let i = 0; i < 20 && applied.length < 2; i++) {
+    await Promise.resolve();
+  }
+  assert.deepEqual(sent, [
+    [0, 0, 100, 100],
+    [0, 0, 140, 100]
+  ]);
+  assert.deepEqual(applied, [
+    [0, 0, 100, 100],
+    [0, 0, 140, 100]
+  ]);
+  assert.equal(sync.sentCount(), 2);
+  assert.equal(sync.suppressedCount(), 2);
+  sync.dispose();
+});
+
+test("bounds sync suppresses duplicate rectangles", async () => {
+  const applied = [];
+  const sync = createBoundsSync({
+    send: (bounds) => Promise.resolve(bounds),
+    apply: (result) => {
+      applied.push(result);
+    },
+    onError: () => {
+      throw new Error("unexpected bounds error");
+    }
+  });
+  sync.schedule([2, 2, 20, 20]);
+  for (let i = 0; i < 20 && applied.length < 1; i++) {
+    await Promise.resolve();
+  }
+  sync.schedule([2, 2, 20, 20]);
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
+  assert.equal(sync.sentCount(), 1);
+  assert.equal(sync.suppressedCount(), 1);
+  sync.dispose();
+});
+
+test("bounds sync re-sends an identical rectangle after a failure", async () => {
+  let calls = 0;
+  let errors = 0;
+  const applied = [];
+  const sync = createBoundsSync({
+    send: (bounds) => {
+      calls += 1;
+      return calls === 1
+        ? Promise.reject(new Error("boom"))
+        : Promise.resolve(bounds);
+    },
+    apply: (result) => {
+      applied.push(result);
+    },
+    onError: () => {
+      errors += 1;
+    }
+  });
+  sync.schedule([5, 5, 50, 50]);
+  for (let i = 0; i < 20 && errors < 1; i++) {
+    await Promise.resolve();
+  }
+  assert.equal(errors, 1);
+  sync.schedule([5, 5, 50, 50]);
+  for (let i = 0; i < 20 && applied.length < 1; i++) {
+    await Promise.resolve();
+  }
+  assert.equal(calls, 2);
+  assert.deepEqual(applied, [[5, 5, 50, 50]]);
+  sync.dispose();
+});
+
+test("bounds sync never applies after dispose", async () => {
+  let resolveSend = () => undefined;
+  const applied = [];
+  const sync = createBoundsSync({
+    send: () =>
+      new Promise((resolve) => {
+        resolveSend = resolve;
+      }),
+    apply: (result) => {
+      applied.push(result);
+    },
+    onError: () => {}
+  });
+  sync.schedule([9, 9, 90, 90]);
+  sync.dispose();
+  resolveSend("late");
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
+  assert.deepEqual(applied, []);
+  assert.equal(sync.sentCount(), 1);
 });

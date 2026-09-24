@@ -2,6 +2,7 @@
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
   import {
+    createBoundsSync,
     customViewportSize,
     DEFAULT_PREVIEW_PRESET,
     hidePreview,
@@ -17,6 +18,7 @@
     startPreview,
     stopPreview,
     viewportSize,
+    type CanvasBounds,
     type PreviewPhase,
     type ViewportPresetId
   } from "../preview";
@@ -40,6 +42,19 @@
   let available = $state({ width: 0, height: 0 });
   let unlisten: UnlistenFn | undefined;
   let frame = 0;
+  let boundsError = $state("");
+
+  // B18-S06: one bounds send in flight plus one latest pending rectangle;
+  // failures surface a retry instead of failing silently.
+  const boundsSync = createBoundsSync<void>({
+    send: (bounds) => setPreviewBounds(bounds),
+    apply: () => {
+      boundsError = "";
+    },
+    onError: () => {
+      boundsError = "The preview area could not be resized. Try again.";
+    }
+  });
 
   let custom = $derived(customViewportSize({ width: customWidth, height: customHeight }));
   let viewport = $derived(viewportSize(preset, available, custom));
@@ -135,6 +150,8 @@
       disposed = true;
       window.removeEventListener("resize", scheduleBounds);
       unlisten?.();
+      cancelBoundsFrame();
+      boundsSync.dispose();
       void hidePreview().catch(() => undefined);
     };
   });
@@ -167,12 +184,25 @@
     frame = requestAnimationFrame(() => {
       frame = 0;
       if (phase === "ready") {
-        void syncBounds();
+        boundsSync.schedule(currentBounds());
       }
     });
   }
 
-  function currentBounds(): [number, number, number, number] | null {
+  function cancelBoundsFrame() {
+    if (frame !== 0) {
+      cancelAnimationFrame(frame);
+      frame = 0;
+    }
+  }
+
+  function retryBounds() {
+    boundsError = "";
+    cancelBoundsFrame();
+    scheduleBounds();
+  }
+
+  function currentBounds(): CanvasBounds | null {
     if (!slot) {
       return null;
     }
@@ -181,18 +211,6 @@
       { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       { width: window.innerWidth, height: window.innerHeight }
     );
-  }
-
-  async function syncBounds() {
-    const bounds = currentBounds();
-    if (!bounds) {
-      return;
-    }
-    try {
-      await setPreviewBounds(bounds);
-    } catch {
-      // A stale rectangle is corrected on the next resize.
-    }
   }
 
   async function ensureViewVisible() {
@@ -363,6 +381,13 @@
     {actualSize} · Responsive viewport preview — not device emulation.
   </p>
 
+  {#if boundsError}
+    <div class="preview-bounds">
+      <p class="preview-error" role="alert">{boundsError}</p>
+      <Button variant="secondary" onclick={retryBounds}>Retry</Button>
+    </div>
+  {/if}
+
   <div class="preview-stage" bind:this={stage}>
     <div
       class="preview-slot"
@@ -449,6 +474,13 @@
     margin: 0;
     color: var(--text);
     font-size: 0.82rem;
+  }
+
+  .preview-bounds {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .preview-stage {
