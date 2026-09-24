@@ -3,7 +3,7 @@
 - **Status:** proposed frontend-only Linux batch; not an executable issue or a released capability
 - **Baseline:** `main` at `5f2835c` (`v0.0.13`, B17 complete)
 - **Batch branch/PR:** `batch/b18-fluid-canvas` / one Draft PR
-**Related:** [Companion Browser plan](companion-browser-plan.md), [Canvas](../05-companion-canvas.md), [performance contract](../10-performance-budget.md), [execution protocol](../18-mvp-execution-plan.md), [ADR 0014](../adr/0014-release-only-test-cadence.md)
+**Related:** [Companion Browser plan](companion-browser-plan.md), [Canvas](../05-companion-canvas.md), [performance contract](../10-performance-budget.md), [execution protocol](../18-mvp-execution-plan.md), [ADR 0014](../adr/0014-release-only-test-cadence.md), [B18 baseline and measurement procedure](performance-reports/b18-fluid-canvas-baseline.md)
 
 ## User outcome and boundaries
 
