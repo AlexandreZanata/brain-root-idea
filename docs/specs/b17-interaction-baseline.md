@@ -53,3 +53,14 @@ Labels follow `docs/10-performance-budget.md`: `TARGET` is a desired constraint,
 7. **Bounded output and journey:** `sh scripts/check-full-linux.sh` (frontend unit tests, Rust tests, e2e journey, production build) on the latest release-gate head.
 
 Never promote a `TARGET` or `UNKNOWN` figure to `MEASURED` without the recorded environment and raw samples.
+
+## Release-gate results (2026-09-24, B17-S07)
+
+Measured on the B01 reference environment with the release build at application head `a687a70` (the finalization commit changes version and documentation only). Host state: load average 3.66, uptime 1 week 1 day, `performance` governor, AC online.
+
+- **Complete Linux suite:** `sh scripts/check-full-linux.sh` passed — Rust fmt/clippy/tests (151 passed, 3 ignored), svelte-check (0 errors, 0 warnings), production frontend build, Tauri release build, security/modules/accessibility gates, fake-provider e2e (31 frontend tests passed), process smoke (readiness observed; main and child processes exited; no listeners remained), docs, version consistency, license artifacts.
+- **Startup (MEASURED):** n=10, median 0.907 s, p95 1.033 s, range 0.826–1.053 s. The p50 target of ≤ 1.0 s passes on this host.
+- **Settled idle CPU/RSS (MEASURED):** 5 windows; CPU median 1.724 %, p95 8.206 %, min 0.069 % (windows 4–5 at 0.103 % and 0.069 %); RSS median 446.7 MB, PSS median 266.3 MB (classes: brainroot 101.8 MB, WebKitWebProcess 146.3 MB, WebKitNetworkProcess 18.6 MB). The `< 1 %` idle budget is exceeded on this busy host and the 150 MB memory target still fails; both are reported, not excused, and neither is attributed to B17 without a same-session before sample.
+- **Bundle (MEASURED):** binary 8,081,576 bytes; `dist/index.html` 929 B; JS 82,068 B (gzip 28,529 B); CSS 14,635 B (gzip 3,225 B).
+- **Canvas one-HOT and cleanup (MEASURED):** `BRAINROOT_DECK_FIXTURE=1` returned `decision: go`; switches 0–12 ms; children 3 baseline → 6 after two cycles → 4 after cleanup; RSS 196.7 MB → 200.5 MB; no leftover process or listener.
+- **First visible stream content, input feedback, and the keyboard/focus/scroll probes:** `UNKNOWN` — no interactive automation ran at this gate; the buffer coalescing/order/bound/dispose cases passed in the frontend suite as logic evidence only.

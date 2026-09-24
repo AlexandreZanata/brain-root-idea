@@ -10,6 +10,33 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.13
+
+Batch B17 (interaction and performance polish) is tracked by [pull/99](https://github.com/AlexandreZanata/brain-root-idea/pull/99) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B17-Interaction-Polish).
+
+### Added
+
+- Each turn now shows a compact status, and old long answers collapse behind an accessible **Show full answer** / **Show less** toggle while failures, cancellations, and technical details stay visible ([#103](https://github.com/AlexandreZanata/brain-root-idea/issues/103)).
+- The Canvas announces destination switches honestly: the preview view and the browser page reload when you return, the dev server keeps running, and the browser may lose in-memory state ([#105](https://github.com/AlexandreZanata/brain-root-idea/issues/105)).
+
+### Changed
+
+- Streamed text is coalesced into at most one visible update per frame and flushed synchronously on completion, cancel, or failure, with a bounded buffer and released frame ownership ([#102](https://github.com/AlexandreZanata/brain-root-idea/issues/102)).
+- Enter sends and Shift+Enter inserts a newline (IME-safe); Escape cancels an active request and returns focus to the composer; the conversation keeps your reading position and offers **Jump to latest** when you scroll up ([#104](https://github.com/AlexandreZanata/brain-root-idea/issues/104)).
+- The Preview status line reports `stopped` and stop failures truthfully instead of rendering nothing or hiding the message ([#105](https://github.com/AlexandreZanata/brain-root-idea/issues/105)).
+
+### Fixed
+
+- Late, duplicate, or reordered conversation events (a chunk or a completion after cancel) are ignored exactly as the core rejects them ([#101](https://github.com/AlexandreZanata/brain-root-idea/issues/101)).
+
+### Documentation
+
+- ADR 0014 adopts release-gate-only automated testing from B17; the issue/PR/Wiki templates, `AGENTS.md`, roadmap, open questions, and CI trigger are synchronized, and the Freebuff reference plan and the B17 interaction baseline are recorded ([#98](https://github.com/AlexandreZanata/brain-root-idea/issues/98), [#100](https://github.com/AlexandreZanata/brain-root-idea/issues/100)).
+
+### Known limitations
+
+- This batch is presentation-only: no new capability, provider, agent, tool, permission, or dependency change. WebView focus escape, COLD snapshots, and portable browser-data import remain for later batches; Freebuff Desktop-specific UI observations stay `UNKNOWN` without a sandbox audit.
+
 ## 0.0.12
 
 Batch B16 (Human Browser permission controls) is tracked by [pull/95](https://github.com/AlexandreZanata/brain-root-idea/pull/95) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B16-Permission-Controls).
