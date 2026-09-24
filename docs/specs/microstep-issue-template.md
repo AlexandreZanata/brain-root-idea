@@ -48,21 +48,22 @@ Do not add broad reading “for context.” Give the agent only the files needed
 - New dependency allowed: yes | no
 - If yes: capability, existing alternatives, runtime/bundle/startup impact, transitive count, maintenance, license, advisories, lazy-load behavior, and removal path.
 
-## Validation commands and expected evidence
+## Fast non-test checks and deferred release tests
 
 1. Command: `<exact command>`
-   Expected: `<specific observable result>`
+   Expected: `<specific static/scope result, not a runtime pass>`
 2. Command: `<exact command>`
-   Expected: `<specific observable result>`
+   Expected: `<specific static/scope result, not a runtime pass>`
 3. Changed-file command: `git diff --name-only <starting SHA>...HEAD`
    Expected: only allowlisted paths.
+4. Deferred release-test cases/commands: `<exact cases and suite>`; write now, run only at the versioned release gate from B17 onward.
 
 ## Negative/security/cleanup checks
 
-- [ ] Required failure state tested.
+- [ ] Required failure-state test written or specified for release; not claimed as passed.
 - [ ] No secret or authorization header in diff/log/artifact.
-- [ ] No resource remains active after completion/cancel/close, when applicable.
-- [ ] No unrelated test regressed.
+- [ ] Resource cleanup test written or specified for release, when applicable.
+- [ ] Deferred test IDs/commands recorded in issue and batch PR.
 
 ## Rollback
 
@@ -82,10 +83,9 @@ List issue-specific conditions in addition to `docs/18-mvp-execution-plan.md`. T
 
 ## Definition of Done
 
-- [ ] Outcome and every acceptance check pass.
+- [ ] Implementation and fast non-test checks complete; runtime acceptance remains `IMPLEMENTED_UNVERIFIED` until release.
 - [ ] Evidence comment posted without secrets.
 - [ ] One focused commit created with `(refs #N)`.
 - [ ] Issue linked to batch PR and PR checklist updated.
 - [ ] Wiki batch row updated.
 - [ ] Issue manually closed.
-

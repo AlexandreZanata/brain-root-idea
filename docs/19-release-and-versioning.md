@@ -64,6 +64,8 @@ Every build report records version, Git commit, dirty/clean status, build profil
 
 Before tagging:
 
+- From B17 onward, this versioned gate is when automated unit, contract, integration, E2E, soak, and full CI tests execute; microstep issues only wrote the tests and ran fast non-test checks (ADR 0014);
+
 - all batch issues closed with evidence;
 - latest batch head passed required full Linux CI;
 - review approved and conversations resolved;

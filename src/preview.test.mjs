@@ -29,6 +29,10 @@ test("maps known preview reasons to plain language and falls back", () => {
     "The app stopped before the preview was ready. Check the command and try again."
   );
   assert.equal(
+    previewReasonMessage("preview_stop_failed"),
+    "The preview did not stop cleanly. Try again."
+  );
+  assert.equal(
     previewReasonMessage("something_unknown"),
     "The preview could not start. Try again."
   );

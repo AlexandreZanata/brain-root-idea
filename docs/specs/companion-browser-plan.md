@@ -66,6 +66,8 @@ Import transaction: select source → parse in a bounded, unprivileged-as-feasib
 
 These are **future batch candidates**, not executable issues. Assign the actual `Bnn` IDs, branch, PR, version, and exact allowlisted files only after the current batch has merged and the relevant architecture spike is accepted. Each candidate becomes a separate GitHub issue with the complete template from `18-mvp-execution-plan.md`; one focused commit and local micro-gate per issue. Keep each batch at ten or fewer issues; full CI and human/high-capability review run on the final batch head only. Record issue evidence and decisions in repository history and Wiki before merge.
 
+The CB-A/CB-B candidates were implemented through B08–B16 under the earlier cadence. For any remaining candidate implemented from B17 onward, ADR 0014 replaces per-issue automated test execution with fast non-test checks; write fixture/tests in the microstep, execute them at the versioned release gate, and record `IMPLEMENTED_UNVERIFIED` until then.
+
 ### CB-A — adjacent localhost preview (MVP-1 Phase 4)
 
 **Prerequisites:** owned dev-server/process lifecycle, approved localhost origin policy, Linux WebView probe. **One batch may be split further if scope exceeds the issue limit.**
@@ -107,7 +109,7 @@ After each Linux batch is stable, run a **separate Windows WebView2** and then *
 ## Rigid gates and stop rules
 
 - Every implementation issue must include starting commit, permitted files, exact commands and expected assertions, negative tests, ownership/cleanup, rollback, and stop conditions. The candidate list above is not sufficient for an economical agent to begin coding.
-- Local micro-gates use deterministic synthetic content and no live account. A passing command is insufficient if the asserted role isolation, count, viewport, cancellation, or resource cleanup fails. One issue/commit with `Refs #N`; manually close the issue only after PR/Wiki evidence agrees.
+- From B17, local micro-gates use only fast non-test scope, diff, secret, and applicable format/schema/docs checks. Write deterministic synthetic fixtures and tests with no live account, but defer their execution to the versioned release gate. No unexecuted isolation, viewport, cancellation, or cleanup test may be reported as passing. One issue/commit with `Refs #N`; manually close the issue as `IMPLEMENTED_UNVERIFIED` only after PR/Wiki evidence agrees.
 - Final batch gate: `check-full-linux` on latest head, review, no open regression, documented WebView/process-tree measurements, permission denial tests, 100-cycle leak probe for lifecycle changes, keyboard/focus and responsive E2E, docs/ADR/history/Wiki sync. Browser-compatibility findings are reported rather than concealed.
 - Stop immediately if the proposed approach needs privileged IPC in remote content, direct reads of a live browser profile, credential/cookie import, an extra resident browser engine/process at idle, a new dependency without review, or a second HOT view without a measured ADR. Escalate to a maintainer and revise the issue/ADR before code.
 - At batch close, versions follow `19-release-and-versioning.md`; no preassigned version for these proposed batches and no version bump per microstep.

@@ -1,0 +1,11 @@
+---
+description: Never wait for BrainRoot batch CI within an agent task; hand off and finalize later.
+alwaysApply: true
+---
+
+# Asynchronous batch CI
+
+- From B17 onward, write tests with each implementation issue but run only fast non-test scope/diff/secret/format/schema checks; close as `IMPLEMENTED_UNVERIFIED` with deferred release-test cases. Never claim an unrun test passed.
+- At the versioned batch/release gate, update version/history/Wiki, mark the batch PR Ready, run the full test suite only there, record `CI_PENDING` and its head SHA, then end the task without polling or waiting.
+- In a future task, inspect the PR's latest head, required CI, review, and conversations once. Pending: stop. Failed: track remediation in an issue. Green and approved: merge and tag per `docs/18-mvp-execution-plan.md`.
+- Never merge on stale checks, bypass protected-branch gates, or start dependent implementation from an unmerged batch. Independent preparation may proceed.

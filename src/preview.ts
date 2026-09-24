@@ -147,6 +147,8 @@ export function previewReasonMessage(reason: string | null | undefined): string 
       return "The preview could not be shown. Try again.";
     case "preview_view_not_visible":
       return "The preview is not visible right now.";
+    case "preview_stop_failed":
+      return "The preview did not stop cleanly. Try again.";
     case "preview_profile_unavailable":
       return "BrainRoot could not prepare the preview storage. Try again.";
     default:

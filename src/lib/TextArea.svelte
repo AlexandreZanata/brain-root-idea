@@ -5,7 +5,8 @@
     label,
     rows = 3,
     placeholder = "",
-    value = $bindable("")
+    value = $bindable(""),
+    onkeydown
   }: {
     id: string;
     name: string;
@@ -13,6 +14,7 @@
     rows?: number;
     placeholder?: string;
     value?: string;
+    onkeydown?: (event: KeyboardEvent) => void;
   } = $props();
 
   let field: HTMLTextAreaElement | undefined;
@@ -31,4 +33,5 @@
   class="br-field"
   bind:value
   bind:this={field}
+  {onkeydown}
 ></textarea>

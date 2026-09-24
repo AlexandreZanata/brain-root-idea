@@ -17,6 +17,8 @@
     type CredentialStatus
   } from "./conversation";
   import { requestHealth } from "./health";
+  import { acceptsEvent, taskStatus } from "./presentation";
+  import { createStreamBuffer } from "./streamBuffer";
   import AppHeader from "./lib/AppHeader.svelte";
   import CanvasPanel from "./lib/CanvasPanel.svelte";
   import ConversationPanel from "./lib/ConversationPanel.svelte";
@@ -65,6 +67,17 @@
   let turns: ConversationTurn[] = $state([]);
   let nextTurnId = 1;
   let activeTurnId: number | null = null;
+  const streamBuffer = createStreamBuffer(
+    (text) => {
+      if (activeTurnId !== null) {
+        turns = appendChunk(turns, activeTurnId, text);
+      }
+    },
+    {
+      schedule: (callback) => window.requestAnimationFrame(callback),
+      cancel: (handle) => window.cancelAnimationFrame(handle)
+    }
+  );
   let agentWidth = $state(368);
   let clampedAgentWidth = $derived(clampPanelWidth(agentWidth, 280, 560));
 
@@ -94,22 +107,7 @@
       !isBusy &&
       prompt.trim().length > 0
   );
-  let statusLabel = $derived.by(() => {
-    switch (conversationState) {
-      case "sending":
-        return "Starting…";
-      case "streaming":
-        return "Building…";
-      case "cancelling":
-        return "Cancelling…";
-      case "succeeded":
-        return "Done";
-      case "failed":
-        return "Needs attention";
-      default:
-        return setupMessage ? "Needs setup" : "Ready for a request";
-    }
-  });
+  let task = $derived(taskStatus(conversationState, setupMessage));
 
   $effect(() => {
     document.documentElement.dataset.theme = theme;
@@ -167,6 +165,7 @@
     return () => {
       disposed = true;
       unlisten?.();
+      streamBuffer.dispose();
     };
   });
 
@@ -194,6 +193,7 @@
 
     const turnId = nextTurnId;
     nextTurnId += 1;
+    streamBuffer.flush();
     activeTurnId = turnId;
     turns = beginTurn(turns, turnId, message);
     prompt = "";
@@ -224,6 +224,9 @@
     if (turnId === null) {
       return;
     }
+    if (!acceptsEvent(conversationState, envelope.event.type)) {
+      return;
+    }
 
     switch (envelope.event.type) {
       case "started":
@@ -231,9 +234,10 @@
         break;
       case "text_chunk":
         conversationState = "streaming";
-        turns = appendChunk(turns, turnId, envelope.event.text);
+        streamBuffer.push(envelope.event.text);
         break;
       case "completed":
+        streamBuffer.flush();
         turns = settleTurn(turns, turnId, "succeeded");
         conversationState = "succeeded";
         activeTurnId = null;
@@ -242,6 +246,7 @@
         failActive(envelope.event.error.message, envelope.event.error.code);
         break;
       case "cancelled":
+        streamBuffer.flush();
         turns = cancelTurn(turns, turnId);
         conversationState = "ready";
         activeTurnId = null;
@@ -253,6 +258,7 @@
     if (!isCancellable) {
       return;
     }
+    streamBuffer.flush();
     conversationState = "cancelling";
     try {
       await invoke("conversation_cancel");
@@ -264,6 +270,7 @@
   }
 
   function failActive(message: string, code = "") {
+    streamBuffer.flush();
     if (activeTurnId !== null) {
       turns = settleTurn(turns, activeTurnId, "failed", message, code);
     }
@@ -299,7 +306,7 @@
     <ConversationPanel
       {setupMessage}
       {turns}
-      {statusLabel}
+      statusLabel={task.label}
       {canSend}
       {isCancellable}
       bind:prompt={prompt}

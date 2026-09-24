@@ -125,19 +125,19 @@ body:
   - type: textarea
     id: validation
     attributes:
-      label: Validation commands and expected evidence
-      description: Exact commands and the specific observable result for each. Include `git diff --name-only <starting SHA>...HEAD` and its expected allowlisted paths.
+      label: Fast non-test checks and deferred release tests
+      description: From B17, list exact scope/diff/secret/format/schema commands and expected evidence; write but do not run automated tests until the versioned release gate. Include `git diff --name-only <starting SHA>...HEAD` and the expected allowlisted paths, plus deferred test cases/commands.
     validations:
       required: true
   - type: checkboxes
     id: security-cleanup
     attributes:
-      label: Negative, security, and cleanup checks
+      label: Security and deferred release coverage
       options:
-        - label: Required failure state tested.
+        - label: Required failure-state test written or specified for the release gate; not claimed as passed.
         - label: No secret or authorization header in diff, log, or artifact.
-        - label: No resource remains active after completion, cancel, or close (when applicable).
-        - label: No unrelated test regressed.
+        - label: Resource cleanup test written or specified for the release gate when applicable.
+        - label: Deferred test IDs/commands recorded in issue and batch PR.
   - type: textarea
     id: rollback
     attributes:
@@ -167,7 +167,7 @@ body:
     attributes:
       label: Definition of Done (check every item before closing)
       options:
-        - label: Outcome and every acceptance check pass.
+        - label: Implementation and fast non-test checks complete; runtime acceptance remains IMPLEMENTED_UNVERIFIED until release.
         - label: Evidence comment posted without secrets.
         - label: One focused commit created with `(refs #N)`.
         - label: Issue linked to batch PR and PR checklist updated.

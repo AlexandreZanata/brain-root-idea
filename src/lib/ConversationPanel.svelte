@@ -6,6 +6,7 @@
   import TextArea from "./TextArea.svelte";
   import Turn from "./Turn.svelte";
   import WelcomeCard from "./WelcomeCard.svelte";
+  import { composerKeyAction, isPinnedToBottom } from "../presentation";
   import type { ConversationTurn } from "../conversation";
 
   let {
@@ -31,6 +32,43 @@
   } = $props();
 
   let composer: { focus: () => void } | undefined;
+  let history: HTMLDivElement | undefined;
+  let pinned = $state(true);
+
+  $effect(() => {
+    void turns;
+    if (history && pinned) {
+      history.scrollTop = history.scrollHeight;
+    }
+  });
+
+  function onHistoryScroll() {
+    if (!history) {
+      return;
+    }
+    pinned = isPinnedToBottom(history.scrollTop, history.clientHeight, history.scrollHeight);
+  }
+
+  function jumpToLatest() {
+    if (history) {
+      history.scrollTop = history.scrollHeight;
+    }
+    pinned = true;
+    composer?.focus();
+  }
+
+  function onComposerKeydown(event: KeyboardEvent) {
+    const action = composerKeyAction(event, event.isComposing);
+    if (action === "submit") {
+      event.preventDefault();
+      pinned = true;
+      onsubmit();
+    } else if (action === "cancel" && isCancellable) {
+      event.preventDefault();
+      oncancel();
+      composer?.focus();
+    }
+  }
 
   function chooseSuggestion(text: string) {
     prompt = text;
@@ -51,7 +89,12 @@
     <p class="setup" role="status">{setupMessage}</p>
   {/if}
 
-  <div class="br-panel__body history" aria-label="Conversation">
+  <div
+    class="br-panel__body history"
+    aria-label="Conversation"
+    bind:this={history}
+    onscroll={onHistoryScroll}
+  >
     {#if turns.length === 0}
       <WelcomeCard />
       <div class="suggestions">
@@ -64,15 +107,22 @@
       </div>
     {/if}
 
-    {#each turns as turn (turn.id)}
-      <Turn {turn} />
+    {#each turns as turn, index (turn.id)}
+      <Turn {turn} isLatest={index === turns.length - 1} />
     {/each}
   </div>
+
+  {#if !pinned && turns.length > 0}
+    <div class="jump-row">
+      <Button variant="ghost" onclick={jumpToLatest}>Jump to latest</Button>
+    </div>
+  {/if}
 
   <form
     class="composer"
     onsubmit={(event) => {
       event.preventDefault();
+      pinned = true;
       onsubmit();
     }}
   >
@@ -85,6 +135,7 @@
       placeholder="Describe what you want to build…"
       bind:value={prompt}
       bind:this={composer}
+      onkeydown={onComposerKeydown}
     />
     <div class="composer-bar">
       <span class="br-chip" title="Configured model for MVP-0">glm-5.3-flash</span>
@@ -94,7 +145,10 @@
           <span>Send</span>
           <Icon name="send" size="sm" />
         </Button>
-        <Button variant="secondary" inactive={!isCancellable} onclick={oncancel}>Cancel</Button>
+        <Button variant="secondary" inactive={!isCancellable} onclick={() => {
+          oncancel();
+          composer?.focus();
+        }}>Cancel</Button>
       </div>
     </div>
   </form>
@@ -116,6 +170,12 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
+  }
+
+  .jump-row {
+    display: flex;
+    justify-content: center;
+    padding: 0 1rem 0.5rem;
   }
 
   .setup {

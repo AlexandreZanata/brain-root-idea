@@ -1,17 +1,21 @@
 name: linux-full
 
+# Versioned batch PRs stay Draft through microsteps; only Ready PRs run tests.
+# No duplicate post-merge full suite on main. See docs/adr/0014.
 on:
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
-  push:
-    branches: [main]
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check-full-linux:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository
