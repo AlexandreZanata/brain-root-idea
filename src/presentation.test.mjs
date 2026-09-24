@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { acceptsEvent, presentTurn, taskStatus } from "./presentation.ts";
+import {
+  RESPONSE_PREVIEW_CHARS,
+  acceptsEvent,
+  presentTurn,
+  responsePreview,
+  shouldCollapseTurn,
+  taskStatus
+} from "./presentation.ts";
 
 const states = [
   "empty",
@@ -107,4 +114,37 @@ test("reordered, late, and duplicate events are ignored", () => {
   assert.equal(acceptsEvent("ready", "cancelled"), false);
   assert.equal(acceptsEvent("streaming", "started"), false);
   assert.equal(acceptsEvent("empty", "text_chunk"), false);
+});
+
+test("shouldCollapseTurn only collapses old long succeeded answers", () => {
+  const long = "x".repeat(RESPONSE_PREVIEW_CHARS + 1);
+  const base = {
+    id: 1,
+    prompt: "Build it",
+    response: long,
+    error: "",
+    errorCode: "",
+    status: "succeeded"
+  };
+
+  assert.equal(shouldCollapseTurn(base, true), false);
+  assert.equal(shouldCollapseTurn(base, false), true);
+  assert.equal(shouldCollapseTurn({ ...base, status: "failed" }, false), false);
+  assert.equal(shouldCollapseTurn({ ...base, status: "cancelled" }, false), false);
+  assert.equal(shouldCollapseTurn({ ...base, status: "active" }, false), false);
+  assert.equal(shouldCollapseTurn({ ...base, response: "short" }, false), false);
+});
+
+test("responsePreview keeps short text and cuts long text at a word boundary", () => {
+  assert.equal(responsePreview("short answer"), "short answer");
+  assert.equal(responsePreview("abcdefghij", 10), "abcdefghij");
+  assert.equal(responsePreview("abcdefghij", 0), "");
+
+  const words = Array.from({ length: 200 }, (_, index) => `word${index}`).join(" ");
+  const preview = responsePreview(words, 60);
+
+  assert.ok(preview.length <= 61);
+  assert.equal(preview.endsWith("…"), true);
+  assert.equal(preview.slice(0, -1).endsWith(" "), false);
+  assert.equal(words.startsWith(preview.slice(0, -1).trimEnd()), true);
 });

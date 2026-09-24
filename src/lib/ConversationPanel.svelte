@@ -64,8 +64,8 @@
       </div>
     {/if}
 
-    {#each turns as turn (turn.id)}
-      <Turn {turn} />
+    {#each turns as turn, index (turn.id)}
+      <Turn {turn} isLatest={index === turns.length - 1} />
     {/each}
   </div>
 

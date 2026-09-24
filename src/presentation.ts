@@ -75,3 +75,24 @@ export function acceptsEvent(
       return state === "sending" || state === "streaming" || state === "cancelling";
   }
 }
+
+export const RESPONSE_PREVIEW_CHARS = 600;
+
+export function shouldCollapseTurn(turn: ConversationTurn, isLatest: boolean): boolean {
+  return (
+    !isLatest && turn.status === "succeeded" && turn.response.length > RESPONSE_PREVIEW_CHARS
+  );
+}
+
+export function responsePreview(text: string, limit = RESPONSE_PREVIEW_CHARS): string {
+  if (limit <= 0) {
+    return "";
+  }
+  if (text.length <= limit) {
+    return text;
+  }
+  const clipped = text.slice(0, limit);
+  const boundary = clipped.search(/\s+\S*$/);
+  const preview = boundary > limit / 2 ? clipped.slice(0, boundary) : clipped;
+  return `${preview.trimEnd()}…`;
+}
