@@ -78,6 +78,34 @@ export function acceptsEvent(
 
 export const RESPONSE_PREVIEW_CHARS = 600;
 
+export type KeyLike = { key: string; shiftKey: boolean };
+
+export type ComposerKeyAction = "submit" | "newline" | "cancel" | "none";
+
+export function composerKeyAction(event: KeyLike, isComposing: boolean): ComposerKeyAction {
+  if (isComposing) {
+    return "none";
+  }
+  if (event.key === "Enter") {
+    return event.shiftKey ? "newline" : "submit";
+  }
+  if (event.key === "Escape") {
+    return "cancel";
+  }
+  return "none";
+}
+
+export const SCROLL_PIN_THRESHOLD_PX = 24;
+
+export function isPinnedToBottom(
+  scrollTop: number,
+  clientHeight: number,
+  scrollHeight: number,
+  threshold = SCROLL_PIN_THRESHOLD_PX
+): boolean {
+  return scrollHeight - (scrollTop + clientHeight) <= threshold;
+}
+
 export function shouldCollapseTurn(turn: ConversationTurn, isLatest: boolean): boolean {
   return (
     !isLatest && turn.status === "succeeded" && turn.response.length > RESPONSE_PREVIEW_CHARS

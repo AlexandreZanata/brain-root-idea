@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   RESPONSE_PREVIEW_CHARS,
   acceptsEvent,
+  composerKeyAction,
+  isPinnedToBottom,
   presentTurn,
   responsePreview,
   shouldCollapseTurn,
@@ -147,4 +149,21 @@ test("responsePreview keeps short text and cuts long text at a word boundary", (
   assert.equal(preview.endsWith("…"), true);
   assert.equal(preview.slice(0, -1).endsWith(" "), false);
   assert.equal(words.startsWith(preview.slice(0, -1).trimEnd()), true);
+});
+
+test("composerKeyAction maps Enter, Shift+Enter, Escape, and IME composition", () => {
+  assert.equal(composerKeyAction({ key: "Enter", shiftKey: false }, false), "submit");
+  assert.equal(composerKeyAction({ key: "Enter", shiftKey: true }, false), "newline");
+  assert.equal(composerKeyAction({ key: "Escape", shiftKey: false }, false), "cancel");
+  assert.equal(composerKeyAction({ key: "a", shiftKey: false }, false), "none");
+  assert.equal(composerKeyAction({ key: "Enter", shiftKey: false }, true), "none");
+  assert.equal(composerKeyAction({ key: "Escape", shiftKey: false }, true), "none");
+});
+
+test("isPinnedToBottom keeps the reader's position unless near the bottom", () => {
+  assert.equal(isPinnedToBottom(900, 100, 1000), true);
+  assert.equal(isPinnedToBottom(880, 100, 1000), true);
+  assert.equal(isPinnedToBottom(800, 100, 1000), false);
+  assert.equal(isPinnedToBottom(0, 500, 300), true);
+  assert.equal(isPinnedToBottom(700, 100, 1000, 0), false);
 });
