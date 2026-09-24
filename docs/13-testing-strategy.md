@@ -4,6 +4,10 @@
 
 Tests prove the user outcome, security boundary, resource lifecycle, and performance contract—not merely function return values. Prefer deterministic tests and a small set of high-value cross-platform journeys.
 
+## Execution cadence from B17 onward
+
+The layers below describe **what must be covered**, not a command to execute them after every issue. Per [ADR 0014](adr/0014-release-only-test-cadence.md), each microstep writes/updates its tests but runs only fast non-test checks (scope, diff/format, secrets, applicable schema/docs). Its status is `IMPLEMENTED_UNVERIFIED`; evidence lists the deferred test cases. The complete automated suite, release-only platform/manual probes, and performance evidence run once on the latest versioned batch head before merge. Failures are tracked and rerun at the release gate. Never claim an unrun test passed.
+
 ## Layers
 
 ### Rust unit and property tests
@@ -56,3 +60,5 @@ Use a fake Agent Adapter, fake clock, fixture process, and deterministic local p
 - All created processes, listeners, watchers, PTYs, WebViews, and temp artifacts clean up.
 - Logging is useful, bounded, and secret-safe.
 - Documentation and ADRs remain synchronized.
+
+For an implementation microstep from B17 onward, this is a **release-level** Definition of Done: the issue may close after implementation and fast non-test checks as `IMPLEMENTED_UNVERIFIED`, but the batch does not meet this definition until the versioned release gate passes on its final head. A regression reopens the responsible issue or creates a remediation issue.
