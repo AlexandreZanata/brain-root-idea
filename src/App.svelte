@@ -18,6 +18,7 @@
   } from "./conversation";
   import { requestHealth } from "./health";
   import { acceptsEvent, taskStatus } from "./presentation";
+  import { createStreamBuffer } from "./streamBuffer";
   import AppHeader from "./lib/AppHeader.svelte";
   import CanvasPanel from "./lib/CanvasPanel.svelte";
   import ConversationPanel from "./lib/ConversationPanel.svelte";
@@ -66,6 +67,17 @@
   let turns: ConversationTurn[] = $state([]);
   let nextTurnId = 1;
   let activeTurnId: number | null = null;
+  const streamBuffer = createStreamBuffer(
+    (text) => {
+      if (activeTurnId !== null) {
+        turns = appendChunk(turns, activeTurnId, text);
+      }
+    },
+    {
+      schedule: (callback) => window.requestAnimationFrame(callback),
+      cancel: (handle) => window.cancelAnimationFrame(handle)
+    }
+  );
   let agentWidth = $state(368);
   let clampedAgentWidth = $derived(clampPanelWidth(agentWidth, 280, 560));
 
@@ -153,6 +165,7 @@
     return () => {
       disposed = true;
       unlisten?.();
+      streamBuffer.dispose();
     };
   });
 
@@ -180,6 +193,7 @@
 
     const turnId = nextTurnId;
     nextTurnId += 1;
+    streamBuffer.flush();
     activeTurnId = turnId;
     turns = beginTurn(turns, turnId, message);
     prompt = "";
@@ -220,9 +234,10 @@
         break;
       case "text_chunk":
         conversationState = "streaming";
-        turns = appendChunk(turns, turnId, envelope.event.text);
+        streamBuffer.push(envelope.event.text);
         break;
       case "completed":
+        streamBuffer.flush();
         turns = settleTurn(turns, turnId, "succeeded");
         conversationState = "succeeded";
         activeTurnId = null;
@@ -231,6 +246,7 @@
         failActive(envelope.event.error.message, envelope.event.error.code);
         break;
       case "cancelled":
+        streamBuffer.flush();
         turns = cancelTurn(turns, turnId);
         conversationState = "ready";
         activeTurnId = null;
@@ -242,6 +258,7 @@
     if (!isCancellable) {
       return;
     }
+    streamBuffer.flush();
     conversationState = "cancelling";
     try {
       await invoke("conversation_cancel");
@@ -253,6 +270,7 @@
   }
 
   function failActive(message: string, code = "") {
+    streamBuffer.flush();
     if (activeTurnId !== null) {
       turns = settleTurn(turns, activeTurnId, "failed", message, code);
     }
