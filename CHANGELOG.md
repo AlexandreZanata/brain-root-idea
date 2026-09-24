@@ -10,6 +10,33 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.14
+
+Batch B18 (fluid Canvas and phone-first Browser) is tracked by [pull/108](https://github.com/AlexandreZanata/brain-root-idea/pull/108) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B18-Fluid-Canvas).
+
+### Added
+
+- The Canvas now opens on the **Browser** destination beside chat in a centered phone-width viewport, with an explicit **Swap sides** control that announces the new side and a header swipe that switches destinations with full button/keyboard parity ([#111](https://github.com/AlexandreZanata/brain-root-idea/issues/111), [#115](https://github.com/AlexandreZanata/brain-root-idea/issues/115), [#116](https://github.com/AlexandreZanata/brain-root-idea/issues/116)).
+- The empty Browser shows an honest destination menu (Browser available; Files, Terminal, and Changes marked as planned) instead of a bare placeholder ([#114](https://github.com/AlexandreZanata/brain-root-idea/issues/114)).
+- Failed native resizes now show a concise **Retry** affordance on both the Browser and Preview surfaces instead of failing silently ([#117](https://github.com/AlexandreZanata/brain-root-idea/issues/117)).
+
+### Changed
+
+- The chat/Canvas divider is an edge-only fluid boundary: drag anywhere along the pane edge through a 24 px hit area with keyboard resizing preserved and no visible thumb or knob ([#110](https://github.com/AlexandreZanata/brain-root-idea/issues/110), [#113](https://github.com/AlexandreZanata/brain-root-idea/issues/113)).
+- Preview defaults to the phone viewport, and native bounds traffic is bounded to one in-flight call plus the latest pending rectangle with duplicate suppression ([#111](https://github.com/AlexandreZanata/brain-root-idea/issues/111), [#117](https://github.com/AlexandreZanata/brain-root-idea/issues/117)).
+
+### Fixed
+
+- A slow native bounds result no longer overwrites newer navigation state in the Browser, and pending resize frames are cancelled on teardown ([#117](https://github.com/AlexandreZanata/brain-root-idea/issues/117)).
+
+### Performance
+
+- Measured on the Linux reference host at this gate (release build, busy host): startup median 1.007 s (n=10), settled idle CPU median 1.345 %, process-tree PSS median 252.1 MB; one-HOT deck probe returns `go` with 0–4 ms switches. The idle-CPU and memory budgets remain exceeded on this host and are reported, not excused ([#118](https://github.com/AlexandreZanata/brain-root-idea/issues/118)).
+
+### Known limitations
+
+- Divider/swipe frame timing, live fixture navigation, and the 100-cycle drag/swap soak remain `UNKNOWN` without GUI automation; the empty Browser still creates no WebView or network request before an explicit address.
+
 ## 0.0.13
 
 Batch B17 (interaction and performance polish) is tracked by [pull/99](https://github.com/AlexandreZanata/brain-root-idea/pull/99) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B17-Interaction-Polish).

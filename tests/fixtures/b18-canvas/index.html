@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en" data-fixture="b18-canvas">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>B18 Canvas Fixture</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      body {
+        margin: 0;
+        padding: 1rem;
+        font-family: system-ui, sans-serif;
+        line-height: 1.5;
+      }
+
+      main {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        max-width: 60rem;
+        margin: 0 auto;
+      }
+
+      h1 {
+        font-size: 1.1rem;
+        margin: 0;
+      }
+
+      .marker {
+        margin: 0;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid currentColor;
+        font-family: ui-monospace, monospace;
+        font-size: 0.8rem;
+      }
+
+      .marker[data-loaded="true"] {
+        border-style: double;
+      }
+
+      .scroll-area {
+        height: 10rem;
+        overflow-y: auto;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid currentColor;
+        font-size: 0.85rem;
+      }
+
+      .drag-stage {
+        position: relative;
+        height: 8rem;
+        border: 1px dashed currentColor;
+        overflow: hidden;
+      }
+
+      .drag-box {
+        position: absolute;
+        top: 0.5rem;
+        left: 0.5rem;
+        width: 3rem;
+        height: 3rem;
+        border: 1px solid currentColor;
+        background: rgba(127, 127, 127, 0.25);
+        cursor: grab;
+        touch-action: none;
+      }
+
+      .drag-box:active {
+        cursor: grabbing;
+      }
+
+      label {
+        font-size: 0.8rem;
+      }
+
+      input {
+        font: inherit;
+        padding: 0.35rem 0.5rem;
+      }
+
+      :focus-visible {
+        outline: 2px solid currentColor;
+        outline-offset: 2px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>B18 Canvas Fixture</h1>
+      <p id="load-marker" class="marker" data-loaded="false" role="status">
+        Loading…
+      </p>
+      <p id="viewport-readout" class="marker">
+        Viewport: <span id="viewport-size">—</span>
+      </p>
+
+      <label for="fixture-input">Focusable input</label>
+      <input
+        id="fixture-input"
+        name="fixture-input"
+        type="text"
+        placeholder="Type here"
+        autocomplete="off"
+        spellcheck="false"
+      />
+
+      <section class="scroll-area" aria-label="Scrollable area">
+        <p>
+          This selectable paragraph exists so a pointer drag, text selection, and vertical
+          scrolling can be observed inside the page while the shell keeps its own gestures.
+        </p>
+        <p>
+          Fixture line 02 — the area scrolls vertically without any timer, fetch, remote
+          asset, or third-party script.
+        </p>
+        <p>Fixture line 03 — selection and scroll position must survive a Canvas swap.</p>
+        <p>Fixture line 04 — the native WebView must keep its final bounds after a drag.</p>
+        <p>Fixture line 05 — the address never leaves loopback during a measurement run.</p>
+        <p>Fixture line 06 — the readout above updates on resize events only.</p>
+        <p>Fixture line 07 — no polling loop is used anywhere on this page.</p>
+        <p>Fixture line 08 — the load marker is set once at page load.</p>
+        <p>Fixture line 09 — the draggable element uses pointer capture and no timers.</p>
+        <p>Fixture line 10 — end of the deterministic scrollable content.</p>
+      </section>
+
+      <div class="drag-stage">
+        <div id="drag-box" class="drag-box" title="Draggable element"></div>
+      </div>
+      <p id="drag-readout" class="marker">Drag position: 8, 8</p>
+    </main>
+
+    <script>
+      const marker = document.getElementById("load-marker");
+      marker.dataset.loaded = "true";
+      marker.textContent = "Fixture loaded (b18-canvas)";
+
+      const viewportSize = document.getElementById("viewport-size");
+      function updateViewportSize() {
+        viewportSize.textContent = `${window.innerWidth} × ${window.innerHeight}`;
+      }
+      window.addEventListener("resize", updateViewportSize);
+      updateViewportSize();
+
+      const box = document.getElementById("drag-box");
+      const dragReadout = document.getElementById("drag-readout");
+      let dragging = false;
+      let startX = 0;
+      let startY = 0;
+      let originX = 0;
+      let originY = 0;
+
+      function showPosition() {
+        dragReadout.textContent = `Drag position: ${Math.round(box.offsetLeft)}, ${Math.round(
+          box.offsetTop
+        )}`;
+      }
+
+      box.addEventListener("pointerdown", (event) => {
+        dragging = true;
+        startX = event.clientX;
+        startY = event.clientY;
+        originX = box.offsetLeft;
+        originY = box.offsetTop;
+        box.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+
+      box.addEventListener("pointermove", (event) => {
+        if (!dragging) {
+          return;
+        }
+        const stage = box.parentElement;
+        const maxX = stage.clientWidth - box.offsetWidth;
+        const maxY = stage.clientHeight - box.offsetHeight;
+        const nextX = Math.min(maxX, Math.max(0, originX + event.clientX - startX));
+        const nextY = Math.min(maxY, Math.max(0, originY + event.clientY - startY));
+        box.style.left = `${nextX}px`;
+        box.style.top = `${nextY}px`;
+        showPosition();
+      });
+
+      function endDrag(event) {
+        if (!dragging) {
+          return;
+        }
+        dragging = false;
+        if (box.hasPointerCapture(event.pointerId)) {
+          box.releasePointerCapture(event.pointerId);
+        }
+        showPosition();
+      }
+
+      box.addEventListener("pointerup", endDrag);
+      box.addEventListener("pointercancel", endDrag);
+      showPosition();
+    </script>
+  </body>
+</html>

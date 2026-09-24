@@ -17,16 +17,40 @@
     HUMAN_STATUS_EVENT,
     type HumanStatus
   } from "../humanBrowser";
-  import { normalizeCanvasRect } from "../preview";
+  import { DEFAULT_PREVIEW_PRESET, createBoundsSync, normalizeCanvasRect, viewportSize } from "../preview";
+  import type { CanvasBounds } from "../preview";
   import Button from "./Button.svelte";
 
   let address = $state("");
   let status = $state<HumanStatus | null>(null);
   let error = $state("");
   let confirmingClear = $state(false);
+  let stage = $state<HTMLDivElement | null>(null);
   let slot = $state<HTMLDivElement | null>(null);
+  let addressInput = $state<HTMLInputElement | null>(null);
+  let slotWidth = $state(0);
+  let slotHeight = $state(0);
   let unlisten: UnlistenFn | undefined;
   let frame = 0;
+  let boundsError = $state("");
+
+  // B18-S06: one bounds send in flight plus one latest pending rectangle.
+  // The echoed status is adopted only when no newer navigation state landed
+  // meanwhile; failures surface a retry instead of failing silently.
+  const boundsSync = createBoundsSync<HumanStatus>({
+    send: (bounds) => humanSetBounds(bounds),
+    apply: (result) => {
+      boundsError = "";
+      if (status?.visible === result.visible && status?.url === result.url) {
+        status = result;
+      }
+    },
+    onError: () => {
+      boundsError = "The browser view could not be resized. Try again.";
+    }
+  });
+
+  const plannedDestinations = ["Files", "Terminal", "Changes"];
 
   let visible = $derived(status?.visible ?? false);
   let canGo = $derived(address.trim().length > 0);
@@ -39,11 +63,15 @@
   );
 
   $effect(() => {
-    if (!slot) {
+    if (!stage) {
       return;
     }
-    const observer = new ResizeObserver(scheduleBounds);
-    observer.observe(slot);
+    const observer = new ResizeObserver(() => {
+      updateSlotSize();
+      scheduleBounds();
+    });
+    observer.observe(stage);
+    updateSlotSize();
     scheduleBounds();
     return () => observer.disconnect();
   });
@@ -89,12 +117,31 @@
       disposed = true;
       window.removeEventListener("resize", scheduleBounds);
       unlisten?.();
+      cancelBoundsFrame();
+      boundsSync.dispose();
     };
   });
 
   onDestroy(() => {
     void humanHide().catch(() => undefined);
   });
+
+  function focusAddress() {
+    addressInput?.focus();
+  }
+
+  function updateSlotSize() {
+    if (!stage) {
+      return;
+    }
+    const rect = stage.getBoundingClientRect();
+    const size = viewportSize(DEFAULT_PREVIEW_PRESET, {
+      width: rect.width,
+      height: rect.height
+    });
+    slotWidth = size.width;
+    slotHeight = size.height;
+  }
 
   function scheduleBounds() {
     if (frame !== 0) {
@@ -103,12 +150,25 @@
     frame = requestAnimationFrame(() => {
       frame = 0;
       if (visible) {
-        void syncBounds();
+        boundsSync.schedule(currentBounds());
       }
     });
   }
 
-  function currentBounds(): [number, number, number, number] | null {
+  function cancelBoundsFrame() {
+    if (frame !== 0) {
+      cancelAnimationFrame(frame);
+      frame = 0;
+    }
+  }
+
+  function retryBounds() {
+    boundsError = "";
+    cancelBoundsFrame();
+    scheduleBounds();
+  }
+
+  function currentBounds(): CanvasBounds | null {
     if (!slot) {
       return null;
     }
@@ -117,18 +177,6 @@
       { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       { width: window.innerWidth, height: window.innerHeight }
     );
-  }
-
-  async function syncBounds() {
-    const bounds = currentBounds();
-    if (!bounds) {
-      return;
-    }
-    try {
-      status = await humanSetBounds(bounds);
-    } catch {
-      // A stale rectangle is corrected on the next resize.
-    }
   }
 
   function errorCode(value: unknown): string {
@@ -224,6 +272,7 @@
       placeholder="example.com"
       autocomplete="off"
       spellcheck="false"
+      bind:this={addressInput}
       bind:value={address}
     />
     <Button variant="primary" type="submit" inactive={!canGo} onclick={onGo}>Go</Button>
@@ -263,14 +312,45 @@
     <p class="browser-page" role="status">{pageLine}</p>
   {/if}
 
-  <div class="browser-slot" bind:this={slot}>
-    {#if !visible}
-      <p class="browser-placeholder">
-        Enter a web address to open it here. This browser is separate from your
-        installed browsers and blocked from opening downloads or popups.
-        Switching Canvas tabs closes this page; in-memory state may be lost.
-      </p>
-    {/if}
+  {#if boundsError}
+    <div class="browser-bounds">
+      <p class="browser-error" role="alert">{boundsError}</p>
+      <Button variant="secondary" onclick={retryBounds}>Retry</Button>
+    </div>
+  {/if}
+
+  <div class="browser-stage" bind:this={stage}>
+    <div
+      class="browser-slot"
+      bind:this={slot}
+      style="width: {slotWidth}px; height: {slotHeight}px"
+    >
+      {#if !visible}
+        <div class="browser-empty">
+          <div class="browser-menu" role="group" aria-label="Canvas destinations">
+            <button class="browser-menu__item" type="button" onclick={focusAddress}>
+              <span class="browser-menu__label">Browser</span>
+              <span class="browser-menu__hint">Enter an address to open it here</span>
+            </button>
+            {#each plannedDestinations as destination (destination)}
+              <button
+                class="browser-menu__item"
+                type="button"
+                aria-disabled="true"
+                title={`${destination} — planned for a later phase`}
+              >
+                <span class="browser-menu__label">{destination}</span>
+                <span class="browser-menu__hint">Planned</span>
+              </button>
+            {/each}
+          </div>
+          <p class="browser-note">
+            Separate from your installed browsers; downloads and popups stay blocked.
+            Switching Canvas tabs closes this page and in-memory state may be lost.
+          </p>
+        </div>
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -325,25 +405,96 @@
     color: var(--text-subtle);
   }
 
+  .browser-bounds {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
   .browser-error {
     color: var(--text);
   }
 
-  .browser-slot {
+  .browser-stage {
     flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .browser-slot {
     position: relative;
-    min-height: 10rem;
+    min-width: 1px;
+    min-height: 1px;
     border: 1px dashed var(--border);
     border-radius: var(--radius-control);
     background: var(--surface-raised);
+    overflow: hidden;
   }
 
-  .browser-placeholder {
-    margin: 0;
+  .browser-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .browser-menu {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
     padding: 1rem;
+    overflow-y: auto;
+  }
+
+  .browser-menu__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.55rem 0.65rem;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .browser-menu__item:hover {
+    background: var(--surface-hover);
+  }
+
+  .browser-menu__item[aria-disabled="true"] {
+    cursor: default;
     color: var(--text-subtle);
-    font-size: 0.82rem;
-    line-height: 1.5;
+  }
+
+  .browser-menu__item[aria-disabled="true"]:hover {
+    background: transparent;
+  }
+
+  .browser-menu__label {
+    font-size: 0.86rem;
+  }
+
+  .browser-menu__hint {
+    color: var(--text-subtle);
+    font-size: 0.72rem;
+  }
+
+  .browser-note {
+    margin: 0;
+    padding: 0 1rem 0.9rem;
+    color: var(--text-subtle);
+    font-size: 0.72rem;
+    line-height: 1.45;
   }
 
   @media (max-width: 640px) {

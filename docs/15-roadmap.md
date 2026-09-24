@@ -64,9 +64,13 @@ The phone-width view is a responsive desktop-app presentation, not a claim of mo
 
 **Goal/outcome:** measured policies balance fast resume with low CPU/RAM across agents, tooling, and WebViews. **Dependencies:** real lifecycle data. **Acceptance:** ownership graph, ACTIVE/IDLE/SUSPENDED/TERMINATED policy, platform-specific hibernation only where proven, leak dashboard. **Performance:** budgets enforced with reproducible results. **Out:** local-model orchestration unless separately approved.
 
-## Near-term Linux interaction polish after B16
+## Linux interaction polish completed in B17
 
-The [Freebuff release-reference plan](specs/freebuff-inspired-experience-plan.md) proposes a BrainRoot-specific, Canvas-dominant conversation polish batch: concise task progress, bounded streaming presentation, stable focus/scroll, and smooth one-HOT Canvas transitions. It uses Freebuff Desktop v0.0.142 as a published UX/product reference, not as an asserted source-code architecture. No Electron/React/OpenTUI migration, additional resident agents, cloud service, or new provider is implied. From B17, automated tests are written with microsteps and run at the versioned release gate only (ADR 0014).
+The [Freebuff release-reference plan](specs/freebuff-inspired-experience-plan.md) led to the completed [B17 interaction batch](history/batches/B17-interaction-polish.md): concise task progress, bounded streaming presentation, stable focus/scroll, and honest one-HOT Canvas transitions. It uses Freebuff Desktop v0.0.142 as a published UX/product reference, not as an asserted source-code architecture. No Electron/React/OpenTUI migration, additional resident agents, cloud service, or new provider is implied. From B17, automated tests are written with microsteps and run at the versioned release gate only (ADR 0014).
+
+## Proposed next Linux batch — B18 frontend fluidity and phone-first Browser
+
+The [B18 phase proposal](specs/b18-frontend-fluidity-phone-browser.md) isolates frontend interaction work: Browser selected by default, real native browsing after an explicit address, phone-sized Browser and Preview, fluid divider, Swap sides, Canvas-chrome swipe, and before/after CPU/RAM/frame evidence. It does not add a startup WebView, new browser engine, Rust policy, import path, or page-gesture interception. Its packets become executable only after GitHub issues define exact allowlists, starting SHAs, fast checks, deferred tests, and stop conditions.
 
 ## Future, not sequenced
 
