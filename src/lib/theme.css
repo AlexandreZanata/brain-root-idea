@@ -1,6 +1,6 @@
 :root {
-  --radius-surface: 0;
-  --radius-control: 0;
+  --radius-surface: 0.6rem;
+  --radius-control: 0.45rem;
   --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
 

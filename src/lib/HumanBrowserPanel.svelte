@@ -26,10 +26,13 @@
   let confirmingClear = $state(false);
   let stage = $state<HTMLDivElement | null>(null);
   let slot = $state<HTMLDivElement | null>(null);
+  let addressInput = $state<HTMLInputElement | null>(null);
   let slotWidth = $state(0);
   let slotHeight = $state(0);
   let unlisten: UnlistenFn | undefined;
   let frame = 0;
+
+  const plannedDestinations = ["Files", "Terminal", "Changes"];
 
   let visible = $derived(status?.visible ?? false);
   let canGo = $derived(address.trim().length > 0);
@@ -102,6 +105,10 @@
   onDestroy(() => {
     void humanHide().catch(() => undefined);
   });
+
+  function focusAddress() {
+    addressInput?.focus();
+  }
 
   function updateSlotSize() {
     if (!stage) {
@@ -244,6 +251,7 @@
       placeholder="example.com"
       autocomplete="off"
       spellcheck="false"
+      bind:this={addressInput}
       bind:value={address}
     />
     <Button variant="primary" type="submit" inactive={!canGo} onclick={onGo}>Go</Button>
@@ -290,11 +298,29 @@
       style="width: {slotWidth}px; height: {slotHeight}px"
     >
       {#if !visible}
-        <p class="browser-placeholder">
-          Enter a web address to open it here. This browser is separate from your
-          installed browsers and blocked from opening downloads or popups.
-          Switching Canvas tabs closes this page; in-memory state may be lost.
-        </p>
+        <div class="browser-empty">
+          <div class="browser-menu" role="group" aria-label="Canvas destinations">
+            <button class="browser-menu__item" type="button" onclick={focusAddress}>
+              <span class="browser-menu__label">Browser</span>
+              <span class="browser-menu__hint">Enter an address to open it here</span>
+            </button>
+            {#each plannedDestinations as destination (destination)}
+              <button
+                class="browser-menu__item"
+                type="button"
+                aria-disabled="true"
+                title={`${destination} — planned for a later phase`}
+              >
+                <span class="browser-menu__label">{destination}</span>
+                <span class="browser-menu__hint">Planned</span>
+              </button>
+            {/each}
+          </div>
+          <p class="browser-note">
+            Separate from your installed browsers; downloads and popups stay blocked.
+            Switching Canvas tabs closes this page and in-memory state may be lost.
+          </p>
+        </div>
       {/if}
     </div>
   </div>
@@ -374,12 +400,66 @@
     overflow: hidden;
   }
 
-  .browser-placeholder {
-    margin: 0;
+  .browser-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .browser-menu {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
     padding: 1rem;
+    overflow-y: auto;
+  }
+
+  .browser-menu__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.55rem 0.65rem;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .browser-menu__item:hover {
+    background: var(--surface-hover);
+  }
+
+  .browser-menu__item[aria-disabled="true"] {
+    cursor: default;
     color: var(--text-subtle);
-    font-size: 0.82rem;
-    line-height: 1.5;
+  }
+
+  .browser-menu__item[aria-disabled="true"]:hover {
+    background: transparent;
+  }
+
+  .browser-menu__label {
+    font-size: 0.86rem;
+  }
+
+  .browser-menu__hint {
+    color: var(--text-subtle);
+    font-size: 0.72rem;
+  }
+
+  .browser-note {
+    margin: 0;
+    padding: 0 1rem 0.9rem;
+    color: var(--text-subtle);
+    font-size: 0.72rem;
+    line-height: 1.45;
   }
 
   @media (max-width: 640px) {
