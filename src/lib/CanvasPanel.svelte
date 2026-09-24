@@ -1,16 +1,19 @@
 <script lang="ts">
-  import ActionCard from "./ActionCard.svelte";
   import Button from "./Button.svelte";
-  import EmptyState from "./EmptyState.svelte";
-  import type { IconName } from "./Icon.svelte";
+  import HumanBrowserPanel from "./HumanBrowserPanel.svelte";
+  import PreviewPanel from "./PreviewPanel.svelte";
 
-  const tabs = ["Preview", "Components", "Logs", "AI Notes"];
+  type CanvasTab = "preview" | "browser";
 
-  const actions: { icon: IconName; title: string; subtitle: string }[] = [
-    { icon: "code", title: "Generate a UI", subtitle: "Create a modern UI from a prompt" },
-    { icon: "repo", title: "Open a project", subtitle: "Connect an existing folder" },
-    { icon: "grid", title: "Use a template", subtitle: "Start from a ready template" }
+  const tabs: { id: CanvasTab | null; label: string }[] = [
+    { id: "preview", label: "Preview" },
+    { id: "browser", label: "Browser" },
+    { id: null, label: "Components" },
+    { id: null, label: "Logs" },
+    { id: null, label: "AI Notes" }
   ];
+
+  let active = $state<CanvasTab>("preview");
 </script>
 
 <section class="br-panel canvas" aria-labelledby="canvas-title">
@@ -20,29 +23,30 @@
       <p class="br-panel__subtitle">The result lives here — dominant by design.</p>
     </div>
     <div class="br-tabs" aria-label="Canvas views">
-      {#each tabs as tab, index (tab)}
+      {#each tabs as tab (tab.label)}
         <Button
           variant="tab"
-          inactive={index !== 0}
-          current={index === 0}
-          title={index === 0 ? tab : `${tab} — planned for MVP-1`}
+          inactive={tab.id === null || active !== tab.id}
+          current={tab.id === active}
+          title={tab.id === null ? `${tab.label} — planned for MVP-1` : tab.label}
+          onclick={() => {
+            if (tab.id) {
+              active = tab.id;
+            }
+          }}
         >
-          {tab}
+          {tab.label}
         </Button>
       {/each}
     </div>
   </div>
 
   <div class="br-panel__body canvas-body">
-    <EmptyState
-      title="Preview comes in MVP-1."
-      description="Local previews and the full Companion Canvas arrive with the next milestone. The agent loop works today."
-    />
-    <div class="canvas-cards">
-      {#each actions as action (action.title)}
-        <ActionCard icon={action.icon} title={action.title} subtitle={action.subtitle} />
-      {/each}
-    </div>
+    {#if active === "preview"}
+      <PreviewPanel />
+    {:else if active === "browser"}
+      <HumanBrowserPanel />
+    {/if}
   </div>
 </section>
 
@@ -53,15 +57,9 @@
 
   .canvas-body {
     display: grid;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: minmax(0, 1fr);
     gap: 1rem;
     padding: 1.25rem;
-  }
-
-  .canvas-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-    gap: 0.6rem;
   }
 
   @media (max-width: 1080px) {

@@ -106,9 +106,21 @@ for line in open(cargo, encoding="utf-8").read().splitlines():
     if stripped.startswith("["):
         section = stripped.strip("[]")
         continue
-    if section in ("dependencies", "build-dependencies") and "=" in stripped:
+    if section.endswith("dependencies") and "=" in stripped:
         rust_dependencies.add(stripped.split("=", 1)[0].strip())
-allowed_rust = {"tauri", "serde", "serde_json", "ureq", "keyring", "uuid", "tauri-build"}
+allowed_rust = {
+    "tauri",
+    "serde",
+    "serde_json",
+    "ureq",
+    "keyring",
+    "uuid",
+    "tauri-build",
+    "gtk",
+    "webkit2gtk",
+    "wry",
+    "libc",
+}
 for extra in sorted(rust_dependencies - allowed_rust):
     problems.append(f"unapproved Rust dependency {extra!r}")
 

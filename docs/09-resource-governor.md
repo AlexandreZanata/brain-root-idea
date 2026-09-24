@@ -33,7 +33,7 @@ Only BrainRoot Core and its primary UI are active. Agent, terminal, dev server, 
 
 - Agent starts for a user task; closes after session end or explicit retention policy.
 - A TypeScript LSP starts only for a capability requiring it; idle timeout is evidence-based and termination-safe.
-- Dev server starts for preview/test; remains while the preview is actively used, then stops or asks if stopping would be surprising.
+- Dev server starts for preview/test; remains while the preview is actively used, then stops or asks if stopping would be surprising. The preview-scoped ownership, port registration, termination, readiness, and idle rules are fixed by [ADR 0011](adr/0011-dev-server-lifecycle.md).
 - Playwright starts for QA and terminates after artifacts are collected.
 - Only one heavy Deck WebView is HOT by default; inactive cards become COLD/DEAD on the portable path.
 

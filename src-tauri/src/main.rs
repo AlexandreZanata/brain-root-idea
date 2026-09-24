@@ -25,6 +25,23 @@ fn main() {
     tauri::Builder::default()
         .manage(provider_state)
         .manage(conversation_session)
+        .manage(features::preview::PreviewState::default())
+        .manage(features::human_browser::HumanBrowserState::default())
+        .setup(|app| {
+            #[cfg(debug_assertions)]
+            if std::env::var("BRAINROOT_PREVIEW_FIXTURE").as_deref() == Ok("1") {
+                features::preview::debug_fixture(app.handle().clone());
+            }
+            #[cfg(debug_assertions)]
+            if std::env::var("BRAINROOT_HUMAN_FIXTURE").as_deref() == Ok("1") {
+                features::human_browser::debug_fixture(app.handle().clone());
+            }
+            #[cfg(debug_assertions)]
+            if std::env::var("BRAINROOT_DECK_FIXTURE").as_deref() == Ok("1") {
+                features::deck::debug_fixture(app.handle().clone());
+            }
+            Ok(())
+        })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 use tauri::Manager;
@@ -32,13 +49,33 @@ fn main() {
                 if session.is_active() {
                     let _ = session.cancel();
                 }
+                let preview = window.state::<features::preview::PreviewState>();
+                preview.shutdown(&window.app_handle().clone());
+                let human = window.state::<features::human_browser::HumanBrowserState>();
+                human.shutdown(&window.app_handle().clone());
             }
         })
         .invoke_handler(tauri::generate_handler![
             features::health::health,
             provider::credential::provider_status,
             features::conversation::conversation_send,
-            features::conversation::conversation_cancel
+            features::conversation::conversation_cancel,
+            features::preview::preview_start,
+            features::preview::preview_stop,
+            features::preview::preview_status,
+            features::preview::preview_show,
+            features::preview::preview_set_bounds,
+            features::preview::preview_view_status,
+            features::preview::preview_hide,
+            features::human_browser::human_browser_show,
+            features::human_browser::human_browser_navigate,
+            features::human_browser::human_browser_back,
+            features::human_browser::human_browser_forward,
+            features::human_browser::human_browser_reload,
+            features::human_browser::human_browser_set_bounds,
+            features::human_browser::human_browser_hide,
+            features::human_browser::human_browser_status,
+            features::human_browser::human_browser_clear_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running BrainRoot");

@@ -34,6 +34,8 @@ Port the same proven boundary after Windows. Record WKWebView, Keychain, entitle
 
 **Goal/outcome:** BrainRoot starts a project and shows the real app. **Dependencies:** Process Manager and cross-platform WebView spike. **Acceptance:** one dev server, readiness, localhost navigation, reload, failure/recovery, origin isolation, focus escape. **Performance:** one active content WebView; measured create/destroy and memory. **Out:** remote browser, Deck, Phone.
 
+The adjacent layout, Swap action, and responsive preview presets are specified in [the Companion Browser plan](specs/companion-browser-plan.md); they do not authorize remote browsing in this phase.
+
 ## Phase 5 — observe/test/fix loop
 
 **Goal/outcome:** the agent can run the app, observe key behavior, find a failure, fix, and recheck with evidence. **Dependencies:** preview and on-demand Playwright. **Acceptance:** screenshot, DOM/console/network evidence, bounded artifacts, deterministic E2E fixture, clear test state. **Performance:** automation is absent after task; no background browser. **Out:** autonomous exhaustive QA or device farm.
@@ -50,9 +52,13 @@ Port the same proven boundary after Windows. Record WKWebView, Keychain, entitle
 
 **Goal/outcome:** switch deliberately among Preview, Docs, and Browser destinations. **Dependencies:** proven Browser Manager isolation/lifecycle. **Acceptance:** one HOT heavy card, COLD reconstruction, snapshots/placeholders, navigation policy, profile boundaries. **Performance:** inactive cards consume no live WebView by default. **Out:** perfect session restoration or social-specific features.
 
+This phase includes a separately gated, user-operated Human Browser before any [portable browser-data import](specs/companion-browser-plan.md). Bookmarks may start from explicit HTML exports; history/preferences need their own compatibility and privacy gates. Passwords, cookies, sessions, and extensions are not promised.
+
 ## Phase 9 — Companion Phone and spatial navigation
 
 **Goal/outcome:** use phone/9:16, square, landscape, desktop, and full Canvas modes with swipe/drag and accessible controls. **Dependencies:** Deck. **Acceptance:** gesture conflict handling, keyboard/buttons, focus, reduced motion, responsive fixtures. **Performance:** transitions remain responsive without multiplying WebViews. **Out:** mobile BrainRoot app.
+
+The phone-width view is a responsive desktop-app presentation, not a claim of mobile browser-engine equivalence; see [the interaction contract](specs/companion-browser-plan.md).
 
 ## Phase 10 — advanced Resource Governor
 

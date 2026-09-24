@@ -10,6 +10,148 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.12
+
+Batch B16 (Human Browser permission controls) is tracked by [pull/95](https://github.com/AlexandreZanata/brain-root-idea/pull/95) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B16-Permission-Controls).
+
+### Added
+
+- Every web permission request (camera, microphone, geolocation, notifications, pointer lock, device info, encrypted media, website data access) is denied fail-closed and recorded with an honest kind code, shown in plain language on the Browser surface ([#94](https://github.com/AlexandreZanata/brain-root-idea/issues/94), [#96](https://github.com/AlexandreZanata/brain-root-idea/issues/96)).
+- A confirmed **Clear browser data** action removes cookies, storage, and cache for the BrainRoot-owned browser profile; in the single-profile design this is also the profile reset ([#94](https://github.com/AlexandreZanata/brain-root-idea/issues/94), [#96](https://github.com/AlexandreZanata/brain-root-idea/issues/96)).
+
+### Known limitations
+
+- Permissions are deny-only; there is no grant path, downloads and import remain unimplemented, and the failure/compatibility UX stays minimal.
+
+## 0.0.11
+
+Batch B15 (deck switching and resource return) is tracked by [pull/92](https://github.com/AlexandreZanata/brain-root-idea/pull/92) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B15-Deck-Switching).
+
+### Fixed
+
+- Switching between Preview and Browser no longer leaks a WebKit process per switch: each role caches one `WebContext` keyed by its profile root, so the footprint is bounded and does not grow across cycles ([#91](https://github.com/AlexandreZanata/brain-root-idea/issues/91)).
+
+### Changed
+
+- Deck switching is proven as a destroy/recreate lifecycle: exactly one content view exists after every switch, the previous view is destroyed, switch latency measures 0–3 ms at the view layer, and the surfaces state honestly that switching tabs closes the page and may lose in-memory state.
+
+### Known limitations
+
+- COLD placeholders/snapshots, more than two destinations, permission controls, and browser-data import remain unimplemented.
+
+## 0.0.10
+
+Batch B14 (Human Browser: minimal human navigation) is tracked by [pull/88](https://github.com/AlexandreZanata/brain-root-idea/pull/88) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B14-Human-Browser).
+
+### Added
+
+- The Companion Canvas has a Browser tab for user-directed web pages: an address entry, Back/Forward/Reload controls with truthful states, the page title and current address, and a plain-language line when a link is blocked ([#89](https://github.com/AlexandreZanata/brain-root-idea/issues/89)).
+- The Human Browser engine implements the ADR 0013 policy: only `http`/`https` load, external handlers become an explicit action, and `file:`/`javascript:`/`data:`/`blob:`/`about:`/`view-source:`/application schemes, userinfo URLs, popups, and downloads are denied with reason codes ([#87](https://github.com/AlexandreZanata/brain-root-idea/issues/87)).
+- The remote view uses a persistent BrainRoot-owned `human-profile`, has no BrainRoot IPC, and shares one Canvas content slot with the Preview; states arrive through typed events instead of polling.
+
+### Known limitations
+
+- Downloads, permission prompts, history/bookmark/cookie import, agent sharing, Deck switching, and phone presentation remain unimplemented; the maintainer explicitly reordered the roadmap for this browser slice.
+- Site compatibility findings, cookie/cache isolation, deletion/reset, crash recovery, and accessibility inside remote content remain open.
+
+## 0.0.9
+
+Batch B13 (Human Browser prerequisites, CB-B gate) is tracked by [pull/84](https://github.com/AlexandreZanata/brain-root-idea/pull/84) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B13-Human-Browser-Prerequisites).
+
+### Documentation
+
+- The Human Browser policy is approved as [ADR 0013](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/adr/0013-human-browser-policy.md): a fourth trust role with no BrainRoot IPC, arbitrary `http`/`https` after explicit user direction, denied schemes/popups/downloads/permission prompts, a BrainRoot-owned persistent profile separate from every other role and installed browsers, one remote HOT view with honest COLD semantics, no ambient sharing, and the implementation explicitly post-MVP ([#83](https://github.com/AlexandreZanata/brain-root-idea/issues/83)).
+- The [profile isolation probe](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/specs/human-profile-isolation-probe.md) measured `go`: two role profiles are isolated in both directions, persist across destroy/recreate, live under the application data directory, and clean up ([#85](https://github.com/AlexandreZanata/brain-root-idea/issues/85)).
+
+### Known limitations
+
+- The Human Browser itself remains unimplemented and post-MVP; no remote browsing, Deck switching, downloads, or sharing flow exists.
+- Cookie/cache isolation, deletion/reset with confirmation, crash recovery, keyboard/focus and accessibility inside remote content, and curated-mode and retention UX stay open for the implementation batch.
+
+## 0.0.8
+
+Batch B12 (preview quality measurements) is tracked by [pull/81](https://github.com/AlexandreZanata/brain-root-idea/pull/81) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B12-Preview-Quality).
+
+### Changed
+
+- The remaining preview acceptance checks from ADR 0012 are measured through the production preview module and recorded: scale/DPR at factor 1 (Wayland) and 2 (XWayland), page zoom in and out, widget focus, and a 100-update bounds soak with latency, RSS, and child-process counts ([#80](https://github.com/AlexandreZanata/brain-root-idea/issues/80)).
+- The open-questions document now states the measured items and keeps keyboard routing and screen-reader behavior inside preview content explicit as `UNKNOWN`.
+
+### Known limitations
+
+- Keyboard event routing into preview content and screen-reader behavior are not automatable on the reference stack and remain unverified.
+- The soak covers 100 resize updates, not a long-duration run; visual confirmation still needs the rendered check.
+
+## 0.0.7
+
+Batch B11 (responsive viewport presets) is tracked by [pull/78](https://github.com/AlexandreZanata/brain-root-idea/pull/78) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B11-Responsive-Viewport).
+
+### Added
+
+- The preview can be viewed at Desktop (1280 × 800), Tablet (834 × 1112), Phone (390 × 844), and Custom sizes; changing a preset re-bounds the existing view in place without restarting the owned server or reloading the page ([#77](https://github.com/AlexandreZanata/brain-root-idea/issues/77)).
+- When the Canvas area is smaller than a preset, the preview uses the available area and the UI states the actual size; the feature is labelled as a responsive viewport preview, not device emulation.
+
+### Known limitations
+
+- Visual confirmation of the preset behavior still needs the rendered check; focus/keyboard routing, zoom/scale, DPR, and soak remain unmeasured.
+- The chosen preset is not persisted across restarts.
+
+## 0.0.6
+
+Batch B10 (adjacent localhost preview) is tracked by [pull/73](https://github.com/AlexandreZanata/brain-root-idea/pull/73) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B10-Adjacent-Preview).
+
+### Added
+
+- The Companion Canvas Preview tab can now run your app beside the chat: a visible permission moment (one command, one folder), the owned dev server with an assigned loopback address and process-group cleanup, and the preview rendered in the Canvas ([#72](https://github.com/AlexandreZanata/brain-root-idea/issues/72), [#74](https://github.com/AlexandreZanata/brain-root-idea/issues/74), [#75](https://github.com/AlexandreZanata/brain-root-idea/issues/75)).
+- Preview states are truthful and event-driven: starting, ready, and failed with plain-language recovery; a crash after ready becomes a visible failed state.
+- The preview view has no BrainRoot IPC, loads only the owned loopback origin, and keeps an isolated profile under the application data directory.
+
+### Known limitations
+
+- Visual alignment of the preview over the Canvas slot still needs the rendered confirmation; focus/keyboard routing, zoom/scale, DPR, and soak remain unmeasured.
+- The command and folder are in-memory only, there is no project opening yet, and this batch produces no artifact.
+
+## 0.0.5
+
+Batch B09 (Linux preview hosting decision, CB-A gate 2) is tracked by [pull/69](https://github.com/AlexandreZanata/brain-root-idea/pull/69) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B09-Preview-Hosting).
+
+### Documentation
+
+- The ADR 0006 review is decided as [ADR 0012](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/adr/0012-linux-preview-hosting.md): on Linux the preview is a `wry` WebView hosted in a `GtkFixed` overlay inside the single Tauri window, outside the Tauri webview manager and with no Tauri IPC by construction; one Rust-owned view with shell-reported geometry, the approved origin allowlist, and an isolated profile ([#68](https://github.com/AlexandreZanata/brain-root-idea/issues/68), [#70](https://github.com/AlexandreZanata/brain-root-idea/issues/70)).
+- The hosting probe records the measured `go` on the reference environment — exact bounds for two views, exact resize, `file://` denial, shell allocation unchanged, and clean removal — while keeping focus, zoom/scale, DPR, soak, and crash behavior explicit as preview-slice acceptance checks ([#68](https://github.com/AlexandreZanata/brain-root-idea/issues/68)).
+
+### Known limitations
+
+- The hosting decision is not a preview capability: no preview or dev server ships, and the unmeasured behavior above is not claimed.
+- The optional `gtk`/`wry` direct dependencies exist only behind the `probe` feature; the shipped build and bundle are unchanged.
+
+## 0.0.4
+
+Batch B08 (Companion Browser prerequisites, CB-A gate) is tracked by [pull/64](https://github.com/AlexandreZanata/brain-root-idea/pull/64) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B08-Preview-Prerequisites).
+
+### Documentation
+
+- The Preview origin policy is approved: only canonical loopback origins on BrainRoot-owned dev-server ports may load, fail-closed, with the denial rules, the Rust-owned enforcement contract, and the negative test corpus for the preview slice ([#65](https://github.com/AlexandreZanata/brain-root-idea/issues/65)).
+- The owned dev-server lifecycle is approved as ADR 0011: one declared-command server per project, an assigned loopback port registered for the preview, process-group termination that never kills foreign processes, no automatic restart loop, stop-on-close idle policy, and untrusted bounded output ([#66](https://github.com/AlexandreZanata/brain-root-idea/issues/66)).
+- A disposable Linux child-WebView probe and its measurement record document what the current Tauri/wry stack supports before any preview implementation is assigned ([#63](https://github.com/AlexandreZanata/brain-root-idea/issues/63)).
+
+### Known limitations
+
+- Child-view position and size are not honored on the Wayland reference stack (`GtkBox` hosting), so the Companion Canvas preview implementation waits for the ADR 0006 review; memory growth over 100 probe cycles is unclassified, and focus/WARM behavior is unmeasured.
+- The probe binary exists only behind the optional `probe` Cargo feature and is not part of the shipped app.
+
+## 0.0.3
+
+Batch B07 (Companion Browser plan integration, documentation only) is tracked by [pull/60](https://github.com/AlexandreZanata/brain-root-idea/pull/60) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B07-Companion-Browser-Plan).
+
+### Documentation
+
+- The maintainer-adopted Companion Browser plan now lives in `docs/specs/companion-browser-plan.md` and is referenced from the Companion Canvas, browser architecture, roadmap, and open-questions documents, without implementing any browser capability and without turning the CB-A…CB-D candidates into executable issues ([#59](https://github.com/AlexandreZanata/brain-root-idea/issues/59)).
+
+### Known limitations
+
+- The Companion Browser is not implemented; no preview, Human Browser, import, Deck, or phone capability exists, and future batch IDs are not assigned.
+
 ## 0.0.2
 
 Batch B06 (workspace shell in the product visual language) is tracked by [pull/53](https://github.com/AlexandreZanata/brain-root-idea/pull/53) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B06-Workspace-Shell).

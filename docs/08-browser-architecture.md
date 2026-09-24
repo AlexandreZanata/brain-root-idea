@@ -13,6 +13,8 @@ Origin, profile, cookies, cache, storage, IPC capability, navigation, downloads,
 
 Use one primary shell WebView plus one on-demand preview child WebView if the platform implementation proves reliable. The preview receives no privileged core API by default. Agent QA runs Playwright as an on-demand child process against localhost rather than reusing a human browsing session.
 
+On Linux the platform evidence is now in: the managed child-WebView path fails geometry (B08-S01), and the preview is a `wry` WebView hosted in a `GtkFixed` overlay inside the same window, outside the Tauri webview manager and with no Tauri IPC by construction (B09-S01). See [ADR 0012](adr/0012-linux-preview-hosting.md) and the [hosting probe](specs/linux-preview-hosting-probe.md).
+
 ## Platform facts and limits
 
 - Windows uses Edge WebView2, macOS uses WKWebView, and Linux uses WebKitGTK through WRY/Tauri.
@@ -40,9 +42,11 @@ HOT/WARM/COLD/DEAD are product lifecycle states. WARM maps to native throttling 
 
 The agent may use its own browser context for localhost, screenshots, DOM, console, network, and interaction. Access to a Human Browser page requires a specific user-mediated share action describing exactly what becomes visible. Cookies and authenticated storage are never copied to the agent profile automatically.
 
+The Human Browser role and its boundaries are approved in [ADR 0013](adr/0013-human-browser-policy.md): user-directed `http`/`https` with denied schemes, popups, downloads, and permission prompts; a BrainRoot-owned persistent profile separate from every other role and from installed browsers; and no ambient agent access.
+
 ## Navigation and content policy
 
-- Allow only expected localhost origins in MVP preview.
+- Allow only expected localhost origins in MVP preview, exactly as defined by the [localhost preview origin policy](specs/preview-origin-policy.md).
 - Deny privileged IPC from remote and preview origins.
 - Open unapproved schemes and external domains through an explicit decision.
 - Restrict downloads, file URLs, new windows, permission prompts, and cross-origin navigation.
@@ -52,4 +56,6 @@ The agent may use its own browser context for localhost, screenshots, DOM, conso
 ## Verification spike before implementation commitment
 
 Build a minimal multi-platform probe measuring create/destroy latency, memory release, focus, resize, localhost navigation, crash recovery, cookie isolation, storage directory behavior, screenshots, background throttling, and repeated lifecycle leaks. Results become MEASURED entries in the performance contract and may revise ADR 0006.
+
+The [Companion Browser plan](specs/companion-browser-plan.md) sequences Linux local preview, an isolated Human Browser, opt-in data portability, Deck switching, and phone-width presentation. Importing portable bookmarks is not equivalent to reusing Chrome/Firefox profiles, cookies, passwords, or extensions.
 
