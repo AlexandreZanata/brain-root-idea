@@ -41,6 +41,7 @@ Wiki capabilities and page naming are initialized in B00. If nested names are no
 ### At every microstep close
 
 - Append or update exactly one issue row: issue, outcome, commit, validation summary, deviations, and status.
+- From B17 onward, an implementation row says `IMPLEMENTED_UNVERIFIED` until the versioned release gate executes its deferred tests; do not write “tested” or “passed” from static checks alone.
 - Link the issue evidence comment and batch PR.
 - Record a failure in Failure Log immediately when it teaches something or changes the plan; do not wait for a successful narrative.
 - Do not copy raw provider output, authorization headers, environment dumps, personal paths, or secrets.

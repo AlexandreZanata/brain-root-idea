@@ -42,6 +42,7 @@ List each added/removed dependency and link its approved issue evidence. Write `
 - Submitted head SHA:
 - Last non-blocking CI observation (time/result/head):
 - Next owner/action:
+- Deferred release-test matrix (issue → written test cases/commands):
 - Full Linux CI run:
 - Review approval:
 - Test environment:
@@ -55,6 +56,7 @@ List each added/removed dependency and link its approved issue evidence. Write `
 ## Merge gate
 
 - [ ] All planned/remediation issues closed with valid evidence.
+- [ ] Every deferred microstep test executed at this versioned release gate, with failures tracked.
 - [ ] Latest head passed every required CI check.
 - [ ] No secret/unrelated change/untracked fix.
 - [ ] Review approved and conversations resolved.

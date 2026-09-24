@@ -86,6 +86,8 @@ Applied payload:
 - **Classic protection versus rulesets:** classic branch protection is used because it is simple and reversible; if repository needs grow (multiple actors, bypass lists), migrate to a ruleset and update this runbook.
 - **Evidence drift:** GitHub settings cannot be enforced from the repository. `docs/20-project-history-and-wiki.md` requires a maintainer-visible comparison at batch close; future automation may clone settings read-only.
 
+**B17 policy update (2026-09-24):** the bullet above records the original B00 workflow. Under ADR 0014, `check-full-linux` stays required by branch protection but is generated only for a non-draft, versioned batch `pull_request`; the duplicate `push`-to-`main` full run is removed. Verify the repository's required-check settings still name this unique job before adopting the updated workflow.
+
 ## Apply and verify
 
 ```sh

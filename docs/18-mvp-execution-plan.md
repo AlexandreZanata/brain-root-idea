@@ -22,10 +22,12 @@ Do not access OpenCode credentials from `~/.local/share/opencode/auth.json`. Bra
 
 - **Microstep:** one independently verifiable GitHub issue and one focused commit.
 - **Batch:** a coherent ordered set of microsteps implemented on one branch and reviewed through one PR.
-- **Micro-gate:** targeted local validation required before closing a microstep issue.
-- **Batch gate:** complete Linux CI and human/high-capability review on the latest batch head.
+- **Micro-gate from B17:** fast non-test scope, diff, secret, format/schema/documentation checks required before closing an implementation issue; test code is written but execution is deferred.
+- **Batch/release gate:** complete Linux automated tests, relevant platform/manual probes and performance evidence, and human/high-capability review on the latest versioned batch head.
 - **Evidence:** exact command, exit result, bounded output or artifact, changed-file list, and explicit acceptance checklist.
 - **Remediation issue:** a new issue created when later work or final CI invalidates earlier evidence.
+
+The release-only test cadence in [ADR 0014](adr/0014-release-only-test-cadence.md) applies from B17 onward. B00–B16 records and the historical detailed packets below describe the earlier, test-per-microstep process; do not rewrite their evidence.
 
 ## 4. Mandatory repository workflow
 
@@ -44,13 +46,13 @@ Do not access OpenCode credentials from `~/.local/share/opencode/auth.json`. Bra
 2. Confirm every Definition of Ready checkbox. If one is false, comment `BLOCKED: <missing fact>` and stop.
 3. Change only allowlisted files. A necessary out-of-scope file requires an issue edit approved before modification.
 4. Do not add a dependency unless the issue explicitly authorizes it and includes the dependency-policy evidence.
-5. Run the exact micro-gate commands from the issue.
-6. Compare output to the stated expected result; “command exited zero” is insufficient when behavior evidence is required.
+5. Write/update the issue's automated test cases but do not execute them. Run only the exact fast **non-test** micro-gate commands from the issue: allowlisted diff, `git diff --check`, secret scan, and applicable format/schema/docs checks. Do not run unit, integration, E2E, soak, or full CI until the versioned release gate.
+6. Compare fast-check output to the stated expected result. Record `IMPLEMENTED_UNVERIFIED` and the deferred test case IDs/commands; do not describe runtime behavior as verified.
 7. Review `git diff`, list changed files, scan for secrets, and confirm no unrelated changes.
 8. Commit once using `type(scope): summary (refs #N)`.
 9. Push to the batch branch and update the draft PR checklist.
-10. Post the validation evidence on issue `#N`, manually link the issue to the batch PR, and update the issue row on the active Wiki batch page.
-11. Close the issue only after the PR checklist and Wiki row agree with the evidence.
+10. Post the fast-check evidence and deferred release tests on issue `#N`, manually link the issue to the batch PR, and update the issue row on the active Wiki batch page as `IMPLEMENTED_UNVERIFIED`.
+11. Close the issue only after the PR checklist and Wiki row agree. Reopen it if the release gate later disproves its acceptance.
 
 Use `Refs #N`, not `Closes #N`, because the issue is intentionally closed when its microstep passes before the batch PR merges. If later work changes or breaks that behavior, reopen the issue or create a remediation issue and link both.
 
@@ -61,7 +63,7 @@ Use `Refs #N`, not `Closes #N`, because the issue is intentionally closed when i
 3. Update the repository batch history and matching GitHub Wiki page.
 4. Apply the single batch version change and changelog entry where the version policy requires it.
 5. Rebase is not required. Update the batch branch from `main` using the repository's chosen non-destructive policy and resolve any conflicts explicitly.
-6. Mark the draft PR Ready for review. This triggers the full required Linux CI. Record `CI_PENDING`, the exact head SHA, PR/CI links if available, and the next action in the PR and Wiki. **End this task without waiting for CI or review.**
+6. Run the complete Linux automated suite only at this versioned batch/release gate by marking the draft PR Ready for review. Collect required manual/platform and performance evidence at this gate. Record `CI_PENDING`, the exact head SHA, PR/CI links if available, and the next action in the PR and Wiki. **End this task without waiting for CI or review.**
 7. In a later task, inspect the PR, latest head, required checks, and review once. If still pending, leave the PR open and end that check; do not poll. Independent research, specs, and issue preparation may proceed, but a dependent implementation batch does not start from an unmerged predecessor.
 8. If the final CI fails, open a remediation issue in the same batch or reopen the responsible issue. Fix it as a normal microstep, push, record the new head SHA, and return to `CI_PENDING` without waiting. Never patch an untracked failure.
 9. Only when the latest-head CI passes, required review approves, conversations are resolved, and Wiki/history links agree, merge with a merge commit so the one-commit-per-issue history remains visible. Delete the batch branch after merge.
@@ -69,7 +71,7 @@ Use `Refs #N`, not `Closes #N`, because the issue is intentionally closed when i
 
 ### 4.4 CI behavior
 
-Economical agents do not wait for full CI after every issue. Each issue relies on its deterministic local micro-gate. Full CI runs when the PR becomes Ready and again on every later push while it is non-draft.
+From B17 onward, no automated tests run per implementation issue. Fast non-test micro-gates catch scope, formatting, and secret mistakes; they do not certify behavior. The full suite runs only when the versioned batch PR becomes Ready, and again after a release-gate remediation push while it is non-draft. Draft PRs do not run test jobs. A failed release candidate may require another final-head run; it is still a release-gate run, not per-microstep testing.
 
 The final batch submission and final merge are separate tasks. Do not run `gh pr checks --watch`, a sleep/poll loop, or repeated CI status queries during one task. Mark the PR `CI_PENDING` and hand off. A future task makes one non-blocking status snapshot: pending means report the state and stop; failed means track remediation; green means inspect review, conversations, history/Wiki, and the exact head before merge. A stale green result from a prior commit is not sufficient.
 
@@ -77,9 +79,9 @@ While CI runs, useful non-dependent work includes fixture research, measured spi
 
 The required check must be generated by a supported PR event against the latest commit; a standalone manual workflow is not sufficient as the only protected-branch check. `main` requires the named Linux full check, at least one approval, resolved conversations, no force push, and no deletion.
 
-The intended full-CI trigger is `pull_request` when a PR becomes ready for review and on subsequent updates while it is not Draft, plus `push` on `main` for post-merge health. Do not use `pull_request_target` to execute untrusted branch code with secrets. The OpenCode Go live smoke remains outside untrusted PR CI.
+The full-CI trigger is `pull_request` when a PR becomes ready for review and on subsequent updates while it is not Draft. Do not repeat the full suite on `push` to `main` after the same final-head gate; release evidence records the merge/tag separately. Do not use `pull_request_target` to execute untrusted branch code with secrets. The OpenCode Go live smoke remains outside untrusted PR CI.
 
-Cheap documentation or formatting checks may run during draft pushes, but they do not replace the final full gate and the agent does not block the next microstep waiting for them.
+Fast non-test documentation, schema, secret, or formatting checks may run during draft pushes, but no automated test job runs. They do not replace the final full gate and the agent does not block the next microstep waiting for them.
 
 ## 5. Work-packet design for a less-capable agent
 
@@ -92,8 +94,8 @@ Every issue must contain:
 - an allowlist of files/directories that may change;
 - a forbidden-scope list;
 - exact implementation sequence with no architectural choice left implicit;
-- exact commands and expected evidence;
-- negative tests or failure states where relevant;
+- exact fast non-test commands and expected evidence;
+- automated release-test cases to write now and execute at the version gate, including negative/failure states;
 - security, cleanup, and performance checks;
 - rollback instructions;
 - a Definition of Ready and Definition of Done.
@@ -107,7 +109,7 @@ The agent stops without improvising when:
 - required input, API behavior, model availability, or expected output differs from the issue;
 - a new dependency, permission, network destination, persistent field, or privileged command is needed;
 - a secret appears in a diff, log, fixture, screenshot, or artifact;
-- an unrelated test fails and cause is not proven;
+- the fast non-test gate fails or a release-gate test fails and cause is not proven;
 - a change outside the allowlist is necessary;
 - two attempted fixes fail the same acceptance criterion;
 - current official documentation contradicts the issue;

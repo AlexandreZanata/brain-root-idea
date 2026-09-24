@@ -64,6 +64,10 @@ The phone-width view is a responsive desktop-app presentation, not a claim of mo
 
 **Goal/outcome:** measured policies balance fast resume with low CPU/RAM across agents, tooling, and WebViews. **Dependencies:** real lifecycle data. **Acceptance:** ownership graph, ACTIVE/IDLE/SUSPENDED/TERMINATED policy, platform-specific hibernation only where proven, leak dashboard. **Performance:** budgets enforced with reproducible results. **Out:** local-model orchestration unless separately approved.
 
+## Near-term Linux interaction polish after B16
+
+The [Freebuff release-reference plan](specs/freebuff-inspired-experience-plan.md) proposes a BrainRoot-specific, Canvas-dominant conversation polish batch: concise task progress, bounded streaming presentation, stable focus/scroll, and smooth one-HOT Canvas transitions. It uses Freebuff Desktop v0.0.142 as a published UX/product reference, not as an asserted source-code architecture. No Electron/React/OpenTUI migration, additional resident agents, cloud service, or new provider is implied. From B17, automated tests are written with microsteps and run at the versioned release gate only (ADR 0014).
+
 ## Future, not sequenced
 
 BrainRoot Replay may record high-level prompts, task states, changed-file summaries, previews, tests, and results for debugging and opt-in demo creation. It must exclude hidden reasoning, secrets, human browser data, and unapproved source content.

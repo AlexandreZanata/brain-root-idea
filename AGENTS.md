@@ -78,6 +78,8 @@ A feature is not done because it compiles. Applicable completion criteria includ
 
 No hidden resource may remain active after its owner closes or the task ends. No repeated polling unless an accepted design explains why events cannot work.
 
+From B17 onward, the automated tests and measured behavior above are release-gate requirements, not per-microstep commands. Implementation issues close as `IMPLEMENTED_UNVERIFIED` after fast non-test checks; the versioned batch cannot merge until its complete tests, manual/platform probes, and performance evidence pass. See ADR 0014.
+
 ## Git and checkpoints
 
 Preserve user changes. BrainRoot checkpoints must work with both Git and non-Git folders and must never rewrite public history. Do not equate a checkpoint with a user commit. Any restore operation must preview its impact and preserve a path back when feasible.
@@ -113,9 +115,9 @@ Implementation work follows `docs/18-mvp-execution-plan.md`. This protocol is ma
 - Every microstep has its own GitHub issue before code changes begin.
 - An issue must specify allowed files, forbidden scope, exact validation commands, expected evidence, and rollback notes. Do not infer missing acceptance criteria.
 - Make one focused commit per completed issue and reference the issue number. Never combine unrelated issues in one commit.
-- Run the issue's local micro-gate before closing it. Post evidence in the issue, link it to the batch PR, update the PR checklist, then close it manually.
+- From B17 onward, write relevant tests with each microstep but do not run automated tests until the versioned release gate. Run only the issue's fast non-test micro-gate (scope/diff, secrets, and applicable format/schema/docs checks); mark the issue `IMPLEMENTED_UNVERIFIED`, post evidence and deferred test cases, link the PR/Wiki, then close it manually. Never claim an unrun test passed.
 - Do not use `Closes #N` for a microstep that must close before the batch PR merges; use `Refs #N`. Reopen the issue if later batch work invalidates its acceptance evidence.
-- Never wait or poll for full CI inside a task. After the final microstep, mark the PR Ready, record the head SHA and a `CI_PENDING` handoff in the PR/Wiki, and end the task. A later task checks the latest-head result once and handles merge or remediation. Full CI and review remain mandatory before merge to `main`.
+- Never wait or poll for full CI inside a task. At the versioned batch/release boundary, mark the PR Ready, record the head SHA and a `CI_PENDING` handoff in the PR/Wiki, and end the task. A later task checks the latest-head result once and handles merge or remediation. Full automated tests and review remain mandatory before merge to `main`.
 - A failing final CI creates a new remediation issue or reopens the responsible issue. Never patch an untracked failure silently.
 - Update the repository history record and GitHub Wiki batch page before merge.
 - Version only at batch/release boundaries according to `docs/19-release-and-versioning.md`; never invent version numbers.

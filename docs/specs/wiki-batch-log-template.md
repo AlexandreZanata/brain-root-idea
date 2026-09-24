@@ -20,7 +20,7 @@
 
 | Step | Issue | Outcome | Commit | Validation evidence | Deviation/failure | Status |
 |---|---|---|---|---|---|---|
-| Bxx-S01 | #N | <short> | `<sha>` | <issue comment/CI link> | None | Closed |
+| Bxx-S01 | #N | <short> | `<sha>` | <fast-check evidence and deferred tests> | None | Implemented, unverified until release |
 
 Update one row whenever a microstep closes or is reopened. Never paste secrets or unbounded raw logs.
 
