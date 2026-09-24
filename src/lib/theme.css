@@ -572,6 +572,13 @@ body {
   font-size: 0.78rem;
 }
 
+/* Canvas-chrome swipe zone: horizontal gestures reach the header on touch
+   while vertical scrolling still works. No selection ban, no outline change. */
+
+.canvas-swipe {
+  touch-action: pan-y;
+}
+
 /* Responsive contract: stacked workspace below 1080px, compact chrome below 640px */
 
 @media (max-width: 1080px) {
