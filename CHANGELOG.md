@@ -10,6 +10,53 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.15
+
+This release carries two recorded deliveries on one branch: batch B19 (foundation, shared controls, shell, and edge) and the maintainer's Lean YAGNI pivot tracked by [#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128). The B19 work is the frontend system phase described by `docs/specs/b19-frontend-system-and-usability-plan.md`; the pivot adds the on-demand coding agent described by `docs/21-lean-yagni-pivot.md`. The pivot's process deviation (no per-microstep issues before coding) is recorded honestly on that issue rather than hidden.
+
+### Added
+
+- One token vocabulary for the shell: a 4/8/12/16/24/32 px spacing scale, a restrained type scale with no text under 12 px, and 10 px panel / 6 px control radii in `src/lib/theme.css`, with static token and contrast cases ([#121](https://github.com/AlexandreZanata/brain-root-idea/issues/121)).
+- Explicit button and icon primitives: a 40 px standard height, a 36 px compact height, a grouping hook for equal-height/width peers, long-label containment, and a square named icon-only variant ([#122](https://github.com/AlexandreZanata/brain-root-idea/issues/122)).
+- An on-demand coding agent: the Rust Agent Host owns `opencode serve --pure` as a child process with start/stop/status commands, an ephemeral in-memory basic-auth password, a 10 s readiness probe, and a bounded kill path on stop and window close ([#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128)).
+- Multi-session tabs: create, switch without remounting the Canvas, close (the last tab is protected), an in-stream indicator, and automatic titles from the first prompt ([#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128)).
+- A live model picker built from the sidecar catalog merged with the public OpenRouter listing: context length and per-million prices where the ids match, an explicit `stale` marker, and `UNKNOWN` (`? ctx`, `?/M`) instead of a guess ([#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128)).
+- A Plan/Build agent selector and Fast/Balanced/Max cost profiles that route over live catalog prices without hardcoding any model; a manual pick honestly clears the active profile ([#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128)).
+- A per-turn token and cost line (`1,200 in · 340 out · $0.0042 · 1,000 cached`) read from the sidecar session ledger, best-effort so a missed read never becomes a turn error ([#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128)).
+- A single-thread Resource Governor that stops an idle sidecar after 60 s and reports its policy plus an auto-stop counter, alongside report-only idle clocks for Preview and the Human Browser ([#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128)).
+
+### Changed
+
+- The composer, header, navigation rail, edge, and workspace chrome now consume the semantic tokens, with sibling spacing owned by the parent container ([#123](https://github.com/AlexandreZanata/brain-root-idea/issues/123), [#124](https://github.com/AlexandreZanata/brain-root-idea/issues/124), [#125](https://github.com/AlexandreZanata/brain-root-idea/issues/125), [#126](https://github.com/AlexandreZanata/brain-root-idea/issues/126)).
+- Sending prefers the sidecar when it is running and falls back to the frozen MVP-0 model loop when it is stopped, so the experimental shell still answers with no agent installed ([#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128)).
+
+### Fixed
+
+- The idle governor no longer stops the sidecar while a turn is unfinished: an answer longer than the 60 s budget is never killed mid-stream, and a poisoned state lock leaves the sidecar alone instead of killing it ([#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128)).
+- Two `clippy -D warnings` failures (`manual_div_ceil`, `let_unit_value`) that stopped the required Linux gate before its builds and final checks. These were fixed as gate remediation inside the batch record; no separate remediation issue was opened, which is itself a gap the maintainer should decide on.
+
+### Security
+
+- The sidecar password is generated per session, held only in memory, redacted in `Debug` output, and never crosses IPC; `agent_host_status` has no secret field by construction.
+- Only identifiers leave the sidecar providers payload: keys, URLs, and credential-adjacent fields are dropped, with tests that serialize the result and assert no `sk-`/`apiKey`/`Authorization` material is present.
+
+### Performance
+
+- MEASURED at this gate on the Linux reference host (release build, `BRAINROOT_MEASURE_SKIP_BUILD=1 sh scripts/measure-linux.sh`, load average 5.16, battery/AC online): startup to readiness n=10 median 1.269 s, p95 1.309 s (range 1.249–1.310); settled idle CPU median 0.103 % across 5 windows (p95 2.055 %, range 0.034–2.276); process-tree PSS median 249.3 MB (brainroot 86.3, WebKitWebProcess 145.1, WebKitNetworkProcess 18.4); binary 8,226,216 bytes; frontend JS 102,259 B (gzip 34,389) and CSS 20,416 B (gzip 4,041). The ≤ 1.0 s startup target and the 150 MB memory target are **missed** and reported, not excused; the `< 1 %` idle-CPU median target passes. The host was busy (load 5.16) and this head adds the whole agent surface, so no cross-run regression claim is made from these absolutes.
+- Release soak (explicit, ignored by default): 500 + 500 fake conversations and 200 cancellations stayed bounded at RSS 34,920 → 35,636 KiB with threads 2 → 2.
+
+### Documentation
+
+- The B19 visual inventory, provisional baseline, and the Lean YAGNI pivot plan are recorded, and the pivot's open security gap is tracked in `docs/17-open-questions.md` rather than implied to be solved.
+
+### Known limitations
+
+- **The agent has no workspace or permission boundary yet.** Starting the sidecar gives `opencode` the same filesystem and process authority as the user; there is no approved project root, no per-action permission prompt, and no containment boundary for this path. The sidecar only starts on an explicit user action, but this is not Safe Mode and must not be described as such. The maintainer accepted shipping `0.0.15` with this gap **open and declared** ([ADR 0016](docs/adr/0016-uncontained-agent-experiment.md)); the blocker stays open in `docs/17-open-questions.md` and this release does not downgrade it.
+- ADR 0015 (`opencode serve --pure` as the default sidecar) remains **Proposed**, and ADR 0016 declines to accept it while shipping the implementation; the sidecar is not a maintainer-accepted default architecture.
+- The sidecar is measured separately from the UI budget: roughly 300–480 MB while alive, killed on 60 s idle, window close, or explicit Stop. The 150 MB total-memory target still fails, as since B01.
+- Preview and Human Browser idle clocks are report-only: auto-destroy needs a UX policy decision because it would surprise active work.
+- The startup median (1.269 s) misses its TARGET on this busy host, and the memory target fails as since B01; both are recorded as failures, not exceptions.
+
 ## 0.0.14
 
 Batch B18 (fluid Canvas and phone-first Browser) is tracked by [pull/108](https://github.com/AlexandreZanata/brain-root-idea/pull/108) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B18-Fluid-Canvas).

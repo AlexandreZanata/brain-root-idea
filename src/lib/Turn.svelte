@@ -2,7 +2,11 @@
   import { presentTurn, responsePreview, shouldCollapseTurn } from "../presentation";
   import type { ConversationTurn } from "../conversation";
 
-  let { turn, isLatest = true }: { turn: ConversationTurn; isLatest?: boolean } = $props();
+  let {
+    turn,
+    isLatest = true,
+    cost = null
+  }: { turn: ConversationTurn; isLatest?: boolean; cost?: string | null } = $props();
 
   const presentation = $derived(presentTurn(turn));
   const collapseCandidate = $derived(shouldCollapseTurn(turn, isLatest));
@@ -45,10 +49,12 @@
       </button>
     {/if}
   {/if}
+  {#if cost}
+    <p class="turn-cost">{cost}</p>
+  {/if}
   {#if turn.status === "cancelled"}
     <p class="br-note">Cancelled.</p>
-  {:else if turn.error.length > 0}
-    <p class="br-error" role="alert">{turn.error}</p>
+  {:else if turn.error.length > 0}    <p class="br-error" role="alert">{turn.error}</p>
     {#if presentation.showTechnicalDetail}
       <details class="br-details">
         <summary>Technical details</summary>
@@ -100,5 +106,11 @@
     font-size: 0.72rem;
     text-decoration: underline;
     cursor: pointer;
+  }
+
+  .turn-cost {
+    margin: 0;
+    color: var(--text-subtle);
+    font-size: 0.72rem;
   }
 </style>

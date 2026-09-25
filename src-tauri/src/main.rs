@@ -25,9 +25,14 @@ fn main() {
     tauri::Builder::default()
         .manage(provider_state)
         .manage(conversation_session)
+        .manage(features::agent_host::AgentHostState::default())
+        .manage(features::governor::GovernorState::default())
         .manage(features::preview::PreviewState::default())
         .manage(features::human_browser::HumanBrowserState::default())
         .setup(|app| {
+            use tauri::Manager;
+            app.state::<features::governor::GovernorState>()
+                .start(app.handle().clone());
             #[cfg(debug_assertions)]
             if std::env::var("BRAINROOT_PREVIEW_FIXTURE").as_deref() == Ok("1") {
                 features::preview::debug_fixture(app.handle().clone());
@@ -49,6 +54,10 @@ fn main() {
                 if session.is_active() {
                     let _ = session.cancel();
                 }
+                let host = window.state::<features::agent_host::AgentHostState>();
+                host.shutdown();
+                let governor = window.state::<features::governor::GovernorState>();
+                governor.shutdown();
                 let preview = window.state::<features::preview::PreviewState>();
                 preview.shutdown(&window.app_handle().clone());
                 let human = window.state::<features::human_browser::HumanBrowserState>();
@@ -60,6 +69,17 @@ fn main() {
             provider::credential::provider_status,
             features::conversation::conversation_send,
             features::conversation::conversation_cancel,
+            features::agent_host::agent_host_start,
+            features::agent_host::agent_host_status,
+            features::agent_host::agent_host_stop,
+            features::agent_host::agent_host_models,
+            features::agent_host::agent_host_select_model,
+            features::agent_host::agent_host_send,
+            features::agent_host::agent_host_cancel_send,
+            features::agent_host::agent_host_catalog,
+            features::agent_host::agent_host_set_agent,
+            features::agent_host::agent_host_turn_cost,
+            features::governor::governor_status,
             features::preview::preview_start,
             features::preview::preview_stop,
             features::preview::preview_status,

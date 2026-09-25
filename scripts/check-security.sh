@@ -27,7 +27,10 @@ src_web = os.path.join(root, "src")
 
 url_pattern = re.compile(r"https?://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+")
 url_exact = {"http://opencode.ai/zen/go/v1/chat/completions"}
-url_prefixes = ("https://opencode.ai/zen/go/v1/", "https://example.com/")
+# Loopback is the R2 Agent Host sidecar (`opencode serve --hostname 127.0.0.1`,
+# ephemeral basic-auth, killed on idle/close). OpenRouter serves the public
+# model catalog (no key). No other plain-http host allowed.
+url_prefixes = ("https://opencode.ai/zen/go/v1/", "https://example.com/", "https://openrouter.ai/api/", "http://127.0.0.1:")
 
 network_api = re.compile(r"fetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon")
 telemetry_sdk = re.compile(

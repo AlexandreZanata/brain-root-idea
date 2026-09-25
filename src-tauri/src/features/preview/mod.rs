@@ -31,6 +31,25 @@ pub struct PreviewViewStatus {
 pub struct PreviewState {
     supervisor: DevServerSupervisor,
     view: Arc<Mutex<PreviewViewStatus>>,
+    activity: Arc<Mutex<Option<Instant>>>,
+}
+
+impl PreviewState {
+    /// Record user activity for the governor idle clock. Called by mutating
+    /// commands only; status reads never move the clock.
+    pub fn touch(&self) {
+        if let Ok(mut activity) = self.activity.lock() {
+            *activity = Some(Instant::now());
+        }
+    }
+
+    /// Seconds since the last mutating command, or `None` if never used.
+    pub fn idle_secs(&self) -> Option<u64> {
+        self.activity
+            .lock()
+            .ok()
+            .and_then(|activity| activity.map(|at| at.elapsed().as_secs()))
+    }
 }
 
 impl PreviewState {
@@ -65,6 +84,7 @@ pub fn preview_start(
     state: tauri::State<'_, PreviewState>,
     request: PreviewStartRequest,
 ) -> Result<PreviewStartResponse, PreviewError> {
+    state.touch();
     state.supervisor.start(request, Some(app))
 }
 
@@ -73,6 +93,7 @@ pub fn preview_stop(
     state: tauri::State<'_, PreviewState>,
     grace_ms: Option<u64>,
 ) -> Result<PreviewStopResponse, PreviewError> {
+    state.touch();
     match grace_ms {
         Some(grace_ms) => state.supervisor.stop(grace_ms),
         None => state.supervisor.stop_default(),
@@ -115,6 +136,7 @@ pub fn preview_show(
         port: Some(port),
         bounds: Some(bounds_tuple(bounds)),
     };
+    state.touch();
     *state.view.lock().expect("preview view state") = status.clone();
     Ok(status)
 }
@@ -136,6 +158,7 @@ pub fn preview_set_bounds(
     )?;
     let mut status = state.view.lock().expect("preview view state");
     status.bounds = Some(bounds_tuple(bounds));
+    state.touch();
     Ok(status.clone())
 }
 
@@ -157,6 +180,7 @@ pub fn preview_hide(
     })?;
     let mut status = state.view.lock().expect("preview view state");
     *status = PreviewViewStatus::default();
+    state.touch();
     Ok(status.clone())
 }
 

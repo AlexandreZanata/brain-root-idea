@@ -1,6 +1,22 @@
 :root {
-  --radius-surface: 0.6rem;
-  --radius-control: 0.45rem;
+  /* B19 semantic scale: spacing 4/8/12/16/24/32 px, type floors, 10/6 px
+     radii, 40/36 px control heights. Palette hues are unchanged. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --text-body: 0.875rem;
+  --text-supporting: 0.75rem;
+  --text-title: 1rem;
+  --text-display: 1.25rem;
+  --control-height: 2.5rem;
+  --control-height-compact: 2.25rem;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --radius-surface: 10px;
+  --radius-control: 6px;
   --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
 
@@ -64,8 +80,8 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
 }
 
 /* Rails */
@@ -73,8 +89,8 @@ body {
 .br-rail {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.45rem;
+  gap: var(--space-1);
+  padding: var(--space-2);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-surface);
@@ -97,8 +113,8 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
@@ -109,13 +125,13 @@ body {
 
 .br-panel__title {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--text-title);
   font-weight: 650;
 }
 
 .br-panel__subtitle {
-  margin: 0.15rem 0 0;
-  font-size: 0.75rem;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-supporting);
   color: var(--text-muted);
 }
 
@@ -129,11 +145,11 @@ body {
 
 .br-badge {
   flex-shrink: 0;
-  padding: 0.15rem 0.45rem;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   color: var(--text-subtle);
-  font-size: 0.62rem;
+  font-size: var(--text-supporting);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -142,12 +158,12 @@ body {
 .br-chip {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.55rem;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   background: var(--surface-raised);
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: var(--text-supporting);
   font-weight: 600;
 }
 
@@ -157,17 +173,35 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.45rem 0.85rem;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--text-body);
   font-weight: 650;
   cursor: pointer;
+  overflow-wrap: anywhere;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+/* Equal-height/width grouping hook for later surfaces (S04+ adopt it
+   per action group; nothing consumes it yet). Children share the row's
+   height through stretch and split its width equally while wrapping. */
+
+.br-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.br-btn-group > .br-btn {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .br-btn--primary {
@@ -201,7 +235,7 @@ body {
 .br-btn--row {
   width: 100%;
   justify-content: space-between;
-  padding: 0.6rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   border-color: var(--border);
   background: var(--surface-raised);
   color: var(--text);
@@ -216,10 +250,10 @@ body {
 .br-btn--rail {
   flex-direction: column;
   width: 100%;
-  gap: 0.3rem;
-  padding: 0.55rem 0.25rem;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-1);
   color: var(--text-subtle);
-  font-size: 0.65rem;
+  font-size: var(--text-supporting);
 }
 
 .br-btn--rail:hover {
@@ -231,6 +265,23 @@ body {
   border-color: var(--border-strong);
   background: var(--surface-raised);
   color: var(--text);
+}
+
+/* Compact toolbar contexts stay on the compact height. */
+
+.br-btn--tab,
+.br-btn--rail {
+  min-height: var(--control-height-compact);
+}
+
+/* Icon-only controls: square compact hit area, centered content. The
+   accessible name stays host-owned (visible text or title); no icon-only
+   consumer exists yet — S05+ adopts this variant per surface. */
+
+.br-btn--icon {
+  width: var(--control-height-compact);
+  min-height: var(--control-height-compact);
+  padding: 0;
 }
 
 .br-btn[aria-disabled="true"] {
@@ -261,7 +312,7 @@ body {
 
 .br-tabs {
   display: flex;
-  gap: 0.25rem;
+  gap: var(--space-1);
   padding: 0;
   border: 0;
   border-radius: var(--radius-control);
@@ -269,13 +320,13 @@ body {
 }
 
 .br-btn--tab {
-  padding: 0.35rem 0.7rem;
+  padding: var(--space-1) var(--space-3);
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
   color: var(--text-muted);
   font: inherit;
-  font-size: 0.74rem;
+  font-size: var(--text-supporting);
   font-weight: 600;
   cursor: pointer;
 }
@@ -308,13 +359,13 @@ body {
   width: 100%;
   min-height: 4.2rem;
   resize: vertical;
-  padding: 0.65rem 0.75rem;
+  padding: var(--space-3) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   background: var(--surface-raised);
   color: var(--text);
   font: inherit;
-  font-size: 0.84rem;
+  font-size: var(--text-body);
   line-height: 1.45;
 }
 
@@ -327,7 +378,7 @@ body {
 .br-message-label {
   margin: 0;
   color: var(--text-subtle);
-  font-size: 0.68rem;
+  font-size: var(--text-supporting);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -336,7 +387,7 @@ body {
 .br-message {
   margin: 0;
   overflow-wrap: anywhere;
-  font-size: 0.84rem;
+  font-size: var(--text-body);
   line-height: 1.5;
   white-space: pre-wrap;
 }
@@ -349,7 +400,7 @@ body {
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--text);
-  font-size: 0.84rem;
+  font-size: var(--text-body);
   line-height: 1.5;
   white-space: pre-wrap;
 }
@@ -358,14 +409,14 @@ body {
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--text-subtle);
-  font-size: 0.84rem;
+  font-size: var(--text-body);
   line-height: 1.5;
 }
 
 .br-details {
   margin: 0;
   color: var(--text-subtle);
-  font-size: 0.75rem;
+  font-size: var(--text-supporting);
 }
 
 .br-details code {
@@ -376,8 +427,8 @@ body {
 .br-card {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.7rem 0.8rem;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-surface);
   background: var(--surface-raised);
@@ -392,14 +443,14 @@ body {
 }
 
 .br-card__title {
-  font-size: 0.8rem;
+  font-size: var(--text-body);
   font-weight: 650;
 }
 
 .br-card--block {
   flex-direction: column;
   align-items: stretch;
-  gap: 0.35rem;
+  gap: var(--space-1);
 }
 
 .br-card--accent {
@@ -414,7 +465,7 @@ body {
 
 .br-card__body {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--text-body);
   line-height: 1.5;
   color: var(--text-muted);
 }
@@ -422,9 +473,9 @@ body {
 .br-card__heading {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: var(--space-2);
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--text-body);
 }
 
 .br-card__icon {
@@ -433,7 +484,7 @@ body {
 }
 
 .br-card__subtitle {
-  font-size: 0.7rem;
+  font-size: var(--text-supporting);
   color: var(--text-muted);
 }
 
@@ -442,7 +493,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   text-align: center;
 }
 
@@ -458,15 +509,15 @@ body {
 }
 
 .br-empty__title {
-  margin: 0.35rem 0 0;
-  font-size: 1rem;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-title);
 }
 
 .br-empty__description {
   margin: 0;
   max-width: 26rem;
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: var(--text-body);
   line-height: 1.5;
 }
 
@@ -507,7 +558,7 @@ body {
   align-self: stretch;
   display: flex;
   justify-content: center;
-  width: 1.5rem;
+  width: var(--space-5);
   min-height: 4rem;
   margin: 0;
   padding: 0;
@@ -562,14 +613,14 @@ body {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
-  padding: 0.55rem 0.9rem 0;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4) 0;
 }
 
 .workspace-side-note {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: var(--text-supporting);
 }
 
 /* Canvas-chrome swipe zone: horizontal gestures reach the header on touch
@@ -586,13 +637,15 @@ body {
     flex-direction: row;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 0.4rem;
+    padding: var(--space-2);
   }
 
   .br-rail .br-btn--rail {
     flex-direction: row;
-    gap: 0.45rem;
-    padding: 0.5rem 0.75rem;
+    flex: 0 0 auto;
+    width: auto;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     white-space: nowrap;
   }
 
@@ -603,11 +656,11 @@ body {
 
 @media (max-width: 640px) {
   .workspace-bar {
-    padding: 0.45rem 0.6rem 0;
+    padding: var(--space-2) var(--space-2) 0;
   }
 
   .br-rail {
-    padding: 0.35rem;
+    padding: var(--space-1);
   }
 
   .br-rail .rail-label {

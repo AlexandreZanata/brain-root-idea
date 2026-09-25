@@ -51,8 +51,27 @@ impl HumanError {
 #[derive(Default)]
 pub struct HumanBrowserState {
     status: Arc<Mutex<HumanStatus>>,
+    activity: Arc<Mutex<Option<std::time::Instant>>>,
     #[cfg(debug_assertions)]
     profile_override: Arc<Mutex<Option<std::path::PathBuf>>>,
+}
+
+impl HumanBrowserState {
+    /// Record user activity for the governor idle clock. Called by mutating
+    /// commands only; status reads never move the clock.
+    pub fn touch(&self) {
+        if let Ok(mut activity) = self.activity.lock() {
+            *activity = Some(std::time::Instant::now());
+        }
+    }
+
+    /// Seconds since the last mutating command, or `None` if never used.
+    pub fn idle_secs(&self) -> Option<u64> {
+        self.activity
+            .lock()
+            .ok()
+            .and_then(|activity| activity.map(|at| at.elapsed().as_secs()))
+    }
 }
 
 impl HumanBrowserState {
@@ -125,6 +144,7 @@ pub fn human_browser_show(
         .path()
         .app_data_dir()
         .map_err(|_| HumanError::from_code("human_profile_unavailable"))?;
+    state.touch();
     let status = state.status();
     view::show(
         &app,
@@ -148,6 +168,7 @@ pub fn human_browser_navigate(
     let status = state.status();
     view::navigate(&app, url, Arc::clone(&status))
         .map_err(|error| HumanError::from_code(&error))?;
+    state.touch();
     let _ = view::refresh(&app, Arc::clone(&status));
     let snapshot = status.lock().expect("human status").clone();
     Ok(snapshot)
@@ -160,6 +181,7 @@ pub fn human_browser_back(
 ) -> Result<HumanStatus, HumanError> {
     let status = state.status();
     view::back(&app).map_err(|error| HumanError::from_code(&error))?;
+    state.touch();
     let _ = view::refresh(&app, Arc::clone(&status));
     let snapshot = status.lock().expect("human status").clone();
     Ok(snapshot)
@@ -172,6 +194,7 @@ pub fn human_browser_forward(
 ) -> Result<HumanStatus, HumanError> {
     let status = state.status();
     view::forward(&app).map_err(|error| HumanError::from_code(&error))?;
+    state.touch();
     let _ = view::refresh(&app, Arc::clone(&status));
     let snapshot = status.lock().expect("human status").clone();
     Ok(snapshot)
@@ -184,6 +207,7 @@ pub fn human_browser_reload(
 ) -> Result<HumanStatus, HumanError> {
     let status = state.status();
     view::reload(&app).map_err(|error| HumanError::from_code(&error))?;
+    state.touch();
     let _ = view::refresh(&app, Arc::clone(&status));
     let snapshot = status.lock().expect("human status").clone();
     Ok(snapshot)
@@ -203,6 +227,7 @@ pub fn human_browser_set_bounds(
     }
     let status = state.status();
     view::set_bounds(&app, bounds_rect(bounds)).map_err(|error| HumanError::from_code(&error))?;
+    state.touch();
     let snapshot = status.lock().expect("human status").clone();
     Ok(snapshot)
 }
@@ -214,6 +239,7 @@ pub fn human_browser_hide(
 ) -> Result<HumanStatus, HumanError> {
     let status = state.status();
     view::hide(&app, Arc::clone(&status)).map_err(|error| HumanError::from_code(&error))?;
+    state.touch();
     let snapshot = status.lock().expect("human status").clone();
     Ok(snapshot)
 }
@@ -227,6 +253,7 @@ pub fn human_browser_clear_data(
     let status = state.status();
     view::clear_data(&app, profile_root, Arc::clone(&status))
         .map_err(|error| HumanError::from_code(&error))?;
+    state.touch();
     let snapshot = status.lock().expect("human status").clone();
     Ok(snapshot)
 }

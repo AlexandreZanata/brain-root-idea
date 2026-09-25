@@ -10,7 +10,7 @@
     onclick = undefined,
     children
   }: {
-    variant?: "primary" | "secondary" | "ghost" | "row" | "rail" | "tab";
+    variant?: "primary" | "secondary" | "ghost" | "row" | "rail" | "tab" | "icon";
     type?: "button" | "submit";
     inactive?: boolean;
     title?: string;

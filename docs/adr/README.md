@@ -20,6 +20,8 @@ ADRs preserve why a durable decision was made. They are not implementation tutor
 | [0012](0012-linux-preview-hosting.md) | Linux preview hosted in a GtkFixed overlay outside the Tauri manager | Accepted |
 | [0013](0013-human-browser-policy.md) | Human Browser role, navigation, profile, permissions, and sharing policy | Accepted, implementation post-MVP |
 | [0014](0014-release-only-test-cadence.md) | Automated tests only at the versioned release gate from B17 | Accepted for experiment |
+| [0015](draft-0015-opencode-serve-default.md) | `opencode serve --pure` as the default sidecar | Proposed (draft, not accepted) |
+| [0016](0016-uncontained-agent-experiment.md) | Ship the uncontained agent as an experiment, with the gap declared | Accepted for experiment |
 
 ## Required sections
 

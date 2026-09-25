@@ -71,3 +71,9 @@ Agent messages are untrusted proposals. The Tool Layer, not the provider, resolv
 ## Cancellation and failure
 
 Cancellation flows from task → adapter → active tool calls → owned processes. A grace period is followed by force termination of the owned process group. Partial output is marked incomplete; resource cleanup and checkpoint integrity run even after protocol failure.
+
+## Lean pivot implementation evidence (2026-09-25, `0.0.15`)
+
+**MEASURED (code and gates):** the first real agent integration exists as `features::agent_host`. It owns the sidecar process, generates one ephemeral basic-auth password per run (`uuid v4`), holds it only in memory with a redacting `Debug` impl, probes `/global/health` until ready, spawns one worker thread per turn on a fresh session, and terminates the child with a 5 s grace on stop, idle, or window close. The product event envelope is versioned (`contract_version = 1`) and normalized to `started`/`text_chunk`/`completed`/`failed`/`cancelled`, with bounds on the delta (64 KiB), the turn (2 MiB), and the stream (10 min). A minimal, deliberately stable system prompt travels on every send to keep the sidecar KV-cache warm.
+
+**What this is not.** It is not an implementation of the adapter contract on this page. There is no capability negotiation, no session resume, no tool mediation, no permission brokering, and no checkpoint integration on this path — the sidecar's own `plan`/`build` modes are passed through as data and nothing in BrainRoot enforces them. ACP is still unimplemented, and the Tool Layer, workspace roots, and permission records described above remain designs. The agent therefore currently runs with the user's own authority; see [open questions](17-open-questions.md).

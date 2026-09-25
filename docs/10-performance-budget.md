@@ -58,3 +58,19 @@ Track installer size, unpacked size, Rust binary size, frontend compressed/uncom
 ## Local observability, not hidden telemetry
 
 Useful future metrics include startup, RSS, CPU, WebView memory, agent latency, task success, rollback use, crashes, and cleanup failures. Development benchmarks can collect them locally. Any remote product telemetry requires a separate opt-in privacy decision and public schema.
+
+## Pivot measurement status (2026-09-25, `0.0.15`)
+
+**MEASURED** on the reference host (Pop!_OS 24.04 LTS, Wayland, WebKitGTK 2.52.6, release build, governor `performance`, AC online, load average 5.16, `BRAINROOT_MEASURE_SKIP_BUILD=1 sh scripts/measure-linux.sh`):
+
+| Metric | Measured | Budget | Verdict |
+|---|---:|---:|---|
+| Startup to readiness, n=10 median (p95; range) | 1.269 s (1.309; 1.249–1.310) | ≤ 1.0 s p50 | **miss** |
+| Settled idle CPU, 5 windows median (p95; range) | 0.103 % (2.055; 0.034–2.276) | < 1 % | pass (median), windows above budget |
+| Process-tree PSS median | 249.3 MB (brainroot 86.3 / WebKitWebProcess 145.1 / WebKitNetworkProcess 18.4) | ≤ 150 MB | **fail since B01** |
+| Release binary | 8,226,216 B | — | informational |
+| Frontend JS / CSS | 102,259 B gzip 34,389 / 20,416 B gzip 4,041 | — | informational |
+
+**Separate budget rule for the pivot:** when the sidecar is running it costs roughly 300–480 MB by itself, which is far above the whole-application target. Sidecar memory is therefore always reported as its own role and never added to the shell budget to make either number look better; the mitigation is lifecycle, not size — it is on-demand and is stopped after 60 s idle, on explicit Stop, or on window close.
+
+The host was busy (load 5.16) and this head adds the entire agent surface, so these absolutes are not a controlled cross-release comparison. The failures above are recorded as failures, and no TARGET is adjusted to match them.

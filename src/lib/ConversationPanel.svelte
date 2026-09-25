@@ -2,11 +2,18 @@
   import Badge from "./Badge.svelte";
   import Button from "./Button.svelte";
   import Icon from "./Icon.svelte";
+  import ModelPicker from "./ModelPicker.svelte";
   import SuggestionItem from "./SuggestionItem.svelte";
   import TextArea from "./TextArea.svelte";
   import Turn from "./Turn.svelte";
   import WelcomeCard from "./WelcomeCard.svelte";
   import { composerKeyAction, isPinnedToBottom } from "../presentation";
+  import type {
+    AgentMode,
+    AgentModelSelection,
+    CatalogModel,
+    CostProfile
+  } from "../agentHost";
   import type { ConversationTurn } from "../conversation";
 
   let {
@@ -17,6 +24,17 @@
     isCancellable = false,
     prompt = $bindable(""),
     suggestions = [],
+    models = [],
+    selectedModel = null,
+    staleModels = false,
+    modelInactive = false,
+    agentMode = "build",
+    profile = null,
+    costs = {},
+    costScope = "",
+    onselectmodel,
+    onselectagent,
+    onselectprofile,
     onsubmit,
     oncancel
   }: {
@@ -27,9 +45,26 @@
     isCancellable?: boolean;
     prompt?: string;
     suggestions?: { label: string; prompt: string }[];
+    models?: CatalogModel[];
+    selectedModel?: AgentModelSelection | null;
+    staleModels?: boolean;
+    modelInactive?: boolean;
+    agentMode?: AgentMode;
+    profile?: CostProfile | null;
+    costs?: Record<string, string>;
+    costScope?: string | number;
+    onselectmodel: (providerId: string, modelId: string) => void;
+    onselectagent: (mode: AgentMode) => void;
+    onselectprofile: (profile: CostProfile) => void;
     onsubmit: () => void;
     oncancel: () => void;
   } = $props();
+
+  const profiles: { id: CostProfile; label: string; title: string }[] = [
+    { id: "fast", label: "Fast", title: "Plan + cheapest model" },
+    { id: "balanced", label: "Balanced", title: "Build + cheapest roomy model" },
+    { id: "max", label: "Max", title: "Build + frontier-priced model" }
+  ];
 
   let composer: { focus: () => void } | undefined;
   let history: HTMLDivElement | undefined;
@@ -108,7 +143,7 @@
     {/if}
 
     {#each turns as turn, index (turn.id)}
-      <Turn {turn} isLatest={index === turns.length - 1} />
+      <Turn {turn} isLatest={index === turns.length - 1} cost={costs[`${costScope}:${turn.id}`] ?? null} />
     {/each}
   </div>
 
@@ -138,9 +173,39 @@
       onkeydown={onComposerKeydown}
     />
     <div class="composer-bar">
-      <span class="br-chip" title="Configured model for MVP-0">glm-5.3-flash</span>
+      <div class="agent-toggle" role="group" aria-label="Cost profile">
+        {#each profiles as item (item.id)}
+          <Button
+            variant="secondary"
+            title={item.title}
+            current={profile === item.id}
+            onclick={() => onselectprofile(item.id)}
+          >{item.label}</Button>
+        {/each}
+      </div>
+      <div class="agent-toggle" role="group" aria-label="Agent mode">
+        <Button
+          variant="secondary"
+          title="Plan: read-only exploration, cheaper"
+          current={agentMode === "plan"}
+          onclick={() => onselectagent("plan")}
+        >Plan</Button>
+        <Button
+          variant="secondary"
+          title="Build: edits files"
+          current={agentMode === "build"}
+          onclick={() => onselectagent("build")}
+        >Build</Button>
+      </div>
+      <ModelPicker
+        {models}
+        selected={selectedModel}
+        stale={staleModels}
+        inactive={modelInactive}
+        onselect={onselectmodel}
+      />
       <span class="composer-state">{statusLabel}</span>
-      <div class="actions">
+      <div class="br-btn-group">
         <Button variant="primary" type="submit" inactive={!canSend}>
           <span>Send</span>
           <Icon name="send" size="sm" />
@@ -162,54 +227,55 @@
   .history {
     display: flex;
     flex-direction: column;
-    gap: 0.9rem;
-    padding: 1rem;
+    gap: var(--space-4);
+    padding: var(--space-4);
   }
 
   .suggestions {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: var(--space-2);
   }
 
   .jump-row {
     display: flex;
     justify-content: center;
-    padding: 0 1rem 0.5rem;
+    padding: 0 var(--space-4) var(--space-2);
   }
 
   .setup {
     margin: 0;
-    padding: 0.6rem 1rem;
+    padding: var(--space-2) var(--space-4);
     border-bottom: 1px solid var(--border);
     color: var(--text);
-    font-size: 0.78rem;
+    font-size: var(--text-body);
   }
 
   .composer {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem 1rem;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4) var(--space-4);
     border-top: 1px solid var(--border);
   }
 
   .composer-bar {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .agent-toggle {
+    display: flex;
+    gap: var(--space-1);
   }
 
   .composer-state {
     flex: 1;
     text-align: right;
     color: var(--text-muted);
-    font-size: 0.72rem;
-  }
-
-  .actions {
-    display: flex;
-    gap: 0.4rem;
+    font-size: var(--text-supporting);
   }
 
   @media (max-width: 1080px) {
@@ -220,12 +286,12 @@
 
   @media (max-width: 640px) {
     .composer {
-      padding: 0.65rem 0.75rem 0.85rem;
+      padding: var(--space-3) var(--space-3) var(--space-3);
     }
 
     .composer-bar {
       flex-wrap: wrap;
-      row-gap: 0.4rem;
+      row-gap: var(--space-2);
     }
 
     .composer-state {

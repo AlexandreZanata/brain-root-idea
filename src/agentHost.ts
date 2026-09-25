@@ -1,0 +1,411 @@
+import { invoke } from "@tauri-apps/api/core";
+
+export type AgentHostStatus = {
+  running: boolean;
+  port: number;
+  version: string | null;
+  pid: number | null;
+};
+
+export type HostPhase = "checking" | "stopped" | "starting" | "running" | "failed";
+
+export const AGENT_EVENT_NAME = "agent_event";
+export const AGENT_CONTRACT_VERSION = 1;
+
+export type AgentStreamEvent =
+  | { type: "started"; session: string }
+  | { type: "text_chunk"; session: string; text: string }
+  | { type: "completed"; session: string }
+  | { type: "cancelled"; session: string }
+  | { type: "failed"; session: string; error: { code: string; message: string } };
+
+export type AgentEventEnvelope = {
+  contractVersion: number;
+  event: AgentStreamEvent;
+};
+
+export type AgentSendAccepted = {
+  contract_version: number;
+  session: string;
+};
+
+export type SendPath = "agent" | "legacy";
+
+export function chooseSendPath(hostRunning: boolean): SendPath {
+  return hostRunning ? "agent" : "legacy";
+}
+
+export function isAgentEventEnvelope(value: unknown): value is AgentEventEnvelope {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  if (candidate.contractVersion !== AGENT_CONTRACT_VERSION) {
+    return false;
+  }
+  const event = candidate.event as Record<string, unknown> | null;
+  if (typeof event !== "object" || event === null || typeof event.session !== "string") {
+    return false;
+  }
+  switch (event.type) {
+    case "started":
+    case "completed":
+    case "cancelled":
+      return true;
+    case "text_chunk":
+      return typeof event.text === "string";
+    case "failed":
+      return (
+        typeof event.error === "object" &&
+        event.error !== null &&
+        typeof (event.error as Record<string, unknown>).code === "string" &&
+        typeof (event.error as Record<string, unknown>).message === "string"
+      );
+    default:
+      return false;
+  }
+}
+
+export type AgentModelEntry = {
+  provider_id: string;
+  provider_name: string;
+  model_id: string;
+  model_name: string;
+};
+
+export type AgentModelSelection = {
+  provider_id: string;
+  model_id: string;
+};
+
+export type AgentModelList = {
+  models: AgentModelEntry[];
+  selected: AgentModelSelection | null;
+};
+
+export function isAgentHostStatus(value: unknown): value is AgentHostStatus {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.running === "boolean" &&
+    typeof candidate.port === "number" &&
+    (candidate.version === null || typeof candidate.version === "string") &&
+    (candidate.pid === null || typeof candidate.pid === "number")
+  );
+}
+
+export function hostLabel(phase: HostPhase, status: AgentHostStatus | null): string {
+  switch (phase) {
+    case "checking":
+      return "Checking sidecar…";
+    case "starting":
+      return "Starting sidecar…";
+    case "stopped":
+      return "Sidecar stopped";
+    case "failed":
+      return "Sidecar failed to start";
+    case "running":
+      if (status?.version) {
+        return `Sidecar ${status.version}`;
+      }
+      return "Sidecar running";
+  }
+}
+
+function checkedStatus(command: string, result: unknown): AgentHostStatus {
+  if (!isAgentHostStatus(result)) {
+    throw new Error(`The core returned an unexpected ${command} response`);
+  }
+  return result;
+}
+
+export async function requestHostStatus(): Promise<AgentHostStatus> {
+  const result: unknown = await invoke("agent_host_status");
+  return checkedStatus("agent_host_status", result);
+}
+
+export async function requestHostStart(port?: number): Promise<AgentHostStatus> {
+  const result: unknown = await invoke("agent_host_start", { port: port ?? null });
+  return checkedStatus("agent_host_start", result);
+}
+
+export async function requestHostStop(): Promise<AgentHostStatus> {
+  const result: unknown = await invoke("agent_host_stop");
+  return checkedStatus("agent_host_stop", result);
+}
+
+export function modelKey(entry: { provider_id: string; model_id: string }): string {
+  return `${entry.provider_id}/${entry.model_id}`;
+}
+
+export function isAgentModelList(value: unknown): value is AgentModelList {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  if (!Array.isArray(candidate.models)) {
+    return false;
+  }
+  const selected = candidate.selected;
+  return (
+    selected === null ||
+    (typeof selected === "object" &&
+      selected !== null &&
+      typeof (selected as Record<string, unknown>).provider_id === "string" &&
+      typeof (selected as Record<string, unknown>).model_id === "string")
+  );
+}
+
+export async function requestHostModels(): Promise<AgentModelList> {
+  const result: unknown = await invoke("agent_host_models");
+  if (!isAgentModelList(result)) {
+    throw new Error("The core returned an unexpected agent_host_models response");
+  }
+  return result;
+}
+
+export async function requestHostSelectModel(
+  providerId: string,
+  modelId: string
+): Promise<AgentModelSelection> {  const result: unknown = await invoke("agent_host_select_model", {
+    provider_id: providerId,
+    model_id: modelId
+  });
+  if (
+    typeof result !== "object" ||
+    result === null ||
+    typeof (result as Record<string, unknown>).provider_id !== "string" ||
+    typeof (result as Record<string, unknown>).model_id !== "string"
+  ) {
+    throw new Error("The core returned an unexpected agent_host_select_model response");
+  }
+  return result as AgentModelSelection;
+}
+
+export async function requestHostSend(prompt: string): Promise<AgentSendAccepted> {
+  const result: unknown = await invoke("agent_host_send", { prompt });
+  if (
+    typeof result !== "object" ||
+    result === null ||
+    typeof (result as Record<string, unknown>).session !== "string"
+  ) {
+    throw new Error("The core returned an unexpected agent_host_send response");
+  }
+  return result as AgentSendAccepted;
+}
+
+export async function requestHostCancelSend(): Promise<AgentHostStatus> {
+  const result: unknown = await invoke("agent_host_cancel_send");
+  return checkedStatus("agent_host_cancel_send", result);
+}
+
+export type CatalogModel = {
+  provider_id: string;
+  provider_name: string;
+  model_id: string;
+  model_name: string;
+  context_length: number | null;
+  prompt_usd_per_m: number | null;
+  completion_usd_per_m: number | null;
+};
+
+export type CatalogResult = {
+  models: CatalogModel[];
+  selected: AgentModelSelection | null;
+  stale: boolean;
+};
+
+export function isCatalogResult(value: unknown): value is CatalogResult {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  const selected = candidate.selected;
+  return (
+    Array.isArray(candidate.models) &&
+    typeof candidate.stale === "boolean" &&
+    (selected === null ||
+      (typeof selected === "object" &&
+        selected !== null &&
+        typeof (selected as Record<string, unknown>).provider_id === "string" &&
+        typeof (selected as Record<string, unknown>).model_id === "string"))
+  );
+}
+
+export async function requestHostCatalog(refresh = false): Promise<CatalogResult> {
+  const result: unknown = await invoke("agent_host_catalog", { refresh });
+  if (!isCatalogResult(result)) {
+    throw new Error("The core returned an unexpected agent_host_catalog response");
+  }
+  return result;
+}
+
+export type AgentMode = "plan" | "build";
+
+export type CostProfile = "fast" | "balanced" | "max";
+
+export function isCostProfile(value: unknown): value is CostProfile {
+  return value === "fast" || value === "balanced" || value === "max";
+}
+
+/// Heuristic routing over live catalog prices, never hardcoded models:
+/// fast = plan + cheapest input; balanced = build + cheapest with ≥128k
+/// context (fallback: cheapest); max = build + priciest input (frontier
+/// proxy — override freely in the picker).
+export function pickProfileModel(
+  models: CatalogModel[],
+  profile: CostProfile
+): { providerId: string; modelId: string; agent: AgentMode } | null {
+  const priced = models.filter(
+    (entry) => entry.prompt_usd_per_m !== null && Number.isFinite(entry.prompt_usd_per_m)
+  );
+  const pool = priced.length > 0 ? priced : models;
+  if (pool.length === 0) {
+    return null;
+  }
+  const cheapest = [...pool].sort(
+    (a, b) => (a.prompt_usd_per_m ?? Infinity) - (b.prompt_usd_per_m ?? Infinity)
+  );
+  const roomy = cheapest.find(
+    (entry) => (entry.context_length ?? 0) >= 128_000
+  );
+  switch (profile) {
+    case "fast":
+      return {
+        providerId: cheapest[0].provider_id,
+        modelId: cheapest[0].model_id,
+        agent: "plan"
+      };
+    case "balanced": {
+      const pick = roomy ?? cheapest[0];
+      return { providerId: pick.provider_id, modelId: pick.model_id, agent: "build" };
+    }
+    case "max": {
+      const pick = cheapest[cheapest.length - 1];
+      return { providerId: pick.provider_id, modelId: pick.model_id, agent: "build" };
+    }
+  }
+}
+
+export function isAgentMode(value: unknown): value is AgentMode {
+  return value === "plan" || value === "build";
+}
+
+export async function requestHostSetAgent(mode: AgentMode): Promise<AgentMode> {
+  const result: unknown = await invoke("agent_host_set_agent", { agent: mode });
+  const agent = (result as Record<string, unknown> | null)?.agent;
+  if (!isAgentMode(agent)) {
+    throw new Error("The core returned an unexpected agent_host_set_agent response");
+  }
+  return agent;
+}
+
+export type GovernorStatus = {
+  tick_secs: number;
+  sidecar_idle_secs: number;
+  sidecar_running: boolean;
+  auto_stops: number;
+  preview_idle_secs: number | null;
+  browser_idle_secs: number | null;
+};
+
+export function isGovernorStatus(value: unknown): value is GovernorStatus {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  const preview = candidate.preview_idle_secs;
+  const browser = candidate.browser_idle_secs;
+  return (
+    typeof candidate.tick_secs === "number" &&
+    typeof candidate.sidecar_idle_secs === "number" &&
+    typeof candidate.sidecar_running === "boolean" &&
+    typeof candidate.auto_stops === "number" &&
+    (preview === null || typeof preview === "number") &&
+    (browser === null || typeof browser === "number")
+  );
+}
+
+export async function requestGovernorStatus(): Promise<GovernorStatus> {
+  const result: unknown = await invoke("governor_status");
+  if (!isGovernorStatus(result)) {
+    throw new Error("The core returned an unexpected governor_status response");
+  }
+  return result;
+}
+
+export function governorTitle(status: GovernorStatus | null): string {
+  if (!status) {
+    return "Resource governor: starting";
+  }
+  const stops = status.auto_stops === 1 ? "1 auto-stop" : `${status.auto_stops} auto-stops`;
+  return `Resource governor: sidecar stops after ${status.sidecar_idle_secs}s idle (${stops})`;
+}
+
+export function formatContext(length: number | null): string {
+  if (length === null || !Number.isFinite(length) || length < 0) {
+    return "? ctx";
+  }
+  if (length >= 1_000_000) {
+    return `${(length / 1_000_000).toFixed(1)}M ctx`;
+  }
+  if (length >= 1_000) {
+    return `${Math.round(length / 1_000)}k ctx`;
+  }
+  return `${length} ctx`;
+}
+
+export function formatPrice(perMillion: number | null): string {
+  if (perMillion === null || !Number.isFinite(perMillion) || perMillion < 0) {
+    return "?/M";
+  }
+  return `$${perMillion.toFixed(2)}/M`;
+}
+
+export function modelDetail(entry: CatalogModel): string {
+  return `${entry.model_name} · ${entry.provider_name} · ${formatContext(entry.context_length)} · ${formatPrice(entry.prompt_usd_per_m)} in`;
+}
+
+export type TurnCost = {
+  session: string;
+  input: number;
+  output: number;
+  reasoning: number;
+  cache_read: number;
+  cache_write: number;
+  cost: number;
+};
+
+export function isTurnCost(value: unknown): value is TurnCost {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.session === "string" &&
+    typeof candidate.input === "number" &&
+    typeof candidate.output === "number" &&
+    typeof candidate.cost === "number"
+  );
+}
+
+export async function requestHostTurnCost(session: string): Promise<TurnCost> {
+  const result: unknown = await invoke("agent_host_turn_cost", { session });
+  if (!isTurnCost(result)) {
+    throw new Error("The core returned an unexpected agent_host_turn_cost response");
+  }
+  return result;
+}
+
+function compactCount(value: number): string {
+  return Math.max(0, Math.floor(value)).toLocaleString("en-US");
+}
+
+export function formatTurnCost(ledger: TurnCost): string {
+  const money = ledger.cost < 0.01 ? `$${ledger.cost.toFixed(4)}` : `$${ledger.cost.toFixed(2)}`;
+  const cached =
+    ledger.cache_read > 0 ? ` · ${compactCount(ledger.cache_read)} cached` : "";
+  return `${compactCount(ledger.input)} in · ${compactCount(ledger.output)} out · ${money}${cached}`;
+}
