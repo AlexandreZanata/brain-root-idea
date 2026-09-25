@@ -58,6 +58,8 @@ No **B19 implementation** issue, batch branch, Wiki batch page, or version is cr
 
 ### B20 — Conversation, Canvas controls, and complete-state polish
 
+> **Superseded (2026-09-25).** The maintainer reassigned **B20 to OpenCode visual parity**, recorded in `docs/22-opencode-ui-parity.md` and its issues [#130](https://github.com/AlexandreZanata/brain-root-idea/issues/130)–[#136](https://github.com/AlexandreZanata/brain-root-idea/issues/136). The stage list below is kept as the original intent and is **not** the active B20 scope. Most of its surfaces — turn hierarchy, cards, suggestions, empty states, Canvas controls — are covered by the parity stages U3, U6, and U7, which restyle them against the pinned OpenCode instead of against this list. Do not open these S-issues as B20 microsteps. If the polish concerns that the parity stages do not address still matter after B20, they need their own batch and number.
+
 1. **B20-S00 — Adopt released B19 baseline.** Start from merged B19 `main`, freeze its measurements/component matrix, and open the next exact issue. No product code. Do not start while B19's PR/CI is pending.
 2. **B20-S01 — Turn and badge hierarchy.** Refine `Turn.svelte`, `Badge.svelte`, and shared CSS for current action/result/recovery, status contrast, long content, and focus/expanded detail without hiding failure.
 3. **B20-S02 — Action and welcome cards.** Refine `ActionCard.svelte`, `WelcomeCard.svelte`, and shared CSS: clear first action, restrained surfaces, readable copy, and no decorative nested box stack.
