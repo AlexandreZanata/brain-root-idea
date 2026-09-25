@@ -2,11 +2,13 @@
   import Badge from "./Badge.svelte";
   import Button from "./Button.svelte";
   import Icon from "./Icon.svelte";
+  import ModelPicker from "./ModelPicker.svelte";
   import SuggestionItem from "./SuggestionItem.svelte";
   import TextArea from "./TextArea.svelte";
   import Turn from "./Turn.svelte";
   import WelcomeCard from "./WelcomeCard.svelte";
   import { composerKeyAction, isPinnedToBottom } from "../presentation";
+  import type { AgentModelEntry, AgentModelSelection } from "../agentHost";
   import type { ConversationTurn } from "../conversation";
 
   let {
@@ -17,6 +19,10 @@
     isCancellable = false,
     prompt = $bindable(""),
     suggestions = [],
+    models = [],
+    selectedModel = null,
+    modelDisabled = false,
+    onselectmodel,
     onsubmit,
     oncancel
   }: {
@@ -27,6 +33,10 @@
     isCancellable?: boolean;
     prompt?: string;
     suggestions?: { label: string; prompt: string }[];
+    models?: AgentModelEntry[];
+    selectedModel?: AgentModelSelection | null;
+    modelDisabled?: boolean;
+    onselectmodel: (providerId: string, modelId: string) => void;
     onsubmit: () => void;
     oncancel: () => void;
   } = $props();
@@ -138,7 +148,12 @@
       onkeydown={onComposerKeydown}
     />
     <div class="composer-bar">
-      <span class="br-chip" title="Configured model for MVP-0">glm-5.3-flash</span>
+      <ModelPicker
+        {models}
+        selected={selectedModel}
+        disabled={modelDisabled}
+        onselect={onselectmodel}
+      />
       <span class="composer-state">{statusLabel}</span>
       <div class="br-btn-group">
         <Button variant="primary" type="submit" inactive={!canSend}>

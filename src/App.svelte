@@ -17,6 +17,25 @@
     type CredentialStatus
   } from "./conversation";
   import { requestHealth } from "./health";
+  import {
+    AGENT_EVENT_NAME,
+    chooseSendPath,
+    hostLabel,
+    isAgentEventEnvelope,
+    requestHostCancelSend,
+    requestHostModels,
+    requestHostSelectModel,
+    requestHostSend,
+    requestHostStart,
+    requestHostStatus,
+    requestHostStop,
+    type AgentEventEnvelope,
+    type AgentHostStatus,
+    type AgentModelEntry,
+    type AgentModelSelection,
+    type HostPhase,
+    type SendPath
+  } from "./agentHost";
   import { acceptsEvent, taskStatus } from "./presentation";
   import { createStreamBuffer } from "./streamBuffer";
   import AppHeader from "./lib/AppHeader.svelte";
@@ -24,10 +43,18 @@
   import CanvasPanel from "./lib/CanvasPanel.svelte";
   import ConversationPanel from "./lib/ConversationPanel.svelte";
   import PanelResizer from "./lib/PanelResizer.svelte";
+  import SessionTabs from "./lib/SessionTabs.svelte";
   import WorkspaceRail from "./lib/WorkspaceRail.svelte";
 
   type HealthState = "checking" | "ready" | "failed";
   type Theme = "dark" | "light";
+
+  type SessionTabState = {
+    id: number;
+    title: string;
+    prompt: string;
+    turns: ConversationTurn[];
+  };
 
   const railSections = [
     { id: "build", label: "Build", active: true },
@@ -64,14 +91,43 @@
   let credentialStatus = $state<CredentialStatus | null>(null);
   let credentialDetail = $state("");
   let listenerReady = $state(false);
-  let prompt = $state("");
-  let turns: ConversationTurn[] = $state([]);
+  // Frontend tabs share the single legacy conversation backend for now;
+  // per-tab backend sessions arrive with the Agent Host session API (S03+).
+  let tabs = $state<SessionTabState[]>([
+    { id: 1, title: "Session 1", prompt: "", turns: [] }
+  ]);
+  let activeTabId = $state(1);
+  let nextTabId = 2;
+  let activeTab = $derived(
+    tabs.find((tab) => tab.id === activeTabId) ?? {
+      id: activeTabId,
+      title: "Session",
+      prompt: "",
+      turns: []
+    }
+  );
   let nextTurnId = 1;
   let activeTurnId: number | null = null;
+  let streamTabId: number | null = $state(null);
+  let streamingTabId = $derived(activeTurnId === null ? null : streamTabId);
+  // Which backend owns the in-flight turn. Decided per submit; reset on terminal.
+  let sendPath = $state<SendPath>("legacy");
+  let agentSession = $state<string | null>(null);
+  let hostPhase = $state<HostPhase>("checking");
+  let hostStatus = $state<AgentHostStatus | null>(null);
+  let hostDetail = $state("");
+  let hostModels = $state<AgentModelEntry[]>([]);
+  let selectedModel = $state<AgentModelSelection | null>(null);
+  let hostStatusLabel = $derived(
+    hostPhase === "failed" && hostDetail ? hostDetail : hostLabel(hostPhase, hostStatus)
+  );
   const streamBuffer = createStreamBuffer(
     (text) => {
       if (activeTurnId !== null) {
-        turns = appendChunk(turns, activeTurnId, text);
+        const target = tabs.find((tab) => tab.id === streamTabId);
+        if (target) {
+          target.turns = appendChunk(target.turns, activeTurnId, text);
+        }
       }
     },
     {
@@ -114,7 +170,7 @@
       listenerReady &&
       credentialStatus === "configured" &&
       !isBusy &&
-      prompt.trim().length > 0
+      activeTab.prompt.trim().length > 0
   );
   let task = $derived(taskStatus(conversationState, setupMessage));
 
@@ -130,14 +186,19 @@
   onMount(() => {
     let disposed = false;
     let unlisten: UnlistenFn | undefined;
+    let unlistenAgent: UnlistenFn | undefined;
 
     void (async () => {
       try {
         unlisten = await listen<unknown>("conversation_event", ({ payload }) => {
           onConversationEvent(payload);
         });
+        unlistenAgent = await listen<unknown>(AGENT_EVENT_NAME, ({ payload }) => {
+          onAgentEvent(payload);
+        });
         if (disposed) {
           unlisten();
+          unlistenAgent();
           return;
         }
         listenerReady = true;
@@ -169,11 +230,14 @@
           credentialDetail = "The credential status could not be read. Restart BrainRoot and try again.";
         }
       }
+
+      await refreshHost();
     })();
 
     return () => {
       disposed = true;
       unlisten?.();
+      unlistenAgent?.();
       streamBuffer.dispose();
     };
   });
@@ -194,8 +258,97 @@
     theme = theme === "dark" ? "light" : "dark";
   }
 
+  async function refreshHost() {
+    try {
+      hostStatus = await requestHostStatus();
+      hostPhase = hostStatus.running ? "running" : "stopped";
+    } catch {
+      hostPhase = "stopped";
+      hostDetail = "The sidecar status could not be read.";
+      return;
+    }
+    await loadModels();
+  }
+
+  async function loadModels() {
+    if (!hostStatus?.running) {
+      hostModels = [];
+      return;
+    }
+    try {
+      const list = await requestHostModels();
+      hostModels = list.models;
+      selectedModel = list.selected;
+    } catch {
+      hostModels = [];
+    }
+  }
+
+  async function selectModel(providerId: string, modelId: string) {
+    try {
+      selectedModel = await requestHostSelectModel(providerId, modelId);
+    } catch (error) {
+      hostPhase = "failed";
+      hostDetail = error instanceof Error ? error.message : "The model could not be selected.";
+    }
+  }
+
+  async function startHost() {
+    if (hostPhase === "starting") {
+      return;
+    }
+    hostPhase = "starting";
+    hostDetail = "";
+    try {
+      hostStatus = await requestHostStart();
+      hostPhase = "running";
+      await loadModels();
+    } catch (error) {
+      hostPhase = "failed";
+      hostDetail = error instanceof Error ? error.message : "The sidecar could not be started.";
+    }
+  }
+
+  async function stopHost() {
+    try {
+      hostStatus = await requestHostStop();
+    } catch {
+      // The stopped view is correct whether or not the call landed.
+    }
+    hostPhase = "stopped";
+  }
+
+  function selectTab(id: number) {
+    activeTabId = id;
+  }
+
+  function newTab() {
+    const id = nextTabId;
+    nextTabId += 1;
+    tabs = [...tabs, { id, title: `Session ${id}`, prompt: "", turns: [] }];
+    activeTabId = id;
+  }
+
+  async function closeTab(id: number) {
+    if (tabs.length <= 1) {
+      return;
+    }
+    if (id === streamTabId && activeTurnId !== null) {
+      await onCancel();
+    }
+    const remaining = tabs.filter((tab) => tab.id !== id);
+    tabs = remaining;
+    if (activeTabId === id) {
+      const fallback = remaining[remaining.length - 1];
+      if (fallback) {
+        activeTabId = fallback.id;
+      }
+    }
+  }
+
   async function submitPrompt() {
-    const message = prompt.trim();
+    const tab = activeTab;
+    const message = tab.prompt.trim();
     if (!canSend || message.length === 0) {
       return;
     }
@@ -204,9 +357,26 @@
     nextTurnId += 1;
     streamBuffer.flush();
     activeTurnId = turnId;
-    turns = beginTurn(turns, turnId, message);
-    prompt = "";
+    streamTabId = tab.id;
+    tab.turns = beginTurn(tab.turns, turnId, message);
+    if (tab.title.startsWith("Session ") && tab.turns.length === 1) {
+      tab.title = message.slice(0, 28);
+    }
+    tab.prompt = "";
     conversationState = "sending";
+    sendPath = chooseSendPath(hostPhase === "running");
+
+    if (sendPath === "agent") {
+      try {
+        const accepted = await requestHostSend(message);
+        agentSession = accepted.session;
+      } catch (error) {
+        agentSession = null;
+        sendPath = "legacy";
+        failActive(errorMessage(error), errorCode(error));
+      }
+      return;
+    }
 
     try {
       await invoke("conversation_send", {
@@ -221,6 +391,9 @@
   }
 
   function onConversationEvent(payload: unknown) {
+    if (sendPath !== "legacy") {
+      return;
+    }
     if (!isConversationEnvelope(payload)) {
       failActive("The core returned an unexpected conversation event.");
       return;
@@ -228,9 +401,21 @@
     applyConversationEvent(payload);
   }
 
-  function applyConversationEvent(envelope: ConversationEnvelope) {
+  function onAgentEvent(payload: unknown) {
+    if (!isAgentEventEnvelope(payload)) {
+      failActive("The core returned an unexpected agent event.");
+      return;
+    }
+    applyAgentEvent(payload);
+  }
+
+  function applyAgentEvent(envelope: AgentEventEnvelope) {
     const turnId = activeTurnId;
-    if (turnId === null) {
+    const tab = tabs.find((candidate) => candidate.id === streamTabId);
+    if (turnId === null || !tab) {
+      return;
+    }
+    if (sendPath !== "agent" || envelope.event.session !== agentSession) {
       return;
     }
     if (!acceptsEvent(conversationState, envelope.event.type)) {
@@ -247,7 +432,49 @@
         break;
       case "completed":
         streamBuffer.flush();
-        turns = settleTurn(turns, turnId, "succeeded");
+        tab.turns = settleTurn(tab.turns, turnId, "succeeded");
+        conversationState = "succeeded";
+        activeTurnId = null;
+        agentSession = null;
+        sendPath = "legacy";
+        break;
+      case "failed":
+        agentSession = null;
+        sendPath = "legacy";
+        failActive(envelope.event.error.message, envelope.event.error.code);
+        break;
+      case "cancelled":
+        streamBuffer.flush();
+        tab.turns = cancelTurn(tab.turns, turnId);
+        conversationState = "ready";
+        activeTurnId = null;
+        agentSession = null;
+        sendPath = "legacy";
+        break;
+    }
+  }
+
+  function applyConversationEvent(envelope: ConversationEnvelope) {
+    const turnId = activeTurnId;
+    const tab = tabs.find((candidate) => candidate.id === streamTabId);
+    if (turnId === null || !tab) {
+      return;
+    }
+    if (!acceptsEvent(conversationState, envelope.event.type)) {
+      return;
+    }
+
+    switch (envelope.event.type) {
+      case "started":
+        conversationState = "streaming";
+        break;
+      case "text_chunk":
+        conversationState = "streaming";
+        streamBuffer.push(envelope.event.text);
+        break;
+      case "completed":
+        streamBuffer.flush();
+        tab.turns = settleTurn(tab.turns, turnId, "succeeded");
         conversationState = "succeeded";
         activeTurnId = null;
         break;
@@ -256,7 +483,7 @@
         break;
       case "cancelled":
         streamBuffer.flush();
-        turns = cancelTurn(turns, turnId);
+        tab.turns = cancelTurn(tab.turns, turnId);
         conversationState = "ready";
         activeTurnId = null;
         break;
@@ -269,6 +496,20 @@
     }
     streamBuffer.flush();
     conversationState = "cancelling";
+    if (sendPath === "agent") {
+      // The terminal event arrives from the worker; every worker exit emits
+      // exactly one, so "cancelling" always resolves.
+      try {
+        await requestHostCancelSend();
+      } catch (error) {
+        if (conversationState === "cancelling") {
+          agentSession = null;
+          sendPath = "legacy";
+          failActive(errorMessage(error), errorCode(error));
+        }
+      }
+      return;
+    }
     try {
       await invoke("conversation_cancel");
     } catch (error) {
@@ -281,7 +522,10 @@
   function failActive(message: string, code = "") {
     streamBuffer.flush();
     if (activeTurnId !== null) {
-      turns = settleTurn(turns, activeTurnId, "failed", message, code);
+      const tab = tabs.find((candidate) => candidate.id === streamTabId);
+      if (tab) {
+        tab.turns = settleTurn(tab.turns, activeTurnId, "failed", message, code);
+      }
     }
     activeTurnId = null;
     conversationState = "failed";
@@ -311,6 +555,23 @@
 <main class="app">
   <AppHeader {healthState} {detail} {theme} ontoggle={toggleTheme} />
   <div class="workspace-bar">
+    <SessionTabs
+      {tabs}
+      activeId={activeTabId}
+      streamingId={streamingTabId}
+      onselect={selectTab}
+      onclose={closeTab}
+      onnew={newTab}
+    />
+    <div class="host-badge">
+      <span class="host-dot" class:on={hostPhase === "running"} role="presentation"></span>
+      <span role="status">{hostStatusLabel}</span>
+      {#if hostPhase === "running"}
+        <Button variant="secondary" onclick={stopHost}>Stop</Button>
+      {:else if hostPhase === "stopped" || hostPhase === "failed"}
+        <Button variant="secondary" onclick={startHost}>Start</Button>
+      {/if}
+    </div>
     <Button variant="secondary" onclick={toggleSides}>Swap sides</Button>
     <p class="workspace-side-note" role="status">{sideNote}</p>
   </div>
@@ -318,12 +579,16 @@
     <WorkspaceRail sections={railSections} />
     <ConversationPanel
       {setupMessage}
-      {turns}
+      turns={activeTab.turns}
       statusLabel={task.label}
       {canSend}
       {isCancellable}
-      bind:prompt={prompt}
+      bind:prompt={activeTab.prompt}
       {suggestions}
+      models={hostModels}
+      selectedModel={selectedModel}
+      modelDisabled={isBusy}
+      onselectmodel={selectModel}
       onsubmit={submitPrompt}
       oncancel={onCancel}
     />
@@ -337,6 +602,44 @@
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr);
     height: 100vh;
+  }
+
+  .workspace-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    min-width: 0;
+  }
+
+  .workspace-bar > :global(.tabs) {
+    flex: 1;
+  }
+
+  .host-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-supporting);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .host-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--text-muted);
+  }
+
+  .host-dot.on {
+    background: var(--accent);
+  }
+
+  .workspace-side-note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--text-supporting);
   }
 
   .workspace {
