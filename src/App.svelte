@@ -632,7 +632,7 @@
       models={hostModels}
       selectedModel={selectedModel}
       staleModels={staleModels}
-      modelDisabled={isBusy}
+      modelInactive={isBusy}
       agentMode={agentMode}
       profile={profile}
       onselectmodel={selectModel}

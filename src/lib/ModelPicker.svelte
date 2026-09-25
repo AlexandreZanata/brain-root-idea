@@ -10,13 +10,13 @@
     models = [],
     selected = null,
     stale = false,
-    disabled = false,
+    inactive = false,
     onselect
   }: {
     models?: CatalogModel[];
     selected?: AgentModelSelection | null;
     stale?: boolean;
-    disabled?: boolean;
+    inactive?: boolean;
     onselect: (providerId: string, modelId: string) => void;
   } = $props();
 
@@ -25,6 +25,9 @@
   );
 
   function handleChange(event: Event) {
+    if (inactive) {
+      return;
+    }
     const value = (event.currentTarget as HTMLSelectElement | null)?.value ?? "";
     const found = models.find((entry) => modelKey(entry) === value);
     if (found) {
@@ -39,7 +42,7 @@
   <select
     class="model-picker"
     aria-label={stale ? "Model (stale catalog)" : "Model"}
-    {disabled}
+    aria-disabled={inactive || undefined}
     value={currentKey}
     onchange={handleChange}
   >

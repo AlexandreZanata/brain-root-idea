@@ -41,7 +41,7 @@ test("accepts the redacted status shape", () => {
 
 test("labels never include secrets", () => {
   const status = { running: true, port: 4099, version: "1.18.31", pid: 42 };
-  for (const phase of ["checking", "stopped", "starting", "running", "failed"] as const) {
+  for (const phase of ["checking", "stopped", "starting", "running", "failed"]) {
     const label = hostLabel(phase, status);
     assert.ok(label.length > 0);
     assert.ok(!label.includes("sk-"));

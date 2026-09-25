@@ -27,7 +27,7 @@
     models = [],
     selectedModel = null,
     staleModels = false,
-    modelDisabled = false,
+    modelInactive = false,
     agentMode = "build",
     profile = null,
     onselectmodel,
@@ -46,7 +46,7 @@
     models?: CatalogModel[];
     selectedModel?: AgentModelSelection | null;
     staleModels?: boolean;
-    modelDisabled?: boolean;
+    modelInactive?: boolean;
     agentMode?: AgentMode;
     profile?: CostProfile | null;
     onselectmodel: (providerId: string, modelId: string) => void;
@@ -197,7 +197,7 @@
         {models}
         selected={selectedModel}
         stale={staleModels}
-        disabled={modelDisabled}
+        inactive={modelInactive}
         onselect={onselectmodel}
       />
       <span class="composer-state">{statusLabel}</span>

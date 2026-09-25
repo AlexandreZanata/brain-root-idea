@@ -1364,16 +1364,14 @@ mod deferred {
 
     #[test]
     fn models_keep_ids_and_drop_secrets() {
-        let body = r#"{"providers":[{"
-            id":"acme","name":"Acme","key":"sk-live-secret","models":{"
-            fast":{"id":"acme-fast","name":"Acme Fast","apiKey":"sk-other"},"
-            alias":{"name":"Alias Only"}}]}"#;
+        let body = r#"{"providers":[{"id":"acme","name":"Acme","key":"sk-live-secret","models":{"fast":{"id":"acme-fast","name":"Acme Fast","apiKey":"sk-other"},"alias":{"name":"Alias Only"}}}]}"#;
         let models = extract_models(body).unwrap();
         assert_eq!(models.len(), 2);
-        assert_eq!(models[0].provider_id, "acme");
-        assert_eq!(models[0].model_id, "acme-fast");
-        assert_eq!(models[1].model_id, "alias");
-        assert_eq!(models[1].model_name, "Alias Only");
+        // NOTE: provider models arrive as a JSON map, so order is by key,
+        // not insertion. Look up by id; the picker sorts for display.
+        let by_id = |id: &str| models.iter().find(|entry| entry.model_id == id).unwrap();
+        assert_eq!(by_id("acme-fast").provider_id, "acme");
+        assert_eq!(by_id("alias").model_name, "Alias Only");
         let json = serde_json::to_string(&models).unwrap();
         assert!(!json.contains("sk-live-secret"));
         assert!(!json.contains("sk-other"));

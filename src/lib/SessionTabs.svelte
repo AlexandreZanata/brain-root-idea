@@ -28,7 +28,6 @@
     <div class="tab" class:active role="tab" aria-selected={active}>
       <button
         class="tab-name"
-        tabindex={active ? 0 : -1}
         aria-current={active ? "true" : undefined}
         onclick={() => onselect(tab.id)}
         title={tab.title}
