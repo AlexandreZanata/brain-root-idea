@@ -2,7 +2,7 @@
 
 **Status:** Active
 **Applies to:** `AlexandreZanata/brain-root-idea`
-**Last verified:** 2026-09-22 (issue #4, B00-S03; required check added in issue #7, B00-S06)
+**Last verified:** 2026-09-25 (branch protection and auto-merge read live at the B19 merge gate; labels and milestone last re-verified 2026-09-22 in issue #4, B00-S03, and the required check in issue #7, B00-S06)
 
 ## Purpose
 
@@ -87,6 +87,26 @@ Applied payload:
 - **Evidence drift:** GitHub settings cannot be enforced from the repository. `docs/20-project-history-and-wiki.md` requires a maintainer-visible comparison at batch close; future automation may clone settings read-only.
 
 **B17 policy update (2026-09-24):** the bullet above records the original B00 workflow. Under ADR 0014, `check-full-linux` stays required by branch protection but is generated only for a non-draft, versioned batch `pull_request`; the duplicate `push`-to-`main` full run is removed. Verify the repository's required-check settings still name this unique job before adopting the updated workflow.
+
+**B19 policy update (2026-09-25):** repository auto-merge was enabled (`allow_auto_merge: true`) at the B19 gate, after reading the protection settings live:
+
+```json
+{"required_approving_review_count": 1, "enforce_admins": false,
+ "strict": true, "contexts": ["check-full-linux"],
+ "required_conversation_resolution": true}
+```
+
+Two facts bound what auto-merge buys, and both were verified rather than assumed:
+
+- **`strict: true` means up-to-date, not merely green.** A PR head must contain `main` before it can merge, so the batch branch needs a non-destructive merge from `main` at the gate. For B19, `git diff f4919f4 1dbf7de` was MEASURED empty, so that merge was topology-only and changed no content.
+- **Auto-merge honors required reviews.** GitHub documents auto-merge as merging "after all required reviews and status checks pass", and the API confirms `allow_auto_merge` is a separate, off-by-default repository setting. With `required_approving_review_count: 1` and a single maintainer identity — GitHub does not let an author approve their own pull request — auto-merge alone cannot complete a batch merge here. B17 ([#99](https://github.com/AlexandreZanata/brain-root-idea/pull/99)) and B18 ([#108](https://github.com/AlexandreZanata/brain-root-idea/pull/108)) both merged with **zero recorded reviews**, that is, through the documented administrator bypass, which remains the only merge path until a second reviewer identity exists.
+
+So auto-merge covers the status-check wait only. The merge itself still requires the bypass, and this is recorded as a gap, not as a working approval process. Re-verify with:
+
+```sh
+gh api repos/AlexandreZanata/brain-root-idea -q '{allow_auto_merge, allow_merge_commit}'
+gh pr view <number> --json reviews,reviewDecision,mergeStateStatus
+```
 
 ## Apply and verify
 

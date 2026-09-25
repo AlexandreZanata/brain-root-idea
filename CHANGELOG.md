@@ -51,8 +51,8 @@ This release carries two recorded deliveries on one branch: batch B19 (foundatio
 
 ### Known limitations
 
-- **The agent has no workspace or permission boundary yet.** Starting the sidecar gives `opencode` the same filesystem and process authority as the user; there is no approved project root, no per-action permission prompt, and no containment boundary for this path. The sidecar only starts on an explicit user action, but this is not Safe Mode and must not be described as such. Closing this gap is a tracked blocker.
-- ADR 0015 (`opencode serve --pure` as the default sidecar) remains **Proposed**; the implementation is not a maintainer-accepted architecture decision.
+- **The agent has no workspace or permission boundary yet.** Starting the sidecar gives `opencode` the same filesystem and process authority as the user; there is no approved project root, no per-action permission prompt, and no containment boundary for this path. The sidecar only starts on an explicit user action, but this is not Safe Mode and must not be described as such. The maintainer accepted shipping `0.0.15` with this gap **open and declared** ([ADR 0016](docs/adr/0016-uncontained-agent-experiment.md)); the blocker stays open in `docs/17-open-questions.md` and this release does not downgrade it.
+- ADR 0015 (`opencode serve --pure` as the default sidecar) remains **Proposed**, and ADR 0016 declines to accept it while shipping the implementation; the sidecar is not a maintainer-accepted default architecture.
 - The sidecar is measured separately from the UI budget: roughly 300–480 MB while alive, killed on 60 s idle, window close, or explicit Stop. The 150 MB total-memory target still fails, as since B01.
 - Preview and Human Browser idle clocks are report-only: auto-destroy needs a UX policy decision because it would surprise active work.
 - The startup median (1.269 s) misses its TARGET on this busy host, and the memory target fails as since B01; both are recorded as failures, not exceptions.
