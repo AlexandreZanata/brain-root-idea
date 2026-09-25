@@ -16,6 +16,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 use super::agent_host::AgentHostState;
+use super::human_browser::HumanBrowserState;
+use super::preview::PreviewState;
 
 pub const TICK: Duration = Duration::from_secs(5);
 pub const SIDECAR_IDLE_LIMIT: Duration = Duration::from_secs(60);
@@ -26,6 +28,11 @@ pub struct GovernorStatus {
     pub sidecar_idle_secs: u64,
     pub sidecar_running: bool,
     pub auto_stops: u64,
+    /// Seconds since the last preview command, or `None` if never used.
+    /// Report-only in S03: auto-destroy needs a UX policy decision first.
+    pub preview_idle_secs: Option<u64>,
+    /// Seconds since the last browser command, or `None` if never used.
+    pub browser_idle_secs: Option<u64>,
 }
 
 #[derive(Debug, Default)]
@@ -95,6 +102,8 @@ impl GovernorState {
             sidecar_idle_secs: SIDECAR_IDLE_LIMIT.as_secs(),
             sidecar_running: app.state::<AgentHostState>().has_sidecar(),
             auto_stops,
+            preview_idle_secs: app.state::<PreviewState>().idle_secs(),
+            browser_idle_secs: app.state::<HumanBrowserState>().idle_secs(),
         }
     }
 }

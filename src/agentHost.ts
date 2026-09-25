@@ -307,6 +307,8 @@ export type GovernorStatus = {
   sidecar_idle_secs: number;
   sidecar_running: boolean;
   auto_stops: number;
+  preview_idle_secs: number | null;
+  browser_idle_secs: number | null;
 };
 
 export function isGovernorStatus(value: unknown): value is GovernorStatus {
@@ -314,11 +316,15 @@ export function isGovernorStatus(value: unknown): value is GovernorStatus {
     return false;
   }
   const candidate = value as Record<string, unknown>;
+  const preview = candidate.preview_idle_secs;
+  const browser = candidate.browser_idle_secs;
   return (
     typeof candidate.tick_secs === "number" &&
     typeof candidate.sidecar_idle_secs === "number" &&
     typeof candidate.sidecar_running === "boolean" &&
-    typeof candidate.auto_stops === "number"
+    typeof candidate.auto_stops === "number" &&
+    (preview === null || typeof preview === "number") &&
+    (browser === null || typeof browser === "number")
   );
 }
 

@@ -127,9 +127,17 @@ test("agent modes are plan or build only", () => {
 });
 
 test("governor status is shape-checked and titled", () => {
-  const status = { tick_secs: 5, sidecar_idle_secs: 60, sidecar_running: true, auto_stops: 2 };
+  const status = {
+    tick_secs: 5,
+    sidecar_idle_secs: 60,
+    sidecar_running: true,
+    auto_stops: 2,
+    preview_idle_secs: null,
+    browser_idle_secs: 12
+  };
   assert.equal(isGovernorStatus(status), true);
   assert.equal(isGovernorStatus({ ...status, auto_stops: "2" }), false);
+  assert.equal(isGovernorStatus({ ...status, preview_idle_secs: "x" }), false);
   assert.equal(
     governorTitle(status),
     "Resource governor: sidecar stops after 60s idle (2 auto-stops)"
