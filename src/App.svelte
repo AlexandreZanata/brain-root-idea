@@ -23,7 +23,7 @@
     hostLabel,
     isAgentEventEnvelope,
     requestHostCancelSend,
-    requestHostModels,
+    requestHostCatalog,
     requestHostSelectModel,
     requestHostSend,
     requestHostStart,
@@ -31,8 +31,8 @@
     requestHostStop,
     type AgentEventEnvelope,
     type AgentHostStatus,
-    type AgentModelEntry,
     type AgentModelSelection,
+    type CatalogModel,
     type HostPhase,
     type SendPath
   } from "./agentHost";
@@ -116,7 +116,8 @@
   let hostPhase = $state<HostPhase>("checking");
   let hostStatus = $state<AgentHostStatus | null>(null);
   let hostDetail = $state("");
-  let hostModels = $state<AgentModelEntry[]>([]);
+  let hostModels = $state<CatalogModel[]>([]);
+  let staleModels = $state(false);
   let selectedModel = $state<AgentModelSelection | null>(null);
   let hostStatusLabel = $derived(
     hostPhase === "failed" && hostDetail ? hostDetail : hostLabel(hostPhase, hostStatus)
@@ -273,14 +274,18 @@
   async function loadModels() {
     if (!hostStatus?.running) {
       hostModels = [];
+      staleModels = false;
       return;
     }
     try {
-      const list = await requestHostModels();
-      hostModels = list.models;
-      selectedModel = list.selected;
+      const catalog = await requestHostCatalog(false);
+      hostModels = catalog.models;
+      staleModels = catalog.stale;
+      selectedModel = catalog.selected;
     } catch {
-      hostModels = [];
+      if (hostModels.length > 0) {
+        staleModels = true;
+      }
     }
   }
 
@@ -587,6 +592,7 @@
       {suggestions}
       models={hostModels}
       selectedModel={selectedModel}
+      staleModels={staleModels}
       modelDisabled={isBusy}
       onselectmodel={selectModel}
       onsubmit={submitPrompt}

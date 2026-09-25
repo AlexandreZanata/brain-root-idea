@@ -1,14 +1,21 @@
 <script lang="ts">
-  import { modelKey, type AgentModelEntry, type AgentModelSelection } from "../agentHost";
+  import {
+    modelDetail,
+    modelKey,
+    type AgentModelSelection,
+    type CatalogModel
+  } from "../agentHost";
 
   let {
     models = [],
     selected = null,
+    stale = false,
     disabled = false,
     onselect
   }: {
-    models?: AgentModelEntry[];
+    models?: CatalogModel[];
     selected?: AgentModelSelection | null;
+    stale?: boolean;
     disabled?: boolean;
     onselect: (providerId: string, modelId: string) => void;
   } = $props();
@@ -31,15 +38,20 @@
 {:else}
   <select
     class="model-picker"
-    aria-label="Model"
+    aria-label={stale ? "Model (stale catalog)" : "Model"}
     {disabled}
     value={currentKey}
     onchange={handleChange}
   >
     {#each models as entry (modelKey(entry))}
-      <option value={modelKey(entry)}>{entry.model_name} · {entry.provider_name}</option>
+      <option value={modelKey(entry)} title={modelDetail(entry)}>
+        {entry.model_name} · {entry.provider_name}
+      </option>
     {/each}
   </select>
+  {#if stale}
+    <span class="br-chip" title="Catalog offline — prices may be outdated">stale</span>
+  {/if}
 {/if}
 
 <style>

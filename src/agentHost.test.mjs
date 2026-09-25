@@ -3,10 +3,14 @@ import test from "node:test";
 
 import {
   chooseSendPath,
+  formatContext,
+  formatPrice,
   hostLabel,
   isAgentEventEnvelope,
   isAgentHostStatus,
   isAgentModelList,
+  isCatalogResult,
+  modelDetail,
   modelKey
 } from "./agentHost.ts";
 
@@ -87,4 +91,25 @@ test("agent envelopes are shape-checked", () => {
     isAgentEventEnvelope({ contractVersion: 1, event: { type: "bogus", session: "ses_1" } }),
     false
   );
+});
+
+test("catalog results carry price tags honestly", () => {
+  const entry = {
+    provider_id: "acme",
+    provider_name: "Acme",
+    model_id: "fast",
+    model_name: "Fast",
+    context_length: 128000,
+    prompt_usd_per_m: 3,
+    completion_usd_per_m: 15
+  };
+  assert.equal(isCatalogResult({ models: [entry], selected: null, stale: false }), true);
+  assert.equal(isCatalogResult({ models: [], selected: null, stale: true }), true);
+  assert.equal(isCatalogResult({ models: [], stale: false }), false);
+  assert.equal(formatContext(128000), "128k ctx");
+  assert.equal(formatContext(1048576), "1.0M ctx");
+  assert.equal(formatContext(null), "? ctx");
+  assert.equal(formatPrice(3), "$3.00/M");
+  assert.equal(formatPrice(null), "?/M");
+  assert.equal(modelDetail(entry), "Fast · Acme · 128k ctx · $3.00/M in");
 });

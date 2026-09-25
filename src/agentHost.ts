@@ -200,3 +200,68 @@ export async function requestHostCancelSend(): Promise<AgentHostStatus> {
   const result: unknown = await invoke("agent_host_cancel_send");
   return checkedStatus("agent_host_cancel_send", result);
 }
+
+export type CatalogModel = {
+  provider_id: string;
+  provider_name: string;
+  model_id: string;
+  model_name: string;
+  context_length: number | null;
+  prompt_usd_per_m: number | null;
+  completion_usd_per_m: number | null;
+};
+
+export type CatalogResult = {
+  models: CatalogModel[];
+  selected: AgentModelSelection | null;
+  stale: boolean;
+};
+
+export function isCatalogResult(value: unknown): value is CatalogResult {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  const selected = candidate.selected;
+  return (
+    Array.isArray(candidate.models) &&
+    typeof candidate.stale === "boolean" &&
+    (selected === null ||
+      (typeof selected === "object" &&
+        selected !== null &&
+        typeof (selected as Record<string, unknown>).provider_id === "string" &&
+        typeof (selected as Record<string, unknown>).model_id === "string"))
+  );
+}
+
+export async function requestHostCatalog(refresh = false): Promise<CatalogResult> {
+  const result: unknown = await invoke("agent_host_catalog", { refresh });
+  if (!isCatalogResult(result)) {
+    throw new Error("The core returned an unexpected agent_host_catalog response");
+  }
+  return result;
+}
+
+export function formatContext(length: number | null): string {
+  if (length === null || !Number.isFinite(length) || length < 0) {
+    return "? ctx";
+  }
+  if (length >= 1_000_000) {
+    return `${(length / 1_000_000).toFixed(1)}M ctx`;
+  }
+  if (length >= 1_000) {
+    return `${Math.round(length / 1_000)}k ctx`;
+  }
+  return `${length} ctx`;
+}
+
+export function formatPrice(perMillion: number | null): string {
+  if (perMillion === null || !Number.isFinite(perMillion) || perMillion < 0) {
+    return "?/M";
+  }
+  return `$${perMillion.toFixed(2)}/M`;
+}
+
+export function modelDetail(entry: CatalogModel): string {
+  return `${entry.model_name} · ${entry.provider_name} · ${formatContext(entry.context_length)} · ${formatPrice(entry.prompt_usd_per_m)} in`;
+}

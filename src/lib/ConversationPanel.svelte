@@ -8,7 +8,7 @@
   import Turn from "./Turn.svelte";
   import WelcomeCard from "./WelcomeCard.svelte";
   import { composerKeyAction, isPinnedToBottom } from "../presentation";
-  import type { AgentModelEntry, AgentModelSelection } from "../agentHost";
+  import type { AgentModelSelection, CatalogModel } from "../agentHost";
   import type { ConversationTurn } from "../conversation";
 
   let {
@@ -21,6 +21,7 @@
     suggestions = [],
     models = [],
     selectedModel = null,
+    staleModels = false,
     modelDisabled = false,
     onselectmodel,
     onsubmit,
@@ -33,8 +34,9 @@
     isCancellable?: boolean;
     prompt?: string;
     suggestions?: { label: string; prompt: string }[];
-    models?: AgentModelEntry[];
+    models?: CatalogModel[];
     selectedModel?: AgentModelSelection | null;
+    staleModels?: boolean;
     modelDisabled?: boolean;
     onselectmodel: (providerId: string, modelId: string) => void;
     onsubmit: () => void;
@@ -151,6 +153,7 @@
       <ModelPicker
         {models}
         selected={selectedModel}
+        stale={staleModels}
         disabled={modelDisabled}
         onselect={onselectmodel}
       />

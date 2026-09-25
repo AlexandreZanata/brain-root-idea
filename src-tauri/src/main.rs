@@ -70,6 +70,7 @@ fn main() {
             features::agent_host::agent_host_select_model,
             features::agent_host::agent_host_send,
             features::agent_host::agent_host_cancel_send,
+            features::agent_host::agent_host_catalog,
             features::preview::preview_start,
             features::preview::preview_stop,
             features::preview::preview_status,

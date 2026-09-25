@@ -30,7 +30,7 @@ feature_ref = re.compile(r"\bfeatures::[A-Za-z0-9_:]+")
 allowed = re.compile(
     r"features::(?:"
      r"conversation::(?:ConversationSession|conversation_send|conversation_cancel)"
-     r"|agent_host::(?:AgentHostState|AgentHostStatus|AgentModelList|AgentModelSelection|AgentSendAccepted|AgentStreamEvent|AgentEventEnvelope|agent_host_start|agent_host_status|agent_host_stop|agent_host_models|agent_host_select_model|agent_host_send|agent_host_cancel_send)"
+     r"|agent_host::(?:AgentHostState|AgentHostStatus|AgentModelList|AgentModelSelection|AgentSendAccepted|AgentStreamEvent|AgentEventEnvelope|agent_host_start|agent_host_status|agent_host_stop|agent_host_models|agent_host_select_model|agent_host_send|agent_host_cancel_send|agent_host_catalog)"
     r"|health::health"
     r"|preview::(?:PreviewState|debug_fixture|preview_start|preview_stop|preview_status|preview_show|preview_set_bounds|preview_view_status|preview_hide)"
     r"|human_browser::(?:HumanBrowserState|HumanStatus|debug_fixture|human_browser_show|human_browser_navigate|human_browser_back|human_browser_forward|human_browser_reload|human_browser_set_bounds|human_browser_hide|human_browser_status|human_browser_clear_data)"

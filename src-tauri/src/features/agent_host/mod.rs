@@ -7,6 +7,8 @@
 //!
 //! `features::conversation` is frozen legacy in this batch: untouched.
 
+mod catalog;
+
 use std::io::{BufRead, Read};
 use std::sync::Mutex;
 use std::sync::{
@@ -127,6 +129,13 @@ pub struct AgentHostState {
     inner: Mutex<Option<Running>>,
     selection: Mutex<Option<AgentModelSelection>>,
     active: Mutex<Option<ActiveSend>>,
+    catalog: Mutex<CachedCatalog>,
+}
+
+#[derive(Debug, Default)]
+struct CachedCatalog {
+    fetched_at: Option<Instant>,
+    entries: Vec<catalog::OpenRouterEntry>,
 }
 
 /// One selectable model. Only identifiers cross into the UI: providers,
@@ -935,6 +944,82 @@ impl AgentHostState {
         Ok(selection)
     }
 
+    /// Public catalog merged with the sidecar list: context lengths and
+    /// per-million prices where the ids match, `None` (UNKNOWN) otherwise.
+    /// Six-hour TTL; a failed refresh serves stale cache honestly, and an
+    /// offline host without cache reports unavailable instead of guessing.
+    pub fn catalog(&self, refresh: bool) -> Result<catalog::CatalogResult, NormalizedError> {
+        let selected = self
+            .selection
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or(None);
+        let sidecar = match self.models() {
+            Ok(list) => list.models,
+            Err(error) => {
+                if error.code == ErrorCode::ProviderUnavailable {
+                    return Ok(catalog::CatalogResult {
+                        models: Vec::new(),
+                        selected,
+                        stale: false,
+                    });
+                }
+                return Err(error);
+            }
+        };
+        let fresh = self.catalog.lock().map(|guard| {
+            guard
+                .fetched_at
+                .is_some_and(|at| at.elapsed() < catalog::CATALOG_TTL)
+        });
+        let fresh = fresh.unwrap_or(false);
+        if !refresh && fresh {
+            let guard = self.catalog.lock().map_err(|_| {
+                host_error(
+                    ErrorCode::ProviderUnavailable,
+                    "The agent host state is unavailable. Restart BrainRoot.",
+                )
+            })?;
+            return Ok(catalog::CatalogResult {
+                models: catalog::merge(sidecar, &guard.entries),
+                selected,
+                stale: false,
+            });
+        }
+        match catalog::fetch_catalog() {
+            Ok(entries) => {
+                if let Ok(mut guard) = self.catalog.lock() {
+                    guard.fetched_at = Some(Instant::now());
+                    guard.entries = entries.clone();
+                }
+                Ok(catalog::CatalogResult {
+                    models: catalog::merge(sidecar, &entries),
+                    selected,
+                    stale: false,
+                })
+            }
+            Err(error) => {
+                let stale = self.catalog.lock().map(|guard| {
+                    let entries = guard.entries.clone();
+                    let has = !entries.is_empty();
+                    if has {
+                        Some(catalog::merge(sidecar, &entries))
+                    } else {
+                        None
+                    }
+                });
+                match stale {
+                    Ok(Some(models)) => Ok(catalog::CatalogResult {
+                        models,
+                        selected,
+                        stale: true,
+                    }),
+                    _ => Err(error),
+                }
+            }
+        }
+    }
+
     /// Start one sidecar turn in a fresh session: `prompt_async`, then a
     /// worker thread streams `/event` frames filtered to that session.
     /// Single-flight: a second send while one runs is rejected.
@@ -1061,8 +1146,7 @@ impl AgentHostState {
         self.status()
     }
 
-    /// Kill the sidecar when it has been idle longer than `max_idle`.
-    /// Returns true when a stop happened. Governor hook for B-R5; unused until then.
+    /// Kill the sidecar when it has been idle longer than `max_idle`.    /// Returns true when a stop happened. Governor hook for B-R5; unused until then.
     #[allow(dead_code)]
     pub fn stop_if_idle(&self, max_idle: Duration) -> bool {
         let idle = match self.inner.lock() {
@@ -1130,6 +1214,14 @@ pub fn agent_host_send(
 #[tauri::command]
 pub fn agent_host_cancel_send(state: tauri::State<'_, AgentHostState>) -> AgentHostStatus {
     state.cancel_send()
+}
+
+#[tauri::command]
+pub fn agent_host_catalog(
+    refresh: Option<bool>,
+    state: tauri::State<'_, AgentHostState>,
+) -> Result<catalog::CatalogResult, NormalizedError> {
+    state.catalog(refresh.unwrap_or(false))
 }
 
 #[cfg(test)]
