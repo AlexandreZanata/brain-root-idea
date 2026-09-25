@@ -1,6 +1,7 @@
 # 21 — Pivot Lean YAGNI: visual OpenCode em estrutura leve, desempenho máximo
 
-**Status:** Proposed pivot plan (substitui execução pós-MVP-0, não reescreve história B00–B05)
+**Status:** Implementado em `0.0.15` (ver o [registro do batch](history/batches/B19-foundation.md)); ADR 0015 ainda **Proposed**. Substitui a execução pós-MVP-0 e não reescreve a história B00–B05.
+**Desvio registrado:** os commits do pivot foram escritos antes de existir um issue por microstep (contraria `docs/18` §4.2); o issue [#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128) é de rastreamento, aberto depois. O gap de workspace/permissões do agente segue **aberto** em `docs/17-open-questions.md`.
 **Data:** 2026-09-25
 **Objetivo:** IDE de agente IA ultra-leve, personalizável, token-econômica, multi-provider, com visual consolidado do OpenCode portado para estrutura mínima.
 **Stack alvo:** Tauri 2 + Rust core + Svelte atual + `opencode serve` sidecar on-demand + regras token `pi-agent-core`.

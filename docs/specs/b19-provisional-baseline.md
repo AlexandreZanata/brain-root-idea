@@ -3,6 +3,7 @@
 - **Status:** provisional rebaseline for [B19-S00](https://github.com/AlexandreZanata/brain-root-idea/issues/119); **not** the frozen B19 baseline.
 - **Baseline tree:** B18 batch tip `f4919f4` on `batch/b18-fluid-canvas` (B18 PR #108 OPEN, CI green, review pending at the time of writing).
 - **Follow-up (required):** once B18 merges, a tracked follow-up freezes this note to the merge SHA — re-verifying every number below and superseding any that diverge. Until then, the B18 record (`docs/history/batches/B18-fluid-canvas.md`) wins on any conflict.
+- **Update 2026-09-25:** B18 merged into `main` at `1dbf7de`, so the baseline above is no longer provisional in that respect; this note was **not** re-frozen line by line. The `0.0.15` gate in `docs/history/batches/B19-foundation.md` supersedes the size/performance absolutes below and records the same-numbers caveat, because the pivot also landed on the same branch.
 - **Plan:** [B19–B20 frontend system plan](b19-frontend-system-and-usability-plan.md) (verbatim from `origin/codex/b19-frontend-system-plan` `f83dca3`); its visual/interaction values remain `TARGET`, never measured fact.
 
 ## Component list (B18 tip)

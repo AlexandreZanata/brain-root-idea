@@ -55,3 +55,14 @@ Default Mode shows plain-language status only when useful. Developer Mode may di
 
 Track transition latency, failed cleanup, orphan count, time idle before reuse, memory before/after termination, and unnecessary restarts locally. No remote telemetry is implied.
 
+## First implementation evidence (2026-09-25, `0.0.15`)
+
+**MEASURED (code and gates):** one governor thread exists in `features::governor`, not a registry. It wakes every 5 s, asks the Agent Host to stop a sidecar idle for 60 s, and counts auto-stops; the tick reads timestamps only and never performs a network probe, so enforcement cannot create the cost it removes. `governor_status` reports the tick, sidecar idle budget, whether a sidecar handle is held, the auto-stop count, and report-only idle clocks for Preview and the Human Browser (`None` until first use).
+
+Two deliberate limits are recorded rather than implied:
+
+- **An unfinished turn always wins over the idle budget.** A generation longer than 60 s must not be killed mid-answer, so an active, unfinished send suppresses the stop. This was a real race in the first implementation and is now covered by a unit test.
+- **Preview and Human Browser auto-destroy is not implemented.** Their clocks are reported only; destroying a live preview the user is watching would surprise active work, and this document's rule that the Governor never kills active user work without warning takes precedence over the memory target. A policy decision plus measurement is required first.
+
+The full ownership graph, per-resource lifecycle states, and the `SUSPENDED` path remain unimplemented.
+

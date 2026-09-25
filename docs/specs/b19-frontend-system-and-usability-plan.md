@@ -1,6 +1,7 @@
 # Next UI phase — coherent, minimal frontend system (B19–B20)
 
 - **Status:** planning candidate only; no B19 implementation issue may open until B18 has merged, its release evidence is final, and this plan is rebased/reviewed against that released head.
+- **Update 2026-09-25:** B18 merged into `main` at `1dbf7de`, so that precondition is satisfied. B19 slices S00–S07 were implemented and a `0.0.15` gate ran on `batch/b19-foundation`; the [Lean YAGNI pivot](../21-lean-yagni-pivot.md) was added to the same branch by maintainer decision, so the released branch is wider than this plan. See [the batch record](../history/batches/B19-foundation.md). This plan's B20 packets are still candidates.
 - **Prepared:** 2026-09-24 from `main` at `5f2835c` (B17 released), while [B18 PR #108](https://github.com/AlexandreZanata/brain-root-idea/pull/108) remains Draft. B18's final component tree and measurements are not yet known.
 - **Platform:** Linux desktop shell, Svelte/TypeScript frontend only. Rust, provider, WebView security policy, browser profiles, and persistence contracts are unchanged.
 - **Workflow:** one coherent visual-refinement phase delivered in two sequential candidate batches, **B19 foundation/shell** and **B20 conversation/Canvas**, each with its own branch, Draft PR, at most ten small issue-linked commits, and versioned release gate. Fast **non-test** micro-gates run per issue; full automated tests/visual/performance probes run only at each release gate (ADR 0014). Do not wait for CI.

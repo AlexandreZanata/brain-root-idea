@@ -23,6 +23,10 @@ BrainRoot is primarily for vibe coders and nontraditional developers. Experience
 
 **MVP-0 Linux Model Loop — experimental, hardening for release.** The minimal Linux shell, the provider-neutral contract, the deterministic fake, the OpenCode Go transport, Linux Secret Service credentials, and the minimal conversation loop (prompt, streamed answer, cancel, understandable failures) are implemented and released through `v0.0.1-alpha.5`. The first reproducible test release is `0.0.1` (batch B05), packaged as a Debian artifact for the Ubuntu 24.04 family on x86_64.
 
+The workspace shell, the localhost Companion Canvas preview, the Human Browser, and the frontend interaction phases followed in the `0.0.x` line. The current experimental line is **`0.0.15`**: batch B19 gave the frontend one token scale and explicit control primitives, and the maintainer's [Lean YAGNI pivot](docs/21-lean-yagni-pivot.md) added an on-demand coding agent — a Rust-owned `opencode serve --pure` sidecar with session tabs, a live model picker with context and prices, Plan/Build modes, Fast/Balanced/Max cost profiles, a per-turn token/cost line, and a 60-second idle auto-stop ([#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128)).
+
+> **The agent has no workspace or permission boundary yet.** Starting the sidecar gives `opencode` the same filesystem and process authority as your user account; there is no approved project root, per-action permission prompt, or containment boundary on that path. It only starts on an explicit action, but this is **not** Safe Mode. See [open questions](docs/17-open-questions.md) and the [security model](docs/11-security-and-permissions.md), which still describe the target, not this path.
+
 Try it on the [reference environment](docs/specs/linux-reference-environment.md):
 
 - Build and run: `pnpm install && pnpm tauri build --no-bundle`, then run `src-tauri/target/release/brainroot`.

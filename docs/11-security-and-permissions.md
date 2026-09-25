@@ -75,3 +75,14 @@ Threat-model review, path traversal/symlink tests, WebView origin/IPC tests, sec
 Implemented and verified in the current release line: credentials live only in the Rust core (Linux Secret Service with an honest session-only fallback); no Tauri capability file grants filesystem, shell, HTTP, dialog, updater, or process permissions; outbound requests target only the documented `https://opencode.ai/zen/go/v1/…` endpoints with TLS; the frontend receives only the versioned neutral contract and can never read the key; provider text is never surfaced; `scripts/check-security.sh` enforces destinations, telemetry absence, capabilities, log hygiene, and the direct-dependency allowlists; `scripts/check-docs.sh` scans for secret patterns; and the built bundle was scanned with no credential or header material.
 
 Known MVP-0 limitations, stated rather than hidden: the shipped Debian artifact is unsigned and experimental; there is no platform sandbox beyond Tauri's capability model yet; the live path needs a credential in the Secret Service and its cancellation latency is bounded by the transport read rather than measured; and the deterministic fake is available only in debug builds.
+
+## Lean pivot posture and its unresolved gap (2026-09-25, `0.0.15`)
+
+Implemented and verified by the gates:
+
+- The sidecar password is a per-run `uuid v4`, lives only in the process memory of the Rust core, is redacted in `Debug` output, and has no field in the serialized status; a unit test asserts the status JSON and `Debug` output carry neither the password nor credential-shaped material.
+- `agent_host_models`/`agent_host_catalog` drop everything except identifiers, names, context length, and per-million prices. Keys, URLs, and provider configuration never reach the frontend, with a test that serializes the result and asserts no `sk-`/`apiKey`/`Authorization` material is present.
+- The outbound allowlist in `scripts/check-security.sh` now permits exactly one plain-`http` origin — `http://127.0.0.1:` for the ephemeral authenticated sidecar — plus the public `https://openrouter.ai/api/` catalog. Everything else fails the gate.
+- The sidecar is never started implicitly: it requires an explicit user action, and the legacy model loop remains the default path until then.
+
+**Unresolved and blocking any Safe Mode claim for this path:** the agent has no approved workspace root, no permission decision, no tool-layer mediation, and no containment boundary. Once started it operates with the user's own filesystem and process authority, so the permission record, deny-by-default effective policy, and revocable grants described above do not apply to it. This is tracked as a blocker in [open questions](17-open-questions.md); until it is closed, no artifact of this line may be described as sandboxed or as Safe Mode for agent actions.
