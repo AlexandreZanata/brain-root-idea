@@ -1,6 +1,6 @@
 # 22 — Paridade visual com o OpenCode (pin @34aa427)
 
-**Status:** Adopted as batch **B20** (OpenCode visual parity) on 2026-09-25 — implementation branch `batch/b20-opencode-parity`. Previously a proposed staging plan kept untracked outside the repository.
+**Status:** Adopted as batch **B20** (OpenCode visual parity) on 2026-09-25 — implementation branch `batch/b20-opencode-parity`. **U1 (tokens + tipografia) implemented** on that branch; U2–U7 open. Previously a proposed staging plan kept untracked outside the repository.
 **Objetivo:** a UI do BrainRoot indistinguível do OpenCode para o olho do
 usuário — mesmo layout, tokens, tipografia e comportamentos — reimplementada
 em Svelte leve sobre o shell Tauri, sem Electron, sem Tailwind, sem bundle Solid.
@@ -15,6 +15,64 @@ em Svelte leve sobre o shell Tauri, sem Electron, sem Tailwind, sem bundle Solid
 - **Três capacidades não existem hoje, e nenhuma será fingida.** Sem listagem de projeto/workspace, o picker `@` (U4) e as file-tabs/review (U7) entregam a forma real com estado vazio honesto. Sem PTY/Process Manager, o terminal (U7) espelha a saída do turno e se declara espelho. Sem fronteira de permissão do agente, os docks de permissão/pergunta (U6) ficam **fora de escopo** — uma UI que parecesse conceder ou negar autoridade sem fronteira aplicada seria uma capacidade falsa.
 - **Os orçamentos da §3 são critério de aceite, não adjetivo:** CSS ≤35 KB gzip, JS ≤60 KB, zero dependência nova de UI, fontes ≤300 KB com subset, input do composer em 1 frame, troca de aba sem remount, 20 ciclos de painel voltando ao baseline em ±5 MB medidos.
 - **Ordem:** U1 é pré-requisito de todas as outras (a camada de tokens); U2 depende de U1; U3 e U5 dependem de U1; U4 depende de U1; U6 depende de U1; U7 depende de U1 e idealmente de U3.
+
+## U1 implementado — camada de tokens (2026-09-25)
+
+Portada em `src/lib/theme.css` a partir de `anomalyco/opencode @ 34aa427`:
+
+- **Autoridade é a árvore v2**, não a v1. Primitivas e escalas alpha são
+  estáticas em `packages/ui/src/v2/styles/colors.css` (51 tokens: 13 grey +
+  19 `alpha-dark` + 19 `alpha-light`); semântica e rampas de matiz vêm de
+  `packages/ui/src/theme/themes/oc-2.json` (`palette` por variante +
+  `v2Overrides`, 189 tokens). `theme/color.ts` e `theme/v2/resolve.ts` são
+  **geradores**, não a fonte: o `oc-2` fixa valor explícito para os 189, então
+  o port é cópia de valores, não reimplementação do gerador. Escala
+  tipográfica/espaço/raio vem de `packages/ui/src/styles/theme.css`.
+- **Paridade verificada por medição, não por inspeção:** 339 valores
+  conferidos contra o pin (51 estáticos + 109 rampas + 80 semântica dark +
+  80 semântica light) com **zero divergências**. A tabela golden vive em
+  `src/theme.test.mjs`, que reprova se a camada portada sair do pin.
+- **Rampas são invariantes de tema.** Só 70 das 189 chaves do `oc-2` diferem
+  entre light e dark (todas semânticas, avatar, elevação e ilustração).
+  Verificado, então as rampas de matiz são declaradas **uma vez** em `:root`,
+  como no pin. O BrainRoot mantém `:root` = escuro e light como override — o
+  pin declara light em `:root`: mesmos valores, base de cascata invertida.
+- **Custo medido** (`pnpm run build`, este head): CSS 34,34 kB / **6,43 kB
+  gzip** (era 4,04 kB no B19-S08; teto 35 kB) e JS 102,25 kB / **34,77 kB
+  gzip** (era 34,39 kB; teto 60 kB). A camada de 227 tokens custa **+2,39 kB
+  gzip** de CSS e **nenhuma dependência nova**.
+- **Não portado, porque nada consome ainda** (YAGNI, uma linha cada quando a
+  superfície chegar): breakpoints, larguras de container, `--shadow-*` do
+  pin, e o conjunto v1 `syntax-*` — que entra com a superfície de código da U3.
+
+### Duas divergências de acessibilidade, medidas e deliberadas
+
+O pin tem tokens que reprovam nos nossos gates. A camada v2 fica **fiel**
+(todos os 339 valores batem) e só os **papéis** do BrainRoot divergem:
+
+| Token do pin | Medição | Papel no BrainRoot |
+|---|---|---|
+| `--v2-text-text-faint` #808080 | **3,93:1** dark e **3,78:1** light sobre `bg-layer-01` — abaixo de WCAG AA 4,5 | `--text-subtle` resolve para `--v2-text-text-muted` (7,00 / 6,41) até uma superfície diferenciar por tamanho ou peso em vez de matiz |
+| `--v2-border-border-focus` (blue-500) | **2,62:1** sobre a superfície clara | light `--focus` usa `--v2-blue-700` (6,01:1); escuro mantém blue-500 (5,68:1) |
+
+### Piso tipográfico: 12 px → 13 px
+
+O pin não tem passo de 12 px: o menor é `--font-size-small: 13px`. O papel de
+texto de apoio adota 13 px, contra o alvo de 12 px do B19. Os papéis de tipo
+resolvem para 14 / 13 / 16 / 20 px, e raio/espaço caem em valores idênticos aos
+que já tínhamos (6 px = `--radius-md`, 10 px = `--radius-xl`).
+
+### Lacuna aberta: as fontes não foram embarcadas
+
+O pin embarca `Inter.ttf` (**854 KB**, TTF sem compressão) e
+`JetBrainsMonoNerdFontMono-Regular.woff2` (**1,04 MB**) via `@font-face` em
+`packages/app/src/index.css`, com `--font-family-text: "Inter", sans-serif`.
+O BrainRoot **não embarca nenhum byte de fonte**: mantém `"Inter"` à frente do
+stack para usar a fonte quando ela existir e cai no stack de sistema. O
+orçamento de fontes (≤300 KB) é cumprido trivialmente, mas **a paridade
+tipográfica é parcial até uma Inter subsetada em woff2 entrar** — é uma lacuna
+registrada, não uma paridade alegada. O Nerd Font mono fica de fora enquanto
+não houver terminal real (U7 depende do Process Manager com PTY).
 
 ## 0. Leitura honesta do "exatamente igual"
 
