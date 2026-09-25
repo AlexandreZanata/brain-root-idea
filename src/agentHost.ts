@@ -302,6 +302,42 @@ export async function requestHostSetAgent(mode: AgentMode): Promise<AgentMode> {
   return agent;
 }
 
+export type GovernorStatus = {
+  tick_secs: number;
+  sidecar_idle_secs: number;
+  sidecar_running: boolean;
+  auto_stops: number;
+};
+
+export function isGovernorStatus(value: unknown): value is GovernorStatus {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.tick_secs === "number" &&
+    typeof candidate.sidecar_idle_secs === "number" &&
+    typeof candidate.sidecar_running === "boolean" &&
+    typeof candidate.auto_stops === "number"
+  );
+}
+
+export async function requestGovernorStatus(): Promise<GovernorStatus> {
+  const result: unknown = await invoke("governor_status");
+  if (!isGovernorStatus(result)) {
+    throw new Error("The core returned an unexpected governor_status response");
+  }
+  return result;
+}
+
+export function governorTitle(status: GovernorStatus | null): string {
+  if (!status) {
+    return "Resource governor: starting";
+  }
+  const stops = status.auto_stops === 1 ? "1 auto-stop" : `${status.auto_stops} auto-stops`;
+  return `Resource governor: sidecar stops after ${status.sidecar_idle_secs}s idle (${stops})`;
+}
+
 export function formatContext(length: number | null): string {
   if (length === null || !Number.isFinite(length) || length < 0) {
     return "? ctx";

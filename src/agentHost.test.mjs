@@ -5,6 +5,7 @@ import {
   chooseSendPath,
   formatContext,
   formatPrice,
+  governorTitle,
   hostLabel,
   isAgentEventEnvelope,
   isAgentHostStatus,
@@ -12,6 +13,7 @@ import {
   isAgentModelList,
   isCatalogResult,
   isCostProfile,
+  isGovernorStatus,
   modelDetail,
   modelKey,
   pickProfileModel
@@ -122,6 +124,17 @@ test("agent modes are plan or build only", () => {
   assert.equal(isAgentMode("build"), true);
   assert.equal(isAgentMode("turbo"), false);
   assert.equal(isAgentMode(null), false);
+});
+
+test("governor status is shape-checked and titled", () => {
+  const status = { tick_secs: 5, sidecar_idle_secs: 60, sidecar_running: true, auto_stops: 2 };
+  assert.equal(isGovernorStatus(status), true);
+  assert.equal(isGovernorStatus({ ...status, auto_stops: "2" }), false);
+  assert.equal(
+    governorTitle(status),
+    "Resource governor: sidecar stops after 60s idle (2 auto-stops)"
+  );
+  assert.equal(governorTitle(null), "Resource governor: starting");
 });
 
 test("profiles route over live prices", () => {

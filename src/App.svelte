@@ -20,8 +20,10 @@
   import {
     AGENT_EVENT_NAME,
     chooseSendPath,
+    governorTitle,
     hostLabel,
     isAgentEventEnvelope,
+    requestGovernorStatus,
     requestHostCancelSend,
     requestHostCatalog,
     requestHostSelectModel,
@@ -36,6 +38,7 @@
     type AgentModelSelection,
     type CatalogModel,
     type CostProfile,
+    type GovernorStatus,
     pickProfileModel,
     type HostPhase,
     type SendPath
@@ -127,6 +130,7 @@
   let agentMode = $state<AgentMode>("build");
   // No profile until the user opts in; manual picks return to custom.
   let profile = $state<CostProfile | null>(null);
+  let governor = $state<GovernorStatus | null>(null);
   let hostStatusLabel = $derived(
     hostPhase === "failed" && hostDetail ? hostDetail : hostLabel(hostPhase, hostStatus)
   );
@@ -277,6 +281,15 @@
       return;
     }
     await loadModels();
+    await refreshGovernor();
+  }
+
+  async function refreshGovernor() {
+    try {
+      governor = await requestGovernorStatus();
+    } catch {
+      governor = null;
+    }
   }
 
   async function loadModels() {
@@ -347,6 +360,7 @@
       hostStatus = await requestHostStart();
       hostPhase = "running";
       await loadModels();
+      await refreshGovernor();
     } catch (error) {
       hostPhase = "failed";
       hostDetail = error instanceof Error ? error.message : "The sidecar could not be started.";
@@ -360,6 +374,7 @@
       // The stopped view is correct whether or not the call landed.
     }
     hostPhase = "stopped";
+    await refreshGovernor();
   }
 
   function selectTab(id: number) {
@@ -607,7 +622,7 @@
       onclose={closeTab}
       onnew={newTab}
     />
-    <div class="host-badge">
+    <div class="host-badge" title={governorTitle(governor)}>
       <span class="host-dot" class:on={hostPhase === "running"} role="presentation"></span>
       <span role="status">{hostStatusLabel}</span>
       {#if hostPhase === "running"}
