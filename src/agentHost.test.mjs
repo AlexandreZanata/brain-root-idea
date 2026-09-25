@@ -5,6 +5,7 @@ import {
   chooseSendPath,
   formatContext,
   formatPrice,
+  formatTurnCost,
   governorTitle,
   hostLabel,
   isAgentEventEnvelope,
@@ -14,6 +15,7 @@ import {
   isCatalogResult,
   isCostProfile,
   isGovernorStatus,
+  isTurnCost,
   modelDetail,
   modelKey,
   pickProfileModel
@@ -117,6 +119,17 @@ test("catalog results carry price tags honestly", () => {
   assert.equal(formatPrice(3), "$3.00/M");
   assert.equal(formatPrice(null), "?/M");
   assert.equal(modelDetail(entry), "Fast · Acme · 128k ctx · $3.00/M in");
+});
+
+test("turn ledgers are shape-checked and formatted", () => {
+  const ledger = { session: "ses_1", input: 1200, output: 340, reasoning: 50, cache_read: 1000, cache_write: 20, cost: 0.0042 };
+  assert.equal(isTurnCost(ledger), true);
+  assert.equal(isTurnCost({ ...ledger, cost: "x" }), false);
+  assert.equal(formatTurnCost(ledger), "1,200 in · 340 out · $0.0042 · 1,000 cached");
+  assert.equal(
+    formatTurnCost({ ...ledger, cache_read: 0, cost: 1.5 }),
+    "1,200 in · 340 out · $1.50"
+  );
 });
 
 test("agent modes are plan or build only", () => {

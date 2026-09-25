@@ -367,3 +367,45 @@ export function formatPrice(perMillion: number | null): string {
 export function modelDetail(entry: CatalogModel): string {
   return `${entry.model_name} · ${entry.provider_name} · ${formatContext(entry.context_length)} · ${formatPrice(entry.prompt_usd_per_m)} in`;
 }
+
+export type TurnCost = {
+  session: string;
+  input: number;
+  output: number;
+  reasoning: number;
+  cache_read: number;
+  cache_write: number;
+  cost: number;
+};
+
+export function isTurnCost(value: unknown): value is TurnCost {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.session === "string" &&
+    typeof candidate.input === "number" &&
+    typeof candidate.output === "number" &&
+    typeof candidate.cost === "number"
+  );
+}
+
+export async function requestHostTurnCost(session: string): Promise<TurnCost> {
+  const result: unknown = await invoke("agent_host_turn_cost", { session });
+  if (!isTurnCost(result)) {
+    throw new Error("The core returned an unexpected agent_host_turn_cost response");
+  }
+  return result;
+}
+
+function compactCount(value: number): string {
+  return Math.max(0, Math.floor(value)).toLocaleString("en-US");
+}
+
+export function formatTurnCost(ledger: TurnCost): string {
+  const money = ledger.cost < 0.01 ? `$${ledger.cost.toFixed(4)}` : `$${ledger.cost.toFixed(2)}`;
+  const cached =
+    ledger.cache_read > 0 ? ` · ${compactCount(ledger.cache_read)} cached` : "";
+  return `${compactCount(ledger.input)} in · ${compactCount(ledger.output)} out · ${money}${cached}`;
+}

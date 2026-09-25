@@ -30,6 +30,7 @@
     requestHostSend,
     requestHostSetAgent,
     requestHostStart,
+    requestHostTurnCost,
     requestHostStatus,
     requestHostStop,
     type AgentEventEnvelope,
@@ -38,6 +39,7 @@
     type AgentModelSelection,
     type CatalogModel,
     type CostProfile,
+    formatTurnCost,
     type GovernorStatus,
     pickProfileModel,
     type HostPhase,
@@ -131,6 +133,9 @@
   // No profile until the user opts in; manual picks return to custom.
   let profile = $state<CostProfile | null>(null);
   let governor = $state<GovernorStatus | null>(null);
+  // Ledger labels per turn, keyed `${tabId}:${turnId}`. Best effort: a missed
+  // fetch leaves the turn without a label, never an error state.
+  let turnCosts = $state<Record<string, string>>({});
   let hostStatusLabel = $derived(
     hostPhase === "failed" && hostDetail ? hostDetail : hostLabel(hostPhase, hostStatus)
   );
@@ -320,8 +325,16 @@
     }
   }
 
-  async function selectProfile(next: CostProfile) {
-    const pick = pickProfileModel(hostModels, next);
+  async function recordTurnCost(tabId: number, turnId: number, session: string) {
+    try {
+      const ledger = await requestHostTurnCost(session);
+      turnCosts = { ...turnCosts, [`${tabId}:${turnId}`]: formatTurnCost(ledger) };
+    } catch {
+      // A missed ledger leaves the turn unlabeled; the answer stands.
+    }
+  }
+
+  async function selectProfile(next: CostProfile) {    const pick = pickProfileModel(hostModels, next);
     if (!pick) {
       return;
     }
@@ -496,6 +509,7 @@
         activeTurnId = null;
         agentSession = null;
         sendPath = "legacy";
+        void recordTurnCost(tab.id, turnId, envelope.event.session);
         break;
       case "failed":
         agentSession = null;
@@ -650,6 +664,8 @@
       modelInactive={isBusy}
       agentMode={agentMode}
       profile={profile}
+      costs={turnCosts}
+      costScope={activeTabId}
       onselectmodel={selectModel}
       onselectagent={selectAgent}
       onselectprofile={selectProfile}

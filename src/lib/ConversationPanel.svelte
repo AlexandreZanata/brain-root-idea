@@ -30,6 +30,8 @@
     modelInactive = false,
     agentMode = "build",
     profile = null,
+    costs = {},
+    costScope = "",
     onselectmodel,
     onselectagent,
     onselectprofile,
@@ -49,6 +51,8 @@
     modelInactive?: boolean;
     agentMode?: AgentMode;
     profile?: CostProfile | null;
+    costs?: Record<string, string>;
+    costScope?: string | number;
     onselectmodel: (providerId: string, modelId: string) => void;
     onselectagent: (mode: AgentMode) => void;
     onselectprofile: (profile: CostProfile) => void;
@@ -139,7 +143,7 @@
     {/if}
 
     {#each turns as turn, index (turn.id)}
-      <Turn {turn} isLatest={index === turns.length - 1} />
+      <Turn {turn} isLatest={index === turns.length - 1} cost={costs[`${costScope}:${turn.id}`] ?? null} />
     {/each}
   </div>
 

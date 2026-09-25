@@ -128,10 +128,67 @@ pub struct AgentEventEnvelope {
     pub event: AgentStreamEvent,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AgentSendAccepted {
     pub contract_version: u32,
     pub session: String,
+}
+
+/// Token/cost ledger for one sidecar session, read from `GET /session/{id}`.
+/// Numbers as reported; the sidecar owns their semantics.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TurnCost {
+    pub session: String,
+    pub input: u64,
+    pub output: u64,
+    pub reasoning: u64,
+    pub cache_read: u64,
+    pub cache_write: u64,
+    pub cost: f64,
+}
+
+fn validate_session_id(value: &str) -> Result<String, NormalizedError> {
+    let trimmed = value.trim();
+    let looks_like_session = trimmed.starts_with("ses")
+        && trimmed.len() <= limits::MAX_CONVERSATION_ID_BYTES
+        && trimmed
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if !looks_like_session {
+        return Err(host_error(
+            ErrorCode::InvalidInput,
+            "The session identifier is not valid.",
+        ));
+    }
+    Ok(trimmed.to_string())
+}
+
+fn parse_turn_cost(session: &str, body: &str) -> Result<TurnCost, NormalizedError> {
+    let parsed: serde_json::Value = serde_json::from_str(body).map_err(|_| {
+        host_error(
+            ErrorCode::MalformedResponse,
+            "The sidecar answered with malformed session data.",
+        )
+    })?;
+    let number = |path: &[&str]| {
+        path.iter()
+            .try_fold(&parsed, |value, key| value.get(key))
+            .and_then(|value| value.as_u64())
+            .unwrap_or(0)
+    };
+    let cost = parsed
+        .get("cost")
+        .and_then(|value| value.as_f64())
+        .unwrap_or(0.0);
+    Ok(TurnCost {
+        session: session.to_string(),
+        input: number(&["tokens", "input"]),
+        output: number(&["tokens", "output"]),
+        reasoning: number(&["tokens", "reasoning"]),
+        cache_read: number(&["tokens", "cache", "read"]),
+        cache_write: number(&["tokens", "cache", "write"]),
+        cost,
+    })
 }
 
 /// Tauri-managed sidecar owner. Everything behind mutexes so concurrent
@@ -1211,6 +1268,31 @@ impl AgentHostState {
         }
         Ok(AgentConfig { agent })
     }
+    /// Token/cost ledger for a finished turn. Any session id is accepted
+    /// after shape validation; the sidecar 404s unknown ones honestly.
+    pub fn turn_cost(&self, session_id: String) -> Result<TurnCost, NormalizedError> {
+        let session_id = validate_session_id(&session_id)?;
+        let (port, password) = {
+            let guard = self.inner.lock().map_err(|_| {
+                host_error(
+                    ErrorCode::ProviderUnavailable,
+                    "The agent host state is unavailable. Restart BrainRoot.",
+                )
+            })?;
+            match guard.as_ref() {
+                Some(active) => (active.port, active.password.clone()),
+                None => {
+                    return Err(host_error(
+                        ErrorCode::ProviderUnavailable,
+                        "The sidecar is not running. Start it and try again.",
+                    ))
+                }
+            }
+        };
+        let body = authed_get(port, &password, &format!("/session/{session_id}"))?;
+        parse_turn_cost(&session_id, &body)
+    }
+
     /// Kill the sidecar when it has been idle longer than `max_idle`.
     /// Returns true when a stop happened. Reads timestamps only: safe for the
     /// governor tick path (no network probe).
@@ -1305,6 +1387,14 @@ pub fn agent_host_set_agent(
     state: tauri::State<'_, AgentHostState>,
 ) -> Result<AgentConfig, NormalizedError> {
     state.set_agent(agent)
+}
+
+#[tauri::command]
+pub fn agent_host_turn_cost(
+    session: String,
+    state: tauri::State<'_, AgentHostState>,
+) -> Result<TurnCost, NormalizedError> {
+    state.turn_cost(session)
 }
 
 #[cfg(test)]
@@ -1462,6 +1552,22 @@ mod deferred {
         assert!(validate_prompt(&"x".repeat(limits::MAX_USER_MESSAGE_BYTES + 1)).is_err());
         assert_eq!(session_id_of(r#"{"id":"ses_123"}"#).unwrap(), "ses_123");
         assert!(session_id_of(r#"{"id":"nope"}"#).is_err());
+    }
+
+    #[test]
+    fn turn_cost_reads_ledger_and_rejects_bad_ids() {
+        let body = r#"{"id":"ses_1","tokens":{"input":1200,"output":340,"reasoning":50,"cache":{"read":1000,"write":20}},"cost":0.0042}"#;
+        let cost = parse_turn_cost("ses_1", body).unwrap();
+        assert_eq!(cost.input, 1200);
+        assert_eq!(cost.output, 340);
+        assert_eq!(cost.reasoning, 50);
+        assert_eq!(cost.cache_read, 1000);
+        assert_eq!(cost.cost, 0.0042);
+        let sparse = parse_turn_cost("ses_1", r#"{"id":"ses_1"}"#).unwrap();
+        assert_eq!(sparse.input, 0);
+        assert!(validate_session_id("ses_abc-123_X").is_ok());
+        assert!(validate_session_id("../../../etc").is_err());
+        assert!(validate_session_id("nope").is_err());
     }
 
     // T-R2-01..04 integration (sidecar start/health/stop, secret scan,
