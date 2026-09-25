@@ -28,6 +28,17 @@ Fecha o loop de RAM: sidecar nunca fica residente esquecido.
 * T-R5-02 manual opt-in: Start sidecar → 65s idle → `governor_status.auto_stops` 1 e `sidecar_running` false; turno ativo recente nunca é morto (last_used atualiza em send/status).
 * T-R5-03 close com sidecar vivo: 0 órfão, thread encerra.
 
+## Correção no gate 0.0.15 (2026-09-25)
+
+A garantia "turno ativo recente nunca é morto" **não se sustentava**: `last_used`
+só é atualizado em `start`, `status` e no início do `send`, então uma geração mais
+longa que os 60s do budget era derrubada no meio da resposta pelo tick do
+governor. Correção escopada em `stop_if_idle`: devolve `false` enquanto existir
+um `ActiveSend` não concluído, e também quando o lock de estado estiver
+envenenado (não matar às cegas é preferível a arriscar trabalho ativo).
+Coberto pelo teste `idle_stop_never_kills_an_active_turn`. O T-R5-02 passa a
+exigir o caso de turno longo, não apenas de sidecar ocioso.
+
 ## Rollback
 
 Reverter este commit único. Sidecar volta a exigir Stop/close manual.

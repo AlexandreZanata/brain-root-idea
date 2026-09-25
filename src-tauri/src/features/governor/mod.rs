@@ -74,7 +74,7 @@ impl GovernorState {
                 if stopped {
                     // Best effort; a poisoned counter must not kill enforcement.
                     // auto_stops is Mutex-guarded in status(); increment inline.
-                    let _ = app.state::<GovernorState>().note_auto_stop();
+                    app.state::<GovernorState>().note_auto_stop();
                 }
             }
         });
@@ -123,6 +123,14 @@ mod deferred {
         assert!(TICK < SIDECAR_IDLE_LIMIT);
         let state = GovernorState::default();
         assert_eq!(state.counters.lock().unwrap().auto_stops, 0);
+    }
+
+    #[test]
+    fn auto_stop_counter_saturates() {
+        let state = GovernorState::default();
+        state.counters.lock().unwrap().auto_stops = u64::MAX;
+        state.note_auto_stop();
+        assert_eq!(state.counters.lock().unwrap().auto_stops, u64::MAX);
     }
 
     // T-R5-01 integration (deferred, opt-in): start sidecar, wait past the

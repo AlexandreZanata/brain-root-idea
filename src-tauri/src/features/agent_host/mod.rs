@@ -327,7 +327,7 @@ fn parse_health(body: &str) -> Result<String, NormalizedError> {
 /// Encode-only on purpose: the core never decodes credentials.
 fn encode_base64(input: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity((input.len() + 2) / 3 * 4);
+    let mut out = String::with_capacity(input.len().div_ceil(3) * 4);
     for chunk in input.chunks(3) {
         let b0 = chunk[0] as u32;
         let b1 = *chunk.get(1).unwrap_or(&0) as u32;
@@ -1296,7 +1296,23 @@ impl AgentHostState {
     /// Kill the sidecar when it has been idle longer than `max_idle`.
     /// Returns true when a stop happened. Reads timestamps only: safe for the
     /// governor tick path (no network probe).
+    ///
+    /// An unfinished turn always wins over the idle budget: `last_used` is set
+    /// when a send starts, so a generation longer than `max_idle` would
+    /// otherwise be killed mid-answer. A poisoned state lock means we cannot
+    /// prove the sidecar is unused, so it is left alone rather than killed.
     pub fn stop_if_idle(&self, max_idle: Duration) -> bool {
+        match self.active.lock() {
+            Ok(guard) => {
+                if guard
+                    .as_ref()
+                    .is_some_and(|active| !active.done.load(Ordering::SeqCst))
+                {
+                    return false;
+                }
+            }
+            Err(_) => return false,
+        }
         let idle = match self.inner.lock() {
             Ok(guard) => guard.as_ref().map(|r| r.last_used.elapsed()),
             Err(_) => return false,
@@ -1552,6 +1568,27 @@ mod deferred {
         assert!(validate_prompt(&"x".repeat(limits::MAX_USER_MESSAGE_BYTES + 1)).is_err());
         assert_eq!(session_id_of(r#"{"id":"ses_123"}"#).unwrap(), "ses_123");
         assert!(session_id_of(r#"{"id":"nope"}"#).is_err());
+    }
+
+    #[test]
+    fn idle_stop_never_kills_an_active_turn() {
+        let state = AgentHostState::default();
+        // No active send: the timestamp path decides (no sidecar, so no stop).
+        assert!(!state.stop_if_idle(Duration::ZERO));
+
+        let cancel = Arc::new(AtomicBool::new(false));
+        let done = Arc::new(AtomicBool::new(false));
+        *state.active.lock().unwrap() = Some(ActiveSend {
+            session_id: "ses_active".to_string(),
+            cancel: Arc::clone(&cancel),
+            done: Arc::clone(&done),
+        });
+        // An unfinished turn is never stopped, even with a zero budget.
+        assert!(!state.stop_if_idle(Duration::ZERO));
+
+        // Once the worker signals completion the budget applies again.
+        done.store(true, Ordering::SeqCst);
+        assert!(!state.stop_if_idle(Duration::ZERO));
     }
 
     #[test]
