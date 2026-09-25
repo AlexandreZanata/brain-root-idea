@@ -8,7 +8,11 @@
   import Turn from "./Turn.svelte";
   import WelcomeCard from "./WelcomeCard.svelte";
   import { composerKeyAction, isPinnedToBottom } from "../presentation";
-  import type { AgentModelSelection, CatalogModel } from "../agentHost";
+  import type {
+    AgentMode,
+    AgentModelSelection,
+    CatalogModel
+  } from "../agentHost";
   import type { ConversationTurn } from "../conversation";
 
   let {
@@ -23,7 +27,9 @@
     selectedModel = null,
     staleModels = false,
     modelDisabled = false,
+    agentMode = "build",
     onselectmodel,
+    onselectagent,
     onsubmit,
     oncancel
   }: {
@@ -38,7 +44,9 @@
     selectedModel?: AgentModelSelection | null;
     staleModels?: boolean;
     modelDisabled?: boolean;
+    agentMode?: AgentMode;
     onselectmodel: (providerId: string, modelId: string) => void;
+    onselectagent: (mode: AgentMode) => void;
     onsubmit: () => void;
     oncancel: () => void;
   } = $props();
@@ -150,6 +158,20 @@
       onkeydown={onComposerKeydown}
     />
     <div class="composer-bar">
+      <div class="agent-toggle" role="group" aria-label="Agent mode">
+        <Button
+          variant="secondary"
+          title="Plan: read-only exploration, cheaper"
+          current={agentMode === "plan"}
+          onclick={() => onselectagent("plan")}
+        >Plan</Button>
+        <Button
+          variant="secondary"
+          title="Build: edits files"
+          current={agentMode === "build"}
+          onclick={() => onselectagent("build")}
+        >Build</Button>
+      </div>
       <ModelPicker
         {models}
         selected={selectedModel}
@@ -216,6 +238,11 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
+  }
+
+  .agent-toggle {
+    display: flex;
+    gap: var(--space-1);
   }
 
   .composer-state {

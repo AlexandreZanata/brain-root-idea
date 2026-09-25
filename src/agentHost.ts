@@ -242,6 +242,21 @@ export async function requestHostCatalog(refresh = false): Promise<CatalogResult
   return result;
 }
 
+export type AgentMode = "plan" | "build";
+
+export function isAgentMode(value: unknown): value is AgentMode {
+  return value === "plan" || value === "build";
+}
+
+export async function requestHostSetAgent(mode: AgentMode): Promise<AgentMode> {
+  const result: unknown = await invoke("agent_host_set_agent", { agent: mode });
+  const agent = (result as Record<string, unknown> | null)?.agent;
+  if (!isAgentMode(agent)) {
+    throw new Error("The core returned an unexpected agent_host_set_agent response");
+  }
+  return agent;
+}
+
 export function formatContext(length: number | null): string {
   if (length === null || !Number.isFinite(length) || length < 0) {
     return "? ctx";

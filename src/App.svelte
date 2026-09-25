@@ -26,11 +26,13 @@
     requestHostCatalog,
     requestHostSelectModel,
     requestHostSend,
+    requestHostSetAgent,
     requestHostStart,
     requestHostStatus,
     requestHostStop,
     type AgentEventEnvelope,
     type AgentHostStatus,
+    type AgentMode,
     type AgentModelSelection,
     type CatalogModel,
     type HostPhase,
@@ -119,6 +121,8 @@
   let hostModels = $state<CatalogModel[]>([]);
   let staleModels = $state(false);
   let selectedModel = $state<AgentModelSelection | null>(null);
+  // Rust defaults to build; the toggle is the source of truth after mount.
+  let agentMode = $state<AgentMode>("build");
   let hostStatusLabel = $derived(
     hostPhase === "failed" && hostDetail ? hostDetail : hostLabel(hostPhase, hostStatus)
   );
@@ -295,6 +299,21 @@
     } catch (error) {
       hostPhase = "failed";
       hostDetail = error instanceof Error ? error.message : "The model could not be selected.";
+    }
+  }
+
+  async function selectAgent(mode: AgentMode) {
+    if (mode === agentMode) {
+      return;
+    }
+    const previous = agentMode;
+    agentMode = mode;
+    try {
+      await requestHostSetAgent(mode);
+    } catch (error) {
+      agentMode = previous;
+      hostPhase = "failed";
+      hostDetail = error instanceof Error ? error.message : "The agent mode could not be set.";
     }
   }
 
@@ -594,7 +613,9 @@
       selectedModel={selectedModel}
       staleModels={staleModels}
       modelDisabled={isBusy}
+      agentMode={agentMode}
       onselectmodel={selectModel}
+      onselectagent={selectAgent}
       onsubmit={submitPrompt}
       oncancel={onCancel}
     />

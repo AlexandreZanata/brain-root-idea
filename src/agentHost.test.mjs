@@ -8,6 +8,7 @@ import {
   hostLabel,
   isAgentEventEnvelope,
   isAgentHostStatus,
+  isAgentMode,
   isAgentModelList,
   isCatalogResult,
   modelDetail,
@@ -112,4 +113,11 @@ test("catalog results carry price tags honestly", () => {
   assert.equal(formatPrice(3), "$3.00/M");
   assert.equal(formatPrice(null), "?/M");
   assert.equal(modelDetail(entry), "Fast · Acme · 128k ctx · $3.00/M in");
+});
+
+test("agent modes are plan or build only", () => {
+  assert.equal(isAgentMode("plan"), true);
+  assert.equal(isAgentMode("build"), true);
+  assert.equal(isAgentMode("turbo"), false);
+  assert.equal(isAgentMode(null), false);
 });
