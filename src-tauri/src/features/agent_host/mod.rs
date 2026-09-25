@@ -35,6 +35,18 @@ const MAX_DELTA_CHARS: usize = 64 * 1024;
 const MAX_SEND_CHARS: usize = 2 * 1024 * 1024;
 /// Stream calls may run long generations; cancel arrives via flag + abort.
 const STREAM_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+/// Minimal stable system prompt. Deliberately short and changed only on
+/// purpose: stability keeps the sidecar KV-cache hot and tokens low.
+/// A test pins this text so casual edits fail loudly.
+pub const SYSTEM_PROMPT: &str = "You are a coding agent inside BrainRoot, a lightweight IDE. \
+Make the smallest change that satisfies the request. \
+Never scan, index, or rewrite files you were not asked about. \
+Prefer read-only exploration before editing. \
+Explain each change in one short paragraph. \
+Never reveal credentials, keys, or tokens.";
+/// Agents the sidecar may run. `plan` is read-only exploration, `build` edits.
+pub const AGENT_PLAN: &str = "plan";
+pub const AGENT_BUILD: &str = "build";
 /// How long `start` waits for `/global/health` before giving up.
 const READY_TIMEOUT: Duration = Duration::from_secs(10);
 const READY_POLL_INTERVAL: Duration = Duration::from_millis(200);
@@ -124,12 +136,46 @@ pub struct AgentSendAccepted {
 
 /// Tauri-managed sidecar owner. Everything behind mutexes so concurrent
 /// commands cannot double-spawn or interleave selection writes.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct AgentHostState {
     inner: Mutex<Option<Running>>,
     selection: Mutex<Option<AgentModelSelection>>,
     active: Mutex<Option<ActiveSend>>,
     catalog: Mutex<CachedCatalog>,
+    agent: Mutex<String>,
+}
+
+impl Default for AgentHostState {
+    fn default() -> Self {
+        Self {
+            inner: Mutex::default(),
+            selection: Mutex::default(),
+            active: Mutex::default(),
+            catalog: Mutex::default(),
+            agent: Mutex::new(default_agent()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct AgentConfig {
+    pub agent: String,
+}
+
+fn default_agent() -> String {
+    AGENT_BUILD.to_string()
+}
+
+fn validate_agent(value: &str) -> Result<String, NormalizedError> {
+    let trimmed = value.trim();
+    if trimmed == AGENT_PLAN || trimmed == AGENT_BUILD {
+        Ok(trimmed.to_string())
+    } else {
+        Err(host_error(
+            ErrorCode::InvalidInput,
+            "The agent must be plan or build.",
+        ))
+    }
 }
 
 #[derive(Debug, Default)]
@@ -1071,7 +1117,11 @@ impl AgentHostState {
 
         let mut prompt_body = serde_json::json!({
             "parts": [{ "type": "text", "text": prompt }],
+            "system": SYSTEM_PROMPT,
         });
+        if let Ok(guard) = self.agent.lock() {
+            prompt_body["agent"] = serde_json::json!(guard.clone());
+        }
         if let Ok(guard) = self.selection.lock() {
             if let Some(selection) = guard.as_ref() {
                 prompt_body["model"] = serde_json::json!({
@@ -1144,6 +1194,22 @@ impl AgentHostState {
             }
         }
         self.status()
+    }
+
+    /// Remember the chosen agent for future sends. Read-only `plan` is the
+    /// cheap exploration path; `build` edits.
+    pub fn set_agent(&self, agent: String) -> Result<AgentConfig, NormalizedError> {
+        let agent = validate_agent(&agent)?;
+        match self.agent.lock() {
+            Ok(mut guard) => *guard = agent.clone(),
+            Err(_) => {
+                return Err(host_error(
+                    ErrorCode::ProviderUnavailable,
+                    "The agent host state is unavailable. Restart BrainRoot.",
+                ))
+            }
+        }
+        Ok(AgentConfig { agent })
     }
 
     /// Kill the sidecar when it has been idle longer than `max_idle`.    /// Returns true when a stop happened. Governor hook for B-R5; unused until then.
@@ -1222,6 +1288,14 @@ pub fn agent_host_catalog(
     state: tauri::State<'_, AgentHostState>,
 ) -> Result<catalog::CatalogResult, NormalizedError> {
     state.catalog(refresh.unwrap_or(false))
+}
+
+#[tauri::command]
+pub fn agent_host_set_agent(
+    agent: String,
+    state: tauri::State<'_, AgentHostState>,
+) -> Result<AgentConfig, NormalizedError> {
+    state.set_agent(agent)
 }
 
 #[cfg(test)]
@@ -1347,6 +1421,31 @@ mod deferred {
             "data": {"sessionID": "ses_abc", "message": "boom"}
         });
         assert_eq!(frame(error), FrameOutcome::Failed("boom".to_string()));
+    }
+
+    #[test]
+    fn agent_selection_accepts_plan_and_build() {
+        assert_eq!(validate_agent("plan").unwrap(), AGENT_PLAN);
+        assert_eq!(validate_agent("build").unwrap(), AGENT_BUILD);
+        assert!(validate_agent("turbo").is_err());
+        assert!(validate_agent("").is_err());
+        assert_eq!(
+            AgentHostState::default().agent.lock().unwrap().as_str(),
+            "build"
+        );
+    }
+
+    #[test]
+    fn system_prompt_stays_minimal_and_stable() {
+        // Pinned on purpose: edits bust the sidecar KV-cache and cost tokens.
+        // Change only with a spec note justifying the extra tokens.
+        assert!(SYSTEM_PROMPT.contains("smallest change"));
+        assert!(SYSTEM_PROMPT.contains("Never reveal credentials"));
+        assert!(
+            SYSTEM_PROMPT.len() < 600,
+            "system prompt grew to {} bytes",
+            SYSTEM_PROMPT.len()
+        );
     }
 
     #[test]
