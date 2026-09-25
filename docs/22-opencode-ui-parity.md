@@ -1,6 +1,6 @@
 # 22 — Paridade visual com o OpenCode (pin @34aa427)
 
-**Status:** Adopted as batch **B20** (OpenCode visual parity) on 2026-09-25 — implementation branch `batch/b20-opencode-parity`. **U1 (tokens + tipografia) implemented** on that branch; U2–U7 open. Previously a proposed staging plan kept untracked outside the repository.
+**Status:** Adopted as batch **B20** (OpenCode visual parity) on 2026-09-25 — implementation branch `batch/b20-opencode-parity`. **U1 (tokens + tipografia), U2 (titlebar tabs) e U4 (composer) implementados** nessa branch como `IMPLEMENTED_UNVERIFIED`; **U3 (timeline) parou** na própria condição de parada, porque exige mudar o contrato versionado de eventos e foi reaberto como [#138](https://github.com/AlexandreZanata/brain-root-idea/issues/138); U5–U7 abertos. O registro por etapa vive na Wiki do batch e em `docs/specs/b20-opencode-parity-u0*.md`. Antes disso era um plano de etapas mantido fora do repositório.
 **Objetivo:** a UI do BrainRoot indistinguível do OpenCode para o olho do
 usuário — mesmo layout, tokens, tipografia e comportamentos — reimplementada
 em Svelte leve sobre o shell Tauri, sem Electron, sem Tailwind, sem bundle Solid.

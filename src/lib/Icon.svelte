@@ -14,7 +14,11 @@
     | "monitor"
     | "code"
     | "repo"
-    | "grid";
+    | "grid"
+    | "plus"
+    | "arrow-up"
+    | "stop"
+    | "chevron-down";
 </script>
 
 <script lang="ts">
@@ -50,6 +54,14 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m9 8-4 4 4 4M15 8l4 4-4 4" stroke-linecap="round" stroke-linejoin="round" /></svg>
   {:else if name === "repo"}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12a8 8 0 0 1 8-8h4M20 12a8 8 0 0 1-8 8h-4M14 2l2 2-2 2M10 18l-2 2 2 2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+  {:else if name === "plus"}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14" stroke-linecap="round" /></svg>
+  {:else if name === "arrow-up"}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V6M6 12l6-6 6 6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+  {:else if name === "stop"}
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="7" y="7" width="10" height="10" rx="1.5" /></svg>
+  {:else if name === "chevron-down"}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" /></svg>
   {:else}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="7" height="7" rx="0" /><rect x="13" y="4" width="7" height="7" rx="0" /><rect x="4" y="13" width="7" height="7" rx="0" /><rect x="13" y="13" width="7" height="7" rx="0" /></svg>
   {/if}
