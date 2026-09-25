@@ -1211,9 +1211,9 @@ impl AgentHostState {
         }
         Ok(AgentConfig { agent })
     }
-
-    /// Kill the sidecar when it has been idle longer than `max_idle`.    /// Returns true when a stop happened. Governor hook for B-R5; unused until then.
-    #[allow(dead_code)]
+    /// Kill the sidecar when it has been idle longer than `max_idle`.
+    /// Returns true when a stop happened. Reads timestamps only: safe for the
+    /// governor tick path (no network probe).
     pub fn stop_if_idle(&self, max_idle: Duration) -> bool {
         let idle = match self.inner.lock() {
             Ok(guard) => guard.as_ref().map(|r| r.last_used.elapsed()),
@@ -1231,6 +1231,15 @@ impl AgentHostState {
     /// Blocking shutdown for window close. Never panics, never logs secrets.
     pub fn shutdown(&self) {
         let _ = self.stop();
+    }
+
+    /// True while a child handle is held. Lock read only: no health probe,
+    /// safe for hot paths like the governor status.
+    pub fn has_sidecar(&self) -> bool {
+        self.inner
+            .lock()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false)
     }
 }
 

@@ -26,9 +26,13 @@ fn main() {
         .manage(provider_state)
         .manage(conversation_session)
         .manage(features::agent_host::AgentHostState::default())
+        .manage(features::governor::GovernorState::default())
         .manage(features::preview::PreviewState::default())
         .manage(features::human_browser::HumanBrowserState::default())
         .setup(|app| {
+            use tauri::Manager;
+            app.state::<features::governor::GovernorState>()
+                .start(app.handle().clone());
             #[cfg(debug_assertions)]
             if std::env::var("BRAINROOT_PREVIEW_FIXTURE").as_deref() == Ok("1") {
                 features::preview::debug_fixture(app.handle().clone());
@@ -52,6 +56,8 @@ fn main() {
                 }
                 let host = window.state::<features::agent_host::AgentHostState>();
                 host.shutdown();
+                let governor = window.state::<features::governor::GovernorState>();
+                governor.shutdown();
                 let preview = window.state::<features::preview::PreviewState>();
                 preview.shutdown(&window.app_handle().clone());
                 let human = window.state::<features::human_browser::HumanBrowserState>();
@@ -72,6 +78,7 @@ fn main() {
             features::agent_host::agent_host_cancel_send,
             features::agent_host::agent_host_catalog,
             features::agent_host::agent_host_set_agent,
+            features::governor::governor_status,
             features::preview::preview_start,
             features::preview::preview_stop,
             features::preview::preview_status,

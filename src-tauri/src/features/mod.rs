@@ -7,6 +7,7 @@ pub mod agent_host;
 pub mod canvas_host;
 pub mod conversation;
 pub mod deck;
+pub mod governor;
 pub mod health;
 pub mod human_browser;
 pub mod preview;

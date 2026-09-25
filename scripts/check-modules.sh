@@ -34,8 +34,9 @@ allowed = re.compile(
     r"|health::health"
     r"|preview::(?:PreviewState|debug_fixture|preview_start|preview_stop|preview_status|preview_show|preview_set_bounds|preview_view_status|preview_hide)"
     r"|human_browser::(?:HumanBrowserState|HumanStatus|debug_fixture|human_browser_show|human_browser_navigate|human_browser_back|human_browser_forward|human_browser_reload|human_browser_set_bounds|human_browser_hide|human_browser_status|human_browser_clear_data)"
-    r"|deck::debug_fixture"
-    r")\b"
+     r"|deck::debug_fixture"
+     r"|governor::(?:GovernorState|GovernorStatus|governor_status)"
+     r")\b"
 )
 
 problems = []
