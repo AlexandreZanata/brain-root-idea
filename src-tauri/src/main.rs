@@ -25,6 +25,7 @@ fn main() {
     tauri::Builder::default()
         .manage(provider_state)
         .manage(conversation_session)
+        .manage(features::agent_host::AgentHostState::default())
         .manage(features::preview::PreviewState::default())
         .manage(features::human_browser::HumanBrowserState::default())
         .setup(|app| {
@@ -49,6 +50,8 @@ fn main() {
                 if session.is_active() {
                     let _ = session.cancel();
                 }
+                let host = window.state::<features::agent_host::AgentHostState>();
+                host.shutdown();
                 let preview = window.state::<features::preview::PreviewState>();
                 preview.shutdown(&window.app_handle().clone());
                 let human = window.state::<features::human_browser::HumanBrowserState>();
@@ -60,6 +63,13 @@ fn main() {
             provider::credential::provider_status,
             features::conversation::conversation_send,
             features::conversation::conversation_cancel,
+            features::agent_host::agent_host_start,
+            features::agent_host::agent_host_status,
+            features::agent_host::agent_host_stop,
+            features::agent_host::agent_host_models,
+            features::agent_host::agent_host_select_model,
+            features::agent_host::agent_host_send,
+            features::agent_host::agent_host_cancel_send,
             features::preview::preview_start,
             features::preview::preview_stop,
             features::preview::preview_status,
