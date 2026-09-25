@@ -65,7 +65,10 @@
     max-width: 12rem;
     padding: var(--space-1) var(--space-2);
     border: 1px solid transparent;
-    border-radius: var(--radius);
+    /* `--radius` was never defined anywhere in the repository, so this
+       declaration was invalid at computed-value time and the tab fell back
+       to border-radius 0. 6px is also the pinned OpenCode value. */
+    border-radius: var(--radius-control);
     color: var(--text-muted);
   }
 
@@ -107,7 +110,7 @@
     color: var(--text-muted);
     font: inherit;
     cursor: pointer;
-    border-radius: var(--radius);
+    border-radius: var(--radius-control);
   }
 
   .tab-close:hover,
