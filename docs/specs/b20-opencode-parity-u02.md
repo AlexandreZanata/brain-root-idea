@@ -89,6 +89,18 @@ Any new `svelte-ignore` needs its justification written here before it is added.
 - Any restyling of surfaces outside this strip; U3–U7 own the rest.
 - No new dependency, no drag-and-drop or animation library.
 
+## 5b. Allowlist amendment (recorded, not silent)
+
+The issue's Allowed-changes list could not satisfy the issue's own requirement to write tests, so it was extended by two paths and one edit:
+
+| Path | Why it had to be added |
+|---|---|
+| `src/tabOrder.ts` (new) | The repository's established pattern puts testable frontend logic in a plain `.ts` module that `.mjs` tests import directly — `src/conversation.ts` + `src/conversation.test.mjs`, `src/presentation.ts` + `src/presentation.test.mjs`. Keeping the order arithmetic inside `SessionTabs.svelte` would have made it unreachable from the suite, so the issue's "write tests for this" criterion would have been unsatisfiable. |
+| `src/sessionTabs.test.mjs` registration in `package.json` | A test file that is not in the `test:frontend` list never runs. Registering it is what makes the deferred tests real rather than decorative. |
+| `src/App.svelte` reorder wiring | Already allowed ("the wiring the strip needs for order"), used for `reorderTabs` and the `onreorder` prop only. |
+
+No dependency was added, and no other path changed.
+
 ## 6. Verification plan
 
 **Fast non-test micro-gate (run in this stage):**
@@ -107,3 +119,27 @@ Any new `svelte-ignore` needs its justification written here before it is added.
 - Hover preview: 2 s delay, 0 s close, 500 ms skip window, non-interactive, and nothing announced to assistive technology.
 - Canvas remount: switching, reordering, and overflow interaction must not remount the Canvas panel (a B19 guarantee).
 - Cleanup: no timer, listener, or observer survives unmount or tab close; the preview delay timer in particular must be cleared.
+
+## 7. Verification performed in this stage (MEASURED)
+
+The app was served through Vite and read in a browser at 1280×820, because a drag, a focus hand-off, and an overlay delay cannot be checked by reading source.
+
+| Claim | Measurement |
+|---|---|
+| Valid ARIA, invalid pattern gone | `role="group"` + `aria-label="Sessions"` on the strip; `document.querySelector('[role="tablist"]')` and `[role="tab"]` both return nothing; the active tab carries `aria-current="true"` on the button itself |
+| Pinned geometry | computed tab `height: 28px`, `font-size: 13px`, `border-radius: 6px`, `padding-inline: 6px` |
+| Close reveal | `opacity: 0` at rest on an inactive tab, `1` on the active one, and the control keeps its box so the hit area and focus ring never disappear |
+| Drag reorder | dispatching pointerdown/move/up on tab 1 with 2400 px of scrollable tabs reordered `[1,2,3,4,5,6,7,8,9]` to `[2,3,4,1,5,6,7,8,9]`; the live order was already `[2,3,4,1,…]` mid-drag; tab count and the id set were unchanged; the hidden 9th tab kept its slot |
+| Focus follows the moved tab | after both the drag and the keyboard reorder, `document.activeElement` is the moved tab — this **failed before the fix** and is why `reorderAndFocus` exists |
+| Keyboard reorder | `Alt+ArrowRight` on the first tab moved it one slot right and clamped at the ends |
+| Keyboard traversal | a real `Ctrl+Tab` press moved the active session from the last tab to the first, so the wrap-around and the window listener both work |
+| Edge fades | at `scrollLeft 0` only the right fade exists; mid-scroll both; at the end only the left. The pin shows both whenever `scrollWidth > clientWidth`, so this is a deliberate refinement |
+| Hover preview | absent at 300 ms, present at 2300 ms (the 2 s delay), `position: fixed` so the scroller cannot clip it, `pointer-events: none`, `aria-hidden="true"`, no `tabindex` attribute, and gone after `mouseleave` |
+| Ported token in use | the preview's computed shadow is `rgba(0,0,0,0.04) 0px 8px 16px, rgba(0,0,0,0.08) …`, which is `--v2-elevation-floating` in the light theme |
+| No Canvas remount | a marker set on the Canvas panel node survived a tab switch, a strip scroll, and a reorder: the same DOM node was still in the document, so the B19 guarantee holds |
+
+One defect was found and fixed by looking rather than reasoning: the first implementation dropped focus to the document body after a keyboard reorder, because it relied on the keyed each-block moving the focused node. `reorderAndFocus` now re-focuses the moved tab after `tick()`, and both paths share it.
+
+Two guards were also hardened while verifying: `mergeVisibleOrder` refuses a replacement list of the wrong length instead of producing an order with a duplicate in it, and a refused pointer capture no longer leaves a half-started drag behind.
+
+**Still not run:** `src/sessionTabs.test.mjs` and the rest of the suite (ADR 0014 defers them to the release gate), the Rust suite, and the sanitized OpenCode comparison.

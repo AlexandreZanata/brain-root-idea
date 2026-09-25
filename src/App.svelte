@@ -394,6 +394,25 @@
     activeTabId = id;
   }
 
+  // B20-U2: the strip computes the new order, because only it knows which tabs
+  // are on screen. The app adopts the result only when it is a true permutation
+  // of the current tabs, so a reorder can never drop or duplicate a session.
+  function reorderTabs(orderedIds: number[]) {
+    if (orderedIds.length !== tabs.length) {
+      return;
+    }
+    const byId = new Map(tabs.map((tab) => [tab.id, tab]));
+    const next: SessionTabState[] = [];
+    for (const id of orderedIds) {
+      const tab = byId.get(id);
+      if (!tab) {
+        return;
+      }
+      next.push(tab);
+    }
+    tabs = next;
+  }
+
   function newTab() {
     const id = nextTabId;
     nextTabId += 1;
@@ -635,6 +654,7 @@
       onselect={selectTab}
       onclose={closeTab}
       onnew={newTab}
+      onreorder={reorderTabs}
     />
     <div class="host-badge" title={governorTitle(governor)}>
       <span class="host-dot" class:on={hostPhase === "running"} role="presentation"></span>
