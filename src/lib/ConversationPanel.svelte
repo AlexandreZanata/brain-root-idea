@@ -11,7 +11,8 @@
   import type {
     AgentMode,
     AgentModelSelection,
-    CatalogModel
+    CatalogModel,
+    CostProfile
   } from "../agentHost";
   import type { ConversationTurn } from "../conversation";
 
@@ -28,8 +29,10 @@
     staleModels = false,
     modelDisabled = false,
     agentMode = "build",
+    profile = null,
     onselectmodel,
     onselectagent,
+    onselectprofile,
     onsubmit,
     oncancel
   }: {
@@ -45,11 +48,19 @@
     staleModels?: boolean;
     modelDisabled?: boolean;
     agentMode?: AgentMode;
+    profile?: CostProfile | null;
     onselectmodel: (providerId: string, modelId: string) => void;
     onselectagent: (mode: AgentMode) => void;
+    onselectprofile: (profile: CostProfile) => void;
     onsubmit: () => void;
     oncancel: () => void;
   } = $props();
+
+  const profiles: { id: CostProfile; label: string; title: string }[] = [
+    { id: "fast", label: "Fast", title: "Plan + cheapest model" },
+    { id: "balanced", label: "Balanced", title: "Build + cheapest roomy model" },
+    { id: "max", label: "Max", title: "Build + frontier-priced model" }
+  ];
 
   let composer: { focus: () => void } | undefined;
   let history: HTMLDivElement | undefined;
@@ -158,6 +169,16 @@
       onkeydown={onComposerKeydown}
     />
     <div class="composer-bar">
+      <div class="agent-toggle" role="group" aria-label="Cost profile">
+        {#each profiles as item (item.id)}
+          <Button
+            variant="secondary"
+            title={item.title}
+            current={profile === item.id}
+            onclick={() => onselectprofile(item.id)}
+          >{item.label}</Button>
+        {/each}
+      </div>
       <div class="agent-toggle" role="group" aria-label="Agent mode">
         <Button
           variant="secondary"
@@ -238,6 +259,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    flex-wrap: wrap;
   }
 
   .agent-toggle {

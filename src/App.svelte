@@ -35,6 +35,8 @@
     type AgentMode,
     type AgentModelSelection,
     type CatalogModel,
+    type CostProfile,
+    pickProfileModel,
     type HostPhase,
     type SendPath
   } from "./agentHost";
@@ -123,6 +125,8 @@
   let selectedModel = $state<AgentModelSelection | null>(null);
   // Rust defaults to build; the toggle is the source of truth after mount.
   let agentMode = $state<AgentMode>("build");
+  // No profile until the user opts in; manual picks return to custom.
+  let profile = $state<CostProfile | null>(null);
   let hostStatusLabel = $derived(
     hostPhase === "failed" && hostDetail ? hostDetail : hostLabel(hostPhase, hostStatus)
   );
@@ -294,6 +298,7 @@
   }
 
   async function selectModel(providerId: string, modelId: string) {
+    profile = null;
     try {
       selectedModel = await requestHostSelectModel(providerId, modelId);
     } catch (error) {
@@ -302,10 +307,25 @@
     }
   }
 
-  async function selectAgent(mode: AgentMode) {
-    if (mode === agentMode) {
+  async function selectProfile(next: CostProfile) {
+    const pick = pickProfileModel(hostModels, next);
+    if (!pick) {
       return;
     }
+    profile = next;
+    await selectAgent(pick.agent);
+    try {
+      selectedModel = await requestHostSelectModel(pick.providerId, pick.modelId);
+    } catch (error) {
+      profile = null;
+      hostPhase = "failed";
+      hostDetail = error instanceof Error ? error.message : "The model could not be selected.";
+    }
+  }
+  async function selectAgent(mode: AgentMode) {    if (mode === agentMode) {
+      return;
+    }
+    profile = null;
     const previous = agentMode;
     agentMode = mode;
     try {
@@ -614,8 +634,10 @@
       staleModels={staleModels}
       modelDisabled={isBusy}
       agentMode={agentMode}
+      profile={profile}
       onselectmodel={selectModel}
       onselectagent={selectAgent}
+      onselectprofile={selectProfile}
       onsubmit={submitPrompt}
       oncancel={onCancel}
     />

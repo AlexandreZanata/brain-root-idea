@@ -11,8 +11,10 @@ import {
   isAgentMode,
   isAgentModelList,
   isCatalogResult,
+  isCostProfile,
   modelDetail,
-  modelKey
+  modelKey,
+  pickProfileModel
 } from "./agentHost.ts";
 
 test("rejects non-status payloads", () => {
@@ -120,4 +122,22 @@ test("agent modes are plan or build only", () => {
   assert.equal(isAgentMode("build"), true);
   assert.equal(isAgentMode("turbo"), false);
   assert.equal(isAgentMode(null), false);
+});
+
+test("profiles route over live prices", () => {
+  const models = [
+    { provider_id: "a", provider_name: "A", model_id: "cheap", model_name: "Cheap", context_length: 32000, prompt_usd_per_m: 0.5, completion_usd_per_m: 1 },
+    { provider_id: "b", provider_name: "B", model_id: "roomy", model_name: "Roomy", context_length: 200000, prompt_usd_per_m: 3, completion_usd_per_m: 6 },
+    { provider_id: "c", provider_name: "C", model_id: "pricey", model_name: "Pricey", context_length: 64000, prompt_usd_per_m: 30, completion_usd_per_m: 60 }
+  ];
+  assert.equal(isCostProfile("fast"), true);
+  assert.equal(isCostProfile("nope"), false);
+  assert.deepEqual(pickProfileModel(models, "fast"), { providerId: "a", modelId: "cheap", agent: "plan" });
+  assert.deepEqual(pickProfileModel(models, "balanced"), { providerId: "b", modelId: "roomy", agent: "build" });
+  assert.deepEqual(pickProfileModel(models, "max"), { providerId: "c", modelId: "pricey", agent: "build" });
+  assert.equal(pickProfileModel([], "fast"), null);
+  const unpriced = [
+    { provider_id: "a", provider_name: "A", model_id: "x", model_name: "X", context_length: null, prompt_usd_per_m: null, completion_usd_per_m: null }
+  ];
+  assert.deepEqual(pickProfileModel(unpriced, "balanced"), { providerId: "a", modelId: "x", agent: "build" });
 });

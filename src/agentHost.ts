@@ -244,6 +244,51 @@ export async function requestHostCatalog(refresh = false): Promise<CatalogResult
 
 export type AgentMode = "plan" | "build";
 
+export type CostProfile = "fast" | "balanced" | "max";
+
+export function isCostProfile(value: unknown): value is CostProfile {
+  return value === "fast" || value === "balanced" || value === "max";
+}
+
+/// Heuristic routing over live catalog prices, never hardcoded models:
+/// fast = plan + cheapest input; balanced = build + cheapest with ≥128k
+/// context (fallback: cheapest); max = build + priciest input (frontier
+/// proxy — override freely in the picker).
+export function pickProfileModel(
+  models: CatalogModel[],
+  profile: CostProfile
+): { providerId: string; modelId: string; agent: AgentMode } | null {
+  const priced = models.filter(
+    (entry) => entry.prompt_usd_per_m !== null && Number.isFinite(entry.prompt_usd_per_m)
+  );
+  const pool = priced.length > 0 ? priced : models;
+  if (pool.length === 0) {
+    return null;
+  }
+  const cheapest = [...pool].sort(
+    (a, b) => (a.prompt_usd_per_m ?? Infinity) - (b.prompt_usd_per_m ?? Infinity)
+  );
+  const roomy = cheapest.find(
+    (entry) => (entry.context_length ?? 0) >= 128_000
+  );
+  switch (profile) {
+    case "fast":
+      return {
+        providerId: cheapest[0].provider_id,
+        modelId: cheapest[0].model_id,
+        agent: "plan"
+      };
+    case "balanced": {
+      const pick = roomy ?? cheapest[0];
+      return { providerId: pick.provider_id, modelId: pick.model_id, agent: "build" };
+    }
+    case "max": {
+      const pick = cheapest[cheapest.length - 1];
+      return { providerId: pick.provider_id, modelId: pick.model_id, agent: "build" };
+    }
+  }
+}
+
 export function isAgentMode(value: unknown): value is AgentMode {
   return value === "plan" || value === "build";
 }
