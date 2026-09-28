@@ -1,0 +1,78 @@
+# B20 — OpenCode visual parity
+
+> Batch record for the B20 stages U1–U7 plus the release-gate remediation, on `batch/b20-opencode-parity` and Draft-then-Ready PR [#137](https://github.com/AlexandreZanata/brain-root-idea/pull/137). B19 merged into `main` at `9e2b51c`; this record covers the versioned `0.0.16` gate.
+>
+> **Process note:** every stage closed `IMPLEMENTED_UNVERIFIED` with its tests written but unrun (ADR 0014), and the complete suite executed for the first time at this gate. The gate found twelve failing cases across its first two runs; each cause is proven in [#140](https://github.com/AlexandreZanata/brain-root-idea/issues/140). Nothing in this record claims a runtime pass before the gate measured it.
+
+## Header
+
+- Status: **Gate complete, `CI_PENDING`** — version `0.0.16` set on the finalization commit; PR [#137](https://github.com/AlexandreZanata/brain-root-idea/pull/137) marked Ready on the recorded head; no merge, no tag, no artifact yet (all post-merge work, per `docs/19`)
+- Objective: give the BrainRoot shell the pinned OpenCode visual and interaction language (`anomalyco/opencode @ 34aa427434b054afcce7184764aa681159b5d769`, read-only) surface by surface — tokens and typography, tab strip, composer, model selector, dialogs and screens, panels and Canvas — under the no-invention rule: where a pin capability has no BrainRoot source (workspace listing, diffs, PTY, permission boundary), the surface ships its shape with an honest empty state and a named follow-up
+- Branch: `batch/b20-opencode-parity`, cut from the B19 merge commit `9e2b51c`; `main` never advanced past it (`git rev-list --count HEAD..origin/main` = 0 at the gate)
+- Target version: `0.0.16` (set once, at this gate; the one-patch-per-batch sequence continues `0.0.14` → `0.0.15`)
+- PR: [#137](https://github.com/AlexandreZanata/brain-root-idea/pull/137) — Draft through the microsteps, Ready at the gate with `CI_PENDING`
+- Wiki batch page: [Batch-B20-Opencode-Parity](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B20-Opencode-Parity), synchronized at this gate with [Current Status](https://github.com/AlexandreZanata/brain-root-idea/wiki/Current-Status), [Batch Index](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-Index)
+- Artifact: none this task. The release build compiles (`pnpm tauri build --no-bundle`, inside the gate); the packaged `.deb` belongs to the post-merge release task so the artifact is cut from the tagged commit and gets its checksum then
+- Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, Wayland, WebKitGTK 2.52.6, rustc 1.96.0); browser measurements in Freebuff 0.0.151 / Chromium 130.0.6723.191 / Electron 33.4.11 on Linux x86_64
+
+## Non-goals
+
+- New dependencies, providers, fonts, icon packs, or the 282 kB provider icon sprite (a recorded divergence, not a gap)
+- A workspace/project listing, a diff source, a PTY, a Process Manager, or a permission boundary — none exist; every affected surface says so instead of faking them
+- The session timeline (U3): blocked on the versioned agent event contract, re-filed as [#138](https://github.com/AlexandreZanata/brain-root-idea/issues/138)
+- Per-microstep test execution (ADR 0014): tests were written per stage and executed only at this gate
+
+## Running microstep log
+
+| Step | Issue | Outcome | Commit | Validation evidence | Deviation/failure | Status |
+|---|---|---|---|---|---|---|
+| B20-S00 | [#130](https://github.com/AlexandreZanata/brain-root-idea/issues/130) | Plan adopted in-tree (`docs/22`), branch cut from the B19 merge, Draft PR opened, pin sources mapped with MEASURED blob sizes, seven stages filed | `719985c` | PR [#137](https://github.com/AlexandreZanata/brain-root-idea/pull/137) | — | Closed, docs only |
+| B20-U1 | [#130](https://github.com/AlexandreZanata/brain-root-idea/issues/130) | Tokens and typography ported from the pin: semantic palette in two themes, type scale on the 13 px floor, 10/6 px radii, spacing scale, focus tokens; two `[AA]` deviations measured and named in the stylesheet | `25561f6` | 339 values verified against the pin, zero mismatches; static token and contrast cases written | Font file not shipped (recorded gap) | Closed, `IMPLEMENTED_UNVERIFIED` |
+| B20-U2 | [#131](https://github.com/AlexandreZanata/brain-root-idea/issues/131) | Titlebar tab strip: valid ARIA, drag reorder, keyboard reorder and traversal, edge fades, decorative hover preview after 2 s | `5aa4069`, `9e02fd2` | Browser at 1280×820: drag `[1..9]`→`[2,3,4,1,5..9]`, `Ctrl+Tab` wraps, focus follows the moved tab | No overflow menu, update loader, or pin activity indicator (corrected scope, not silently added) | Closed, `IMPLEMENTED_UNVERIFIED` |
+| B20-U3 | [#132](https://github.com/AlexandreZanata/brain-root-idea/issues/132) | Session timeline — **stopped before implementation** on its own stop condition: the stream carries no tool cards, diffs, or reasoning frames (3 of the pin's 9 row kinds fillable). Spec, nine-row taxonomy, and the 3-of-9 inventory committed | `35dc4cc` (spec only) | `docs/specs/b20-opencode-parity-u03.md` | Capability re-filed as [#138](https://github.com/AlexandreZanata/brain-root-idea/issues/138); **not in this release** | Closed, stopped and re-filed |
+| B20-U3a | [#138](https://github.com/AlexandreZanata/brain-root-idea/issues/138) | Agent event contract extension with non-text parts, `AGENT_CONTRACT_VERSION` bump, bounding for diffs | — | — | **Open** — needs maintainer go-ahead and an ADR before any code | Not started |
+| B20-U4 | [#133](https://github.com/AlexandreZanata/brain-root-idea/issues/133) | Composer v2: 60→180 px auto-grow, 44 px control row, slash palette with the pin's triggers and key reducer, `+` menu, agent switch, honest `@` empty state | `c0dbfaa` | Browser: geometry measured (10 px radius, 44 px row, 28 px submit, 8 px popover gap, 180 px cap), every trigger/key path driven, 640/1080/1280 px no overflow | No attachments, shell mode, tool toggles, or variant select (capabilities that do not exist) | Closed, `IMPLEMENTED_UNVERIFIED` |
+| B20-U5 | [#134](https://github.com/AlexandreZanata/brain-root-idea/issues/134) | Model selector on the pinned `ModelSelectorPopoverV2`: 284 px layer, matcher ported character for character, name-sorted provider groups, sticky labels, pin's key model, `?` markers | `2060a3c` | Browser at 460 models: filter max 8.0 ms / median 4.2 ms; wrap/Home/End/Enter/Escape/outside-press driven; `aria-activedescendant` verified; zero focus-override tokens | Provider icons, popularity ranking, latest/free tags, manage-models row not ported (recorded divergences) | Closed, `IMPLEMENTED_UNVERIFIED` |
+| B20-U6 | [#135](https://github.com/AlexandreZanata/brain-root-idea/issues/135) | Dialogs and screens: one primitive on the platform `<dialog>`, command palette on the pin's matcher/orders/keys, settings (theme the only writable row), error screen with disclosure, home with honest `MVP-1` badges | `83ab130` | Browser at 1280×820: palette handoff focus chain verified after fixing a real inert-dialog focus-restore defect | Permission/question docks out of scope (no boundary to bind them to) | Closed, `IMPLEMENTED_UNVERIFIED` |
+| B20-U7 | [#136](https://github.com/AlexandreZanata/brain-root-idea/issues/136) | Panels and Canvas: registry-driven single-slot body (one HOT heavy view by construction), file tabs/review/side panel on the pin's shapes, terminal as a labelled turn-output mirror | `5317fc9` | Browser: five presets switch, one-HOT held across 100 switches; T01 soak JS heap +1,458,857 B over 20 cycles (±5 MB bar); honest empty states and keyboard path observed | Narrow-strip label wrap found in the browser and fixed scoped before commit | Closed, `IMPLEMENTED_UNVERIFIED` |
+| B20-R01 | [#140](https://github.com/AlexandreZanata/brain-root-idea/issues/140) | Release-gate remediation: twelve failing cases across two runs, every cause proven — ten blind-written test defects (module resolution, comment-parsing, hex slicing, alpha ramps, tooltip format, a comment literal) and one real keyboard defect (`moveActive` skipped the first option from a stale row), plus a strict no-op identity fix in the mirror fold | `626b47c` | `pnpm run test:frontend` 142/142 after the fixes; full gate green below | Failures surfaced exactly as ADR 0014 predicted: late, at the gate | Closed at the gate |
+| B20-S01 | [#139](https://github.com/AlexandreZanata/brain-root-idea/issues/139) | Finalization: full suite and release soak executed, `0.0.16` set in `VERSION` and its copies, changelog and this record written, Wiki synchronized, PR Ready with `CI_PENDING` | (this commit) | the gate section below | — | Closed at the gate |
+
+## Decisions and changed assumptions
+
+- Decision (S00): each stage names its pin authority instead of blending trees — U3 and U7 use the v1 `pages/session` tree, U4/U5/U6 the v2 family. Recorded per stage spec.
+- Decision (U1): palette hues are the pin's values; where the pin measures below WCAG, the deviation is measured, named in the stylesheet (`[AA]` notes), and covered by a test that documents it — fidelity and honesty over silent "improvement".
+- Decision (U1): the v2 `text-faint` token stays sub-AA by the pin's own value, so the subtle-text role resolves to `text-muted`; light `--focus` diverges to `blue-700` for the same reason.
+- Decision (U3): stop rather than fabricate. The timeline is re-filed behind the contract extension (#138) instead of shipping six invented row kinds.
+- Decision (U6): the dialog primitive is the platform `<dialog>` with `showModal()`, because the pin's Kobalte focus trap needs the focus-override attribute our accessibility gate forbids outright. Focus returns one frame after unmount (a real defect found and fixed in the U6 browser pass).
+- Decision (U7): the terminal panel is a labelled **turn output mirror** — no PTY, no shell prompt, no process — and its ledger is bounded (20 turns / 200 KiB) with interleaved sessions folded into their own running turns.
+- Decision (gate, #140): remediation is one issue covering proven test defects plus one real defect, rather than reopening #130/#134/#136 — the shipped surfaces met their acceptance; the blind-written tests did not. The one product change (fold no-op identity, `moveActive` modulo) is named per file in the issue.
+- Decision (gate): `0.0.16` is the version, continuing the one-patch-per-batch sequence; `0.1.0` remains reserved for the complete Linux product loop (`docs/19`).
+- Decision (gate): no artifact is cut from an unmerged branch head; the `.deb` and its checksum belong to the post-merge release task.
+
+## Failures and recovery
+
+- Twelve failing cases in the first two executions of the deferred suite (7 then 5 after the file-load fix unmasked a whole file). Causes, repros, and fixes are tabulated in [#140](https://github.com/AlexandreZanata/brain-root-idea/issues/140): extensionless ESM import invisible to Node, a comment colon swallowing a declaration, contrast channels sliced without `#`, the pin's own alpha ramps failing a false opacity rule, tooltip expectations missing the name the spec requires, a `<select` literal in a comment, and `moveActive`'s start-then-move drift. No failure was patched without a proven cause; no cause was inferred from a single attempt.
+- U6's browser pass found a real focus-restore defect (synchronous `focus()` is a no-op while the modal keeps the document inert); fixed before commit and verified across a dialog handoff.
+- U7's browser pass found the eight-tab strip breaking labels into one character per line at narrow widths; fixed scoped to `CanvasPanel.svelte`, verified at 420 px and 1280 px.
+
+## Versioned gate at `0.0.16` (application head `626b47c` plus this finalization)
+
+- `sh scripts/check-full-linux.sh`: **OK** (exit 0) — rustfmt, clippy `-D warnings`, Rust tests **172 passed / 0 failed / 3 ignored by design**, svelte-check 0 errors 0 warnings, vite production build, `tauri build --no-bundle`, security, modules, accessibility, fake-provider e2e (**cargo 2 passed**, **frontend 142 passed / 0 failed**), docs (116 files, 191 links, 16 ADRs), version consistency, license/NOTICE manifest verified.
+- Release soak (`cargo test --release soak -- --ignored`, explicit): **1 passed** — 500 + 500 fake conversations and 200 cancellations; RSS 34,396 → 35,112 KiB (**+716 KiB, bounded**), threads 2 → 2; cancel cycle µs median 11 / p95 15 / max 65. **MEASURED**, Pop!_OS 24.04 LTS reference environment.
+- Bundle budgets (**MEASURED**, vite 8.3.0 production build at the gate): CSS 56.27 kB / **9.71 kB gzip** (TARGET ≤35 kB ✅), JS 151.29 kB / **48.95 kB gzip** (TARGET ≤60 kB ✅).
+- Panel registry soak (**MEASURED**, U7 browser pass): 20 cycles × 5 presets = 100 switches; JS heap 10,839,604 → 12,298,461 B (**+1,458,857 B** vs ±5 MB bar), DOM nodes 213 → 222, one-HOT held (body children max 1). Freebuff/Chromium 130 environment; no forced GC available, so the figure includes allocator noise.
+- Process smoke: readiness marker observed, clean close, dev-server stop cleans up its process group (tests in-suite).
+- Security/privacy: secret scan clean (321 files); the mirror and picker print no secrets; the terminal panel cannot spawn anything (source-frozen in `panels.test.mjs`); `LICENSE`/`NOTICE` verified in the distribution manifest with the BrainRoot attribution and canonical reference.
+- Deferred at this gate, named rather than hidden: the consolidated sanitized side-by-side comparison against the pin (per-surface comparisons live in the seven stage specs and their browser passes), the clean-room `.deb` install/remove probe (needs root, post-merge), and the required approving review (single-maintainer repository; the B17–B19 bypass precedent is recorded, not endorsed).
+- CI: `CI_PENDING` on the submitted head; the PR handoff comment records the SHA. Per `docs/18` §4.3 this task ends without waiting — a later task checks the latest head once and handles merge or remediation. No CI result is claimed here.
+
+## Result and next batch
+
+B20 delivers the OpenCode visual parity slice: the shell now speaks the pin's design language across tokens, tabs, composer, model selector, dialogs, and panels, and every capability that does not exist yet says so on screen instead of pretending. The deferred suite runs green (142 frontend + 172 Rust + 2 e2e + 1 soak) after one honest remediation round, and the measured budgets hold.
+
+What this batch did **not** do, stated rather than implied: the session timeline (behind #138's contract change), the workspace listing, diffs, a real terminal, and the agent permission boundary — the last one remains the open blocker in `docs/17-open-questions.md` under [ADR 0016](../../adr/0016-uncontained-agent-experiment.md).
+
+Next, in order: (1) a later task checks CI on the submitted head once and merges/releases per `docs/18` §4.3.9–10; (2) the next code batch is [#138](https://github.com/AlexandreZanata/brain-root-idea/issues/138) — the agent event contract extension, which unlocks U3's timeline and, because it touches the agent path, should treat the permission boundary as an acceptance criterion per the B19 follow-up; (3) alternative candidate: the permission boundary itself as its own batch.
+
+Rollback: revert the finalization and remediation commits; `main` is untouched and the batch branch holds one commit per issue.
