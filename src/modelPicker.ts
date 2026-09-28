@@ -9,7 +9,7 @@
  * `src/modelPicker.test.mjs` can freeze the behavior without a DOM. Formatting
  * stays in `agentHost.ts` with the other presentation helpers.
  */
-import { modelKey, modelRowMeta, modelTooltipDetail, type CatalogModel } from "./agentHost";
+import { modelKey, modelRowMeta, modelTooltipDetail, type CatalogModel } from "./agentHost.ts";
 
 /** The pin's normalizer: lowercase, drop punctuation, collapse space. */
 export function normalizeModelSearch(value: string): string {
@@ -128,16 +128,17 @@ export function initialActive(keys: string[], currentKey: string | null): string
 }
 
 /**
- * The pin's `moveActive`: an unknown active row starts at index 0, and the move
- * wraps at both ends. The row *at* the current index moves to the next one.
+ * The pin's `moveActive`, the same arithmetic as the palette's: naive modulo
+ * on the active index, where a missing row counts as index -1 — so the move
+ * wraps at both ends and an unknown active row lands on the first option
+ * instead of skipping it.
  */
 export function moveActive(keys: string[], active: string | null, delta: 1 | -1): string | null {
   if (keys.length === 0) {
     return null;
   }
   const index = active ? keys.indexOf(active) : -1;
-  const start = index === -1 ? 0 : index;
-  return keys[(start + delta + keys.length) % keys.length] ?? null;
+  return keys[(index + delta + keys.length) % keys.length] ?? null;
 }
 
 export type PickerKeyIntent =

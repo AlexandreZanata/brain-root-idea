@@ -167,17 +167,27 @@ test("unknown context and price stay question marks, never a number", () => {
     completion_usd_per_m: null
   });
   assert.equal(modelRowMeta(unknown), "? ctx · ?/M in");
-  assert.equal(modelTooltipDetail(unknown), "Provider · ? ctx · ?/M in · ?/M out");
+  // The tooltip carries name, provider, context, and both prices (U5 spec §4).
+  assert.equal(
+    modelTooltipDetail(unknown),
+    "Model · Provider · ? ctx · ?/M in · ?/M out"
+  );
   const known = entry("p", "Provider", "m", "Model");
   assert.equal(modelRowMeta(known), "128k ctx · $3.00/M in");
-  assert.equal(modelTooltipDetail(known), "Provider · 128k ctx · $3.00/M in · $15.00/M out");
+  assert.equal(
+    modelTooltipDetail(known),
+    "Model · Provider · 128k ctx · $3.00/M in · $15.00/M out"
+  );
 });
 
 test("every option carries the data the row and the tooltip need", () => {
   const option = groupModels(CATALOG, "").flatMap((group) => group.options)[0];
   assert.equal(option.label, "Claude 3.5 Haiku");
   assert.equal(option.meta, "128k ctx · $3.00/M in");
-  assert.equal(option.detail, "Anthropic · 128k ctx · $3.00/M in · $15.00/M out");
+  assert.equal(
+    option.detail,
+    "Claude 3.5 Haiku · Anthropic · 128k ctx · $3.00/M in · $15.00/M out"
+  );
   // The empty state must not pretend a catalog exists.
   assert.equal(EMPTY_CATALOG_LABEL.includes("Start the sidecar"), true);
   assert.equal(NO_MATCH_LABEL, "No models match.");

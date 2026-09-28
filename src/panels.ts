@@ -212,7 +212,10 @@ export function foldMirrorEvent(
   session: string,
   event: { type: string; text?: string; error?: { message: string } }
 ): MirrorTurn[] {
-  return boundMirrorTurns(foldMirrorEventOnce(turns, session, event));
+  const folded = foldMirrorEventOnce(turns, session, event);
+  // An event that changes nothing returns the ledger unchanged — identity
+  // included, so a no-op stream cannot churn the render or the ledger.
+  return folded === turns ? turns : boundMirrorTurns(folded);
 }
 
 function foldMirrorEventOnce(

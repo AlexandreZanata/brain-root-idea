@@ -19,7 +19,10 @@ function blockProps(selector) {
   const match = theme.match(pattern);
   assert.ok(match, `expected ${selector} block in theme.css`);
   const props = new Map();
-  for (const [, name, value] of match[1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
+  // Declarations only: a `--name:` mention inside a comment is not a token
+  // (the [AA] deviation notes name tokens with colons of their own).
+  const declarations = match[1].replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const [, name, value] of declarations.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
     props.set(name.trim(), value.replace(/\s+/g, " ").trim());
   }
   return props;
@@ -477,6 +480,9 @@ test("defines the semantic scale once with exact TARGET values", () => {
 });
 
 test("both themes resolve the full palette contract to opaque hex colors", () => {
+  // Roles that map to the pin's alpha ramps keep their translucency (frozen
+  // below); every other role must be fully opaque.
+  const ALPHA_ROLES = new Set(["--surface-hover", "--border", "--border-strong"]);
   const palette = [
     "--bg",
     "--surface",
@@ -503,12 +509,25 @@ test("both themes resolve the full palette contract to opaque hex colors", () =>
     ]) {
       const value = resolve(name);
       assert.match(value ?? "", HEX, `${name} must resolve to hex in ${themeName}`);
+      if (ALPHA_ROLES.has(name)) {
+        // The pin's alpha family — overlay and border ramps — is translucent
+        // by design; its exact values are frozen below, so parity is still
+        // enforced without a false opacity rule.
+        continue;
+      }
       assert.ok(
         !value || value.length === 7 || value.slice(7) === "ff",
         `${name} must resolve opaque in ${themeName} (got ${value})`
       );
     }
   }
+  // The pin's alpha ramps, frozen exactly (dark / light).
+  assert.equal(resolveDark("--surface-hover"), "#ffffff0f");
+  assert.equal(resolveLight("--surface-hover"), "#0000000a");
+  assert.equal(resolveDark("--border"), "#ffffff1a");
+  assert.equal(resolveLight("--border"), "#0000001a");
+  assert.equal(resolveDark("--border-strong"), "#ffffff33");
+  assert.equal(resolveLight("--border-strong"), "#00000033");
   // The roles the product reads are the pin's semantics, not local literals.
   assert.equal(root.get("--bg"), "var(--v2-background-bg-base)");
   assert.equal(root.get("--surface"), "var(--v2-background-bg-layer-01)");
@@ -560,7 +579,8 @@ test("text pairs meet WCAG AA 4.5 in both themes", () => {
   ];
   for (const [themeName, foreground, background] of pairs) {
     const resolve = themeName === "dark" ? resolveDark : resolveLight;
-    const ratio = contrastRatio(resolve(foreground).slice(1, 7), resolve(background).slice(1, 7));
+    // slice(0, 7) keeps the `#`: luminance indexes channels at 1/3/5.
+    const ratio = contrastRatio(resolve(foreground).slice(0, 7), resolve(background).slice(0, 7));
     assert.ok(
       ratio >= 4.5,
       `${themeName} ${foreground}/${background} ratio ${ratio.toFixed(2)} < 4.5`
@@ -579,7 +599,8 @@ test("key non-text signals meet WCAG 3.0 (border contrast stays a recorded gap)"
   ];
   for (const [themeName, foreground, background] of pairs) {
     const resolve = themeName === "dark" ? resolveDark : resolveLight;
-    const ratio = contrastRatio(resolve(foreground).slice(1, 7), resolve(background).slice(1, 7));
+    // slice(0, 7) keeps the `#`: luminance indexes channels at 1/3/5.
+    const ratio = contrastRatio(resolve(foreground).slice(0, 7), resolve(background).slice(0, 7));
     assert.ok(
       ratio >= 3.0,
       `${themeName} ${foreground}/${background} ratio ${ratio.toFixed(2)} < 3.0`

@@ -4,7 +4,7 @@
    * shape — a 284 px layer with a 28 px search row, a hairline divider, sticky
    * provider labels, name-sorted groups, and the pin's search matcher.
    *
-   * It replaces the native `<select>` this file used to render, so the undefined
+   * It replaces the native select element this file used to render, so the undefined
    * `--radius` that U2 and U4 both flagged is gone with the element rather than
    * patched around. What the pin has and this does not is recorded in
    * `docs/specs/b20-opencode-parity-u05.md`: provider icons (a 282 kB sprite),
