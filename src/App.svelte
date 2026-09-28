@@ -47,12 +47,29 @@
   } from "./agentHost";
   import { acceptsEvent, taskStatus } from "./presentation";
   import { createStreamBuffer } from "./streamBuffer";
+  import {
+    DIALOG_CHAIN_CLOSED,
+    appCommands,
+    closeDialog,
+    openDialog,
+    restoreFocus,
+    sessionEntries,
+    type DialogChain,
+    type DialogKind,
+    type FocusTarget,
+    type SettingsData
+  } from "./dialogs";
+  import { adjacentTabId } from "./tabOrder";
   import AppHeader from "./lib/AppHeader.svelte";
   import Button from "./lib/Button.svelte";
   import CanvasPanel from "./lib/CanvasPanel.svelte";
+  import CommandPalette from "./lib/CommandPalette.svelte";
   import ConversationPanel from "./lib/ConversationPanel.svelte";
+  import ErrorScreen from "./lib/ErrorScreen.svelte";
+  import HomeView from "./lib/HomeView.svelte";
   import PanelResizer from "./lib/PanelResizer.svelte";
   import SessionTabs from "./lib/SessionTabs.svelte";
+  import SettingsDialog from "./lib/SettingsDialog.svelte";
   import WorkspaceRail from "./lib/WorkspaceRail.svelte";
 
   type HealthState = "checking" | "ready" | "failed";
@@ -642,7 +659,143 @@
     }
     return "";
   }
+
+  // B20-U6: one dialog slot plus the invoker that started the chain, so a
+  // palette → settings handoff still returns focus to the control pressed
+  // first. The chain is raw state because it holds a DOM element.
+  let dialogChain = $state.raw<DialogChain>(DIALOG_CHAIN_CLOSED);
+
+  let paletteCommands = $derived(appCommands(hostPhase === "running"));
+  let paletteSessions = $derived(
+    sessionEntries(tabs.map((tab) => ({ id: tab.id, title: tab.title, turnCount: tab.turns.length })))
+  );
+  let selectedModelLabel = $derived.by(() => {
+    const selected = selectedModel;
+    if (!selected) {
+      return null;
+    }
+    const entry = hostModels.find(
+      (candidate) =>
+        candidate.provider_id === selected.provider_id && candidate.model_id === selected.model_id
+    );
+    return entry?.model_name ?? `${selected.provider_id}/${selected.model_id}`;
+  });
+  let settingsData: SettingsData = $derived({
+    theme,
+    credentialStatus: credentialStatus ?? "unavailable",
+    credentialMessage: setupMessage ?? "The key is in the system credential store.",
+    hostRunning: hostPhase === "running",
+    hostPort: hostStatus?.port ?? null,
+    hostVersion: hostStatus?.version ?? null,
+    modelCount: hostModels.length,
+    selectedModel: selectedModelLabel,
+    modelsStale: staleModels
+  });
+  let failure = $derived(
+    hostPhase === "failed"
+      ? {
+          title: "Sidecar failed to start",
+          description: "The sidecar could not be started.",
+          technical: hostDetail || "No further detail."
+        }
+      : null
+  );
+
+  function showSurface(kind: DialogKind, invoker: FocusTarget | null) {
+    dialogChain = openDialog(dialogChain, kind, invoker);
+  }
+
+  function hideSurface() {
+    const result = closeDialog(dialogChain);
+    dialogChain = result.chain;
+    // A modal dialog keeps the rest of the document inert until it unmounts,
+    // so a synchronous focus() on the invoker would be ignored. One frame
+    // later the surface is gone — the same next-frame timing the palette uses
+    // for its scroll.
+    requestAnimationFrame(() => restoreFocus(result.restore));
+  }
+
+  function runCommand(id: string) {
+    if (id.startsWith("session:")) {
+      const tabId = Number(id.slice("session:".length));
+      hideSurface();
+      if (Number.isFinite(tabId)) {
+        selectTab(tabId);
+      }
+      return;
+    }
+    switch (id) {
+      case "home.open":
+      case "settings.open":
+        // A handoff keeps the root invoker, so closing the new surface still
+        // returns focus to whatever opened the palette.
+        dialogChain = openDialog(
+          dialogChain,
+          id === "home.open" ? "home" : "settings",
+          dialogChain.rootInvoker
+        );
+        return;
+      case "session.new":
+        hideSurface();
+        newTab();
+        return;
+      case "session.next":
+      case "session.previous": {
+        const next = adjacentTabId(
+          tabs.map((tab) => tab.id),
+          activeTabId,
+          id === "session.next" ? 1 : -1
+        );
+        hideSurface();
+        if (next !== undefined) {
+          selectTab(next);
+        }
+        return;
+      }
+      case "layout.swap":
+        hideSurface();
+        toggleSides();
+        return;
+      case "theme.toggle":
+        hideSurface();
+        toggleTheme();
+        return;
+      case "host.start":
+        hideSurface();
+        startHost();
+        return;
+      case "host.stop":
+        hideSurface();
+        stopHost();
+        return;
+      default:
+        hideSurface();
+    }
+  }
+
+  /** The pin's `DEFAULT_PALETTE_KEYBIND`: mod+k and mod+shift+p. */
+  function onGlobalKeydown(event: KeyboardEvent) {
+    const key = event.key.toLowerCase();
+    const chord =
+      (event.ctrlKey && !event.altKey && key === "k" && !event.shiftKey) ||
+      (event.ctrlKey && !event.altKey && key === "p" && event.shiftKey);
+    if (!chord) {
+      return;
+    }
+    if (dialogChain.open === "palette") {
+      event.preventDefault();
+      hideSurface();
+      return;
+    }
+    if (dialogChain.open !== null) {
+      return;
+    }
+    event.preventDefault();
+    showSurface("palette", document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  }
 </script>
+
+<svelte:window onkeydown={onGlobalKeydown} />
 
 <main class="app">
   <AppHeader {healthState} {detail} {theme} ontoggle={toggleTheme} />
@@ -664,8 +817,26 @@
       {:else if hostPhase === "stopped" || hostPhase === "failed"}
         <Button variant="secondary" onclick={startHost}>Start</Button>
       {/if}
+      {#if hostPhase === "failed"}
+        <Button
+          variant="secondary"
+          onclick={(event) => showSurface("error", event.currentTarget as HTMLElement)}>Details</Button
+        >
+      {/if}
     </div>
     <Button variant="secondary" onclick={toggleSides}>Swap sides</Button>
+    <Button
+      variant="secondary"
+      onclick={(event) => showSurface("palette", event.currentTarget as HTMLElement)}>Commands</Button
+    >
+    <Button
+      variant="secondary"
+      onclick={(event) => showSurface("home", event.currentTarget as HTMLElement)}>Home</Button
+    >
+    <Button
+      variant="secondary"
+      onclick={(event) => showSurface("settings", event.currentTarget as HTMLElement)}>Settings</Button
+    >
     <p class="workspace-side-note" role="status">{sideNote}</p>
   </div>
   <div class="workspace" class:canvas-left={canvasOnLeft} style="--agent-width: {clampedAgentWidth}px">
@@ -695,6 +866,46 @@
     <PanelResizer bind:value={agentWidth} min={280} max={560} step={8} />
     <CanvasPanel />
   </div>
+
+  {#if dialogChain.open === "palette"}
+    <CommandPalette
+      commands={paletteCommands}
+      sessions={paletteSessions}
+      onrun={runCommand}
+      onclose={hideSurface}
+    />
+  {:else if dialogChain.open === "settings"}
+    <SettingsDialog data={settingsData} ontoggletheme={toggleTheme} onclose={hideSurface} />
+  {:else if dialogChain.open === "error" && failure}
+    <ErrorScreen
+      title={failure.title}
+      description={failure.description}
+      technical={failure.technical}
+      canStart={hostPhase === "failed"}
+      onstart={() => {
+        hideSurface();
+        startHost();
+      }}
+      onclose={hideSurface}
+    />
+  {:else if dialogChain.open === "home"}
+    <HomeView
+      sessions={tabs.map((tab) => ({
+        id: tab.id,
+        title: tab.title,
+        turnCount: tab.turns.length
+      }))}
+      onnew={() => {
+        hideSurface();
+        newTab();
+      }}
+      onselect={(id) => {
+        hideSurface();
+        selectTab(id);
+      }}
+      onclose={hideSurface}
+    />
+  {/if}
 </main>
 
 <style>
