@@ -368,6 +368,21 @@ export function modelDetail(entry: CatalogModel): string {
   return `${entry.model_name} · ${entry.provider_name} · ${formatContext(entry.context_length)} · ${formatPrice(entry.prompt_usd_per_m)} in`;
 }
 
+/// B20-U5: the muted second half of a model row — context and input price,
+/// with the existing unknown markers instead of a guessed number. The provider
+/// is not repeated here because the picker already labels its groups with it.
+export function modelRowMeta(entry: CatalogModel): string {
+  return `${formatContext(entry.context_length)} · ${formatPrice(entry.prompt_usd_per_m)} in`;
+}
+
+/// B20-U5: the detail a row describes itself with. It is `modelDetail` plus the
+/// output price, because those are the only model fields the catalog carries;
+/// the pinned tooltip's input modalities, reasoning verdict, and latest/free
+/// tags have no source here and are not invented.
+export function modelTooltipDetail(entry: CatalogModel): string {
+  return `${modelDetail(entry)} · ${formatPrice(entry.completion_usd_per_m)} out`;
+}
+
 export type TurnCost = {
   session: string;
   input: number;

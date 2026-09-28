@@ -18,7 +18,9 @@
     | "plus"
     | "arrow-up"
     | "stop"
-    | "chevron-down";
+    | "chevron-down"
+    | "magnifier"
+    | "close";
 </script>
 
 <script lang="ts">
@@ -62,6 +64,10 @@
     <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="7" y="7" width="10" height="10" rx="1.5" /></svg>
   {:else if name === "chevron-down"}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+  {:else if name === "magnifier"}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6" /><path d="m15.5 15.5 4 4" stroke-linecap="round" /></svg>
+  {:else if name === "close"}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m7 7 10 10M17 7 7 17" stroke-linecap="round" /></svg>
   {:else}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="7" height="7" rx="0" /><rect x="13" y="4" width="7" height="7" rx="0" /><rect x="4" y="13" width="7" height="7" rx="0" /><rect x="13" y="13" width="7" height="7" rx="0" /></svg>
   {/if}

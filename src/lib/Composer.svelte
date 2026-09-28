@@ -83,7 +83,7 @@
   let editor = $state<{ focus: () => void; focusEnd: () => void } | undefined>(undefined);
   let editorWrap = $state<HTMLDivElement | undefined>(undefined);
   let popoverEl = $state<HTMLDivElement | undefined>(undefined);
-  let modelWrap = $state<HTMLDivElement | undefined>(undefined);
+  let modelPicker = $state<{ openPicker: () => void } | undefined>(undefined);
   let searchField = $state<HTMLInputElement | undefined>(undefined);
   let popover = $state<ComposerPopover>(POPOVER_CLOSED);
   let openMenu = $state<MenuKind | null>(null);
@@ -189,17 +189,9 @@
     editor?.focusEnd();
   }
 
+  /** U5: `/model` now opens the picker itself instead of moving focus to a select. */
   function focusModel() {
-    const control = modelWrap?.querySelector("select");
-    if (!control) {
-      return;
-    }
-    control.focus();
-    try {
-      control.showPicker?.();
-    } catch {
-      // Focus already moved, which is the part that always works.
-    }
+    modelPicker?.openPicker();
   }
 
   function runCommand(command: ComposerCommand) {
@@ -488,15 +480,15 @@
       {/if}
     </div>
 
-    <div class="model-control" bind:this={modelWrap}>
+    <div class="model-control">
       <ModelPicker
+        bind:this={modelPicker}
         {models}
         selected={selectedModel}
         stale={staleModels}
         inactive={modelInactive}
         onselect={onselectmodel}
       />
-      <span class="model-chevron" aria-hidden="true"><Icon name="chevron-down" size="sm" /></span>
     </div>
 
     <span class="status">{statusLabel}</span>
@@ -638,58 +630,14 @@
     color: var(--text-muted);
   }
 
+  /* U5 owns the model control's own trigger and popover shape; the composer
+     only caps how much of the row it may take. */
   .model-control {
     position: relative;
     display: flex;
     align-items: center;
     min-width: 0;
     max-width: 140px;
-  }
-
-  /* U5 replaces this native control with the searchable v2 selector. Until
-     then the composer styles its own model control into the pinned trigger
-     geometry rather than editing ModelPicker.svelte, which belongs to U5. */
-  .model-control :global(select) {
-    appearance: none;
-    width: 100%;
-    max-width: 140px;
-    min-width: 0;
-    height: 28px;
-    padding: 0 20px 0 8px;
-    border: 0;
-    border-radius: var(--radius-control);
-    background: transparent;
-    color: var(--text);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 440;
-    line-height: 20px;
-    text-overflow: ellipsis;
-  }
-
-  /* ModelPicker's empty-catalog chip sits in the same slot as its select, so it
-     takes the same trigger geometry instead of its default boxed chip. */
-  .model-control :global(.br-chip) {
-    display: inline-flex;
-    align-items: center;
-    height: 28px;
-    max-width: 140px;
-    padding: 0 20px 0 8px;
-    border: 0;
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 13px;
-    font-weight: 440;
-    line-height: 20px;
-    white-space: nowrap;
-  }
-
-  .model-chevron {
-    position: absolute;
-    right: 4px;
-    display: inline-flex;
-    color: var(--text);
-    pointer-events: none;
   }
 
   .status {
