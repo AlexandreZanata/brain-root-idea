@@ -23,6 +23,7 @@
     governorTitle,
     hostLabel,
     isAgentEventEnvelope,
+    isAgentTurnEvent,
     requestGovernorStatus,
     requestHostCancelSend,
     requestHostCatalog,
@@ -524,6 +525,12 @@
       return;
     }
     if (sendPath !== "agent" || envelope.event.session !== agentSession) {
+      return;
+    }
+    // Contract v2 carries reasoning, tool, file, and divider parts that no
+    // surface renders yet (U3 owns that). They are ignored deliberately here
+    // rather than half-handled: the turn lifecycle below stays unchanged.
+    if (!isAgentTurnEvent(envelope.event)) {
       return;
     }
     if (!acceptsEvent(conversationState, envelope.event.type)) {

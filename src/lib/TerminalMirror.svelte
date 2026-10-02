@@ -18,7 +18,8 @@
   import EmptyState from "./EmptyState.svelte";
   import {
     AGENT_EVENT_NAME,
-    isAgentEventEnvelope
+    isAgentEventEnvelope,
+    isAgentTurnEvent
   } from "../agentHost";
   import { isConversationEnvelope } from "../conversation";
   import {
@@ -39,6 +40,11 @@
         unlistens.push(
           await listen<unknown>(AGENT_EVENT_NAME, ({ payload }) => {
             if (!isAgentEventEnvelope(payload)) {
+              return;
+            }
+            // The mirror ledger folds turn text only; v2 non-text parts are
+            // contract-complete but belong to the timeline (U3), not here.
+            if (!isAgentTurnEvent(payload.event)) {
               return;
             }
             turns = foldMirrorEvent(turns, payload.event.session, payload.event);

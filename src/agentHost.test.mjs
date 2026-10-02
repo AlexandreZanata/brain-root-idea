@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  FILE_EVENT_STATUSES,
+  MAX_FILE_PATH_CHARS,
+  MAX_REASONING_DELTA_CHARS,
+  MAX_TOOL_FIELD_CHARS,
+  TOOL_EVENT_PHASES,
   chooseSendPath,
   formatContext,
   formatPrice,
@@ -74,29 +79,145 @@ test("send path follows the sidecar", () => {
 
 test("agent envelopes are shape-checked", () => {
   assert.equal(isAgentEventEnvelope(null), false);
-  assert.equal(isAgentEventEnvelope({ contractVersion: 2, event: { type: "started", session: "ses_1" } }), false);
+  assert.equal(isAgentEventEnvelope({ contractVersion: 3, event: { type: "started", session: "ses_1" } }), false);
   assert.equal(
-    isAgentEventEnvelope({ contractVersion: 1, event: { type: "started", session: "ses_1" } }),
+    isAgentEventEnvelope({ contractVersion: 2, event: { type: "started", session: "ses_1" } }),
     true
   );
   assert.equal(
-    isAgentEventEnvelope({ contractVersion: 1, event: { type: "text_chunk", session: "ses_1", text: "hi" } }),
+    isAgentEventEnvelope({ contractVersion: 2, event: { type: "text_chunk", session: "ses_1", text: "hi" } }),
     true
   );
   assert.equal(
-    isAgentEventEnvelope({ contractVersion: 1, event: { type: "text_chunk", session: "ses_1" } }),
+    isAgentEventEnvelope({ contractVersion: 2, event: { type: "text_chunk", session: "ses_1" } }),
     false
   );
   assert.equal(
     isAgentEventEnvelope({
-      contractVersion: 1,
+      contractVersion: 2,
       event: { type: "failed", session: "ses_1", error: { code: "x", message: "y" } }
     }),
     true
   );
   assert.equal(
-    isAgentEventEnvelope({ contractVersion: 1, event: { type: "bogus", session: "ses_1" } }),
+    isAgentEventEnvelope({ contractVersion: 2, event: { type: "bogus", session: "ses_1" } }),
     false
+  );
+});
+
+test("a version-1 envelope is rejected by the v2 validator (B20-U3a-T05)", () => {
+  assert.equal(
+    isAgentEventEnvelope({ contractVersion: 1, event: { type: "started", session: "ses_1" } }),
+    false
+  );
+  assert.equal(
+    isAgentEventEnvelope({
+      contractVersion: 1,
+      event: { type: "reasoning_delta", session: "ses_1", text: "x" }
+    }),
+    false
+  );
+});
+
+test("v2 non-text variants validate and reject malformed shapes (B20-U3a-T01, T04)", () => {
+  const session = "ses_1";
+  const tool = {
+    type: "tool_event",
+    session,
+    phase: "success",
+    tool_id: "prt_1",
+    name: "bash",
+    state: "completed",
+    input: '{"command":"ls"}',
+    output: "ok",
+    error: null,
+    title: null
+  };
+  assert.equal(isAgentEventEnvelope({ contractVersion: 2, event: tool }), true);
+  // Every phase the core can emit is accepted; an unknown phase is not.
+  for (const phase of TOOL_EVENT_PHASES) {
+    assert.equal(isAgentEventEnvelope({ contractVersion: 2, event: { ...tool, phase } }), true);
+  }
+  assert.equal(isAgentEventEnvelope({ contractVersion: 2, event: { ...tool, phase: "teleported" } }), false);
+  // A missing field is rejected, not default-filled.
+  const { output: _dropped, ...withoutOutput } = tool;
+  assert.equal(isAgentEventEnvelope({ contractVersion: 2, event: withoutOutput }), false);
+
+  assert.equal(
+    isAgentEventEnvelope({ contractVersion: 2, event: { type: "reasoning_delta", session, text: "hmm" } }),
+    true
+  );
+  assert.equal(
+    isAgentEventEnvelope({ contractVersion: 2, event: { type: "reasoning_delta", session } }),
+    false
+  );
+
+  assert.equal(
+    isAgentEventEnvelope({
+      contractVersion: 2,
+      event: { type: "file_event", session, path: "src/a.rs", mime: "", status: "modified" }
+    }),
+    true
+  );
+  assert.equal(
+    isAgentEventEnvelope({
+      contractVersion: 2,
+      event: { type: "file_event", session, path: "src/a.rs", mime: "", status: "renamed" }
+    }),
+    false
+  );
+
+  assert.equal(
+    isAgentEventEnvelope({ contractVersion: 2, event: { type: "turn_divider", session, reason: "compaction" } }),
+    true
+  );
+  assert.equal(
+    isAgentEventEnvelope({ contractVersion: 2, event: { type: "turn_divider", session, reason: "" } }),
+    false
+  );
+});
+
+test("v2 field bounds are enforced on the frontend too (B20-U3a-T03)", () => {
+  const session = "ses_1";
+  const oversized = "x".repeat(MAX_TOOL_FIELD_CHARS + 1);
+  assert.equal(
+    isAgentEventEnvelope({
+      contractVersion: 2,
+      event: {
+        type: "tool_event",
+        session,
+        phase: "success",
+        tool_id: "prt_1",
+        name: "bash",
+        state: "completed",
+        input: "{}",
+        output: oversized,
+        error: null,
+        title: null
+      }
+    }),
+    false
+  );
+  assert.equal(
+    isAgentEventEnvelope({
+      contractVersion: 2,
+      event: { type: "file_event", session, path: "p".repeat(MAX_FILE_PATH_CHARS + 1), mime: "", status: "added" }
+    }),
+    false
+  );
+  assert.equal(
+    isAgentEventEnvelope({
+      contractVersion: 2,
+      event: { type: "reasoning_delta", session, text: "r".repeat(MAX_REASONING_DELTA_CHARS + 1) }
+    }),
+    false
+  );
+  assert.equal(
+    isAgentEventEnvelope({
+      contractVersion: 2,
+      event: { type: "reasoning_delta", session, text: "r".repeat(MAX_REASONING_DELTA_CHARS) }
+    }),
+    true
   );
 });
 

@@ -10,14 +10,63 @@ export type AgentHostStatus = {
 export type HostPhase = "checking" | "stopped" | "starting" | "running" | "failed";
 
 export const AGENT_EVENT_NAME = "agent_event";
-export const AGENT_CONTRACT_VERSION = 1;
+/** Version 2 adds the non-text parts (ADR 0017). Strict equality both ways. */
+export const AGENT_CONTRACT_VERSION = 2;
+
+export type ToolEventPhase = "called" | "progress" | "success" | "failed";
+export type FileEventStatus = "added" | "modified" | "deleted" | "unknown";
 
 export type AgentStreamEvent =
   | { type: "started"; session: string }
   | { type: "text_chunk"; session: string; text: string }
+  | { type: "reasoning_delta"; session: string; text: string }
+  | {
+      type: "tool_event";
+      session: string;
+      phase: ToolEventPhase;
+      tool_id: string;
+      name: string;
+      state: string;
+      input: string;
+      output: string | null;
+      error: string | null;
+      title: string | null;
+    }
+  | { type: "file_event"; session: string; path: string; mime: string; status: FileEventStatus }
+  | { type: "turn_divider"; session: string; reason: string }
   | { type: "completed"; session: string }
   | { type: "cancelled"; session: string }
   | { type: "failed"; session: string; error: { code: string; message: string } };
+
+/**
+ * The variants the current conversation pipeline consumes. The v2 non-text
+ * parts are contract-complete but not rendered yet — U3 owns that surface, so
+ * consumers narrow explicitly instead of half-handling them.
+ */
+export type AgentTurnEvent = Extract<
+  AgentStreamEvent,
+  { type: "started" | "text_chunk" | "completed" | "cancelled" | "failed" }
+>;
+
+export function isAgentTurnEvent(event: AgentStreamEvent): event is AgentTurnEvent {
+  switch (event.type) {
+    case "started":
+    case "text_chunk":
+    case "completed":
+    case "cancelled":
+    case "failed":
+      return true;
+    default:
+      return false;
+  }
+}
+
+/** Mirrors the core's per-field bounds; a longer value is a contract breach. */
+export const MAX_TOOL_FIELD_CHARS = 8 * 1024;
+export const MAX_FILE_PATH_CHARS = 2 * 1024;
+export const MAX_REASONING_DELTA_CHARS = 64 * 1024;
+export const TOOL_EVENT_PHASES: ToolEventPhase[] = ["called", "progress", "success", "failed"];
+export const FILE_EVENT_STATUSES: FileEventStatus[] = ["added", "modified", "deleted", "unknown"];
 
 export type AgentEventEnvelope = {
   contractVersion: number;
@@ -28,6 +77,14 @@ export type AgentSendAccepted = {
   contract_version: number;
   session: string;
 };
+
+function boundedString(value: unknown, max: number): boolean {
+  return typeof value === "string" && value.length <= max;
+}
+
+function nullableBoundedString(value: unknown, max: number): boolean {
+  return value === null || boundedString(value, max);
+}
 
 export type SendPath = "agent" | "legacy";
 
@@ -54,6 +111,27 @@ export function isAgentEventEnvelope(value: unknown): value is AgentEventEnvelop
       return true;
     case "text_chunk":
       return typeof event.text === "string";
+    case "reasoning_delta":
+      return typeof event.text === "string" && event.text.length <= MAX_REASONING_DELTA_CHARS;
+    case "tool_event":
+      return (
+        TOOL_EVENT_PHASES.includes(event.phase as ToolEventPhase) &&
+        boundedString(event.tool_id, 200) &&
+        boundedString(event.name, 200) &&
+        typeof event.state === "string" &&
+        boundedString(event.input, MAX_TOOL_FIELD_CHARS) &&
+        nullableBoundedString(event.output, MAX_TOOL_FIELD_CHARS) &&
+        nullableBoundedString(event.error, MAX_TOOL_FIELD_CHARS) &&
+        nullableBoundedString(event.title, 200)
+      );
+    case "file_event":
+      return (
+        boundedString(event.path, MAX_FILE_PATH_CHARS) &&
+        typeof event.mime === "string" &&
+        FILE_EVENT_STATUSES.includes(event.status as FileEventStatus)
+      );
+    case "turn_divider":
+      return typeof event.reason === "string" && event.reason.length > 0;
     case "failed":
       return (
         typeof event.error === "object" &&

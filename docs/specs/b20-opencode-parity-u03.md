@@ -108,6 +108,8 @@ The contract extension is filed as its own issue against this batch, because it 
 
 Until then, U3 stays stopped. The `0.0.16` version, the batch budget, and the surfaces owned by U1 and U2 are unaffected: no file outside this spec changed.
 
+**Update (2026-10-02, batch B21):** the contract extension landed as `AGENT_CONTRACT_VERSION = 2` with `reasoning_delta`, `tool_event`, `file_event`, and `turn_divider` variants ([ADR 0017](../adr/0017-agent-event-contract-v2.md), [`b21-agent-event-contract.md`](b21-agent-event-contract.md)). U3 can be re-opened against real data; the `Retry`, `CommentStrip`, and `session.next.*`-only rows remain named non-goals in that spec.
+
 ## 7. What is verified today
 
 Nothing about the timeline is implemented, so nothing is claimed. The three populatable rows (`UserMessage`, `TurnGap`, `Error`) already render in `Turn.svelte` from the B19 work and were not touched.
