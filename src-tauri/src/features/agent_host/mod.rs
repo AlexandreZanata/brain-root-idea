@@ -29,10 +29,25 @@ const MAX_MODELS: usize = 500;
 const MAX_NAME_CHARS: usize = 200;
 /// Product event name for sidecar session streams. Frontend filters by session.
 pub const AGENT_EVENT_NAME: &str = "agent_event";
-pub const AGENT_CONTRACT_VERSION: u32 = 1;
+/// Version 2 adds the non-text part events the session timeline needs
+/// (reasoning, tool, file, turn divider). See ADR 0017 and
+/// `docs/specs/b21-agent-event-contract.md`.
+pub const AGENT_CONTRACT_VERSION: u32 = 2;
 /// Bounds one streamed text delta and one full send. The sidecar is untrusted.
 const MAX_DELTA_CHARS: usize = 64 * 1024;
 const MAX_SEND_CHARS: usize = 2 * 1024 * 1024;
+/// Per-field bounds for the v2 non-text parts. Truncation, never rejection:
+/// a dropped frame would silently lose a tool's terminal state.
+const MAX_TOOL_FIELD_CHARS: usize = 8 * 1024;
+const MAX_FILE_PATH_CHARS: usize = 2 * 1024;
+const MAX_MIME_CHARS: usize = 200;
+const MAX_FILE_ENTRIES: usize = 64;
+/// Per-turn ceilings, enforced in the worker like `MAX_SEND_CHARS`.
+const MAX_REASONING_CHARS_PER_TURN: usize = 256 * 1024;
+const MAX_PART_EVENTS_PER_TURN: usize = 512;
+/// Reasoning part ids remembered per turn, to attribute deltas to the part
+/// type that `message.part.updated` declared (ADR 0017).
+const MAX_TRACKED_PARTS: usize = 64;
 /// Stream calls may run long generations; cancel arrives via flag + abort.
 const STREAM_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 /// Minimal stable system prompt. Deliberately short and changed only on
@@ -99,6 +114,29 @@ struct ActiveSend {
     done: Arc<AtomicBool>,
 }
 
+/// One tool part as it crosses the boundary. `output`, `error`, and `title`
+/// are `None` when the sidecar did not send them — never default-filled.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ToolPartEvent {
+    pub phase: String,
+    pub tool_id: String,
+    pub name: String,
+    pub state: String,
+    pub input: String,
+    pub output: Option<String>,
+    pub error: Option<String>,
+    pub title: Option<String>,
+}
+
+/// One changed file as it crosses the boundary. `mime` is empty when the
+/// sidecar reported a path without one; `status` is `unknown` when absent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FilePartEvent {
+    pub path: String,
+    pub mime: String,
+    pub status: String,
+}
+
 /// Frontend-facing turn lifecycle. Versioned envelope below.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -109,6 +147,24 @@ pub enum AgentStreamEvent {
     TextChunk {
         session: String,
         text: String,
+    },
+    ReasoningDelta {
+        session: String,
+        text: String,
+    },
+    ToolEvent {
+        session: String,
+        #[serde(flatten)]
+        tool: ToolPartEvent,
+    },
+    FileEvent {
+        session: String,
+        #[serde(flatten)]
+        file: FilePartEvent,
+    },
+    TurnDivider {
+        session: String,
+        reason: String,
     },
     Completed {
         session: String,
@@ -477,11 +533,128 @@ fn session_id_of(body: &str) -> Result<String, NormalizedError> {
 enum FrameOutcome {
     Ignored,
     TextDelta(String),
+    ReasoningDelta(String),
+    Tool(ToolPartEvent),
+    Files(Vec<FilePartEvent>),
+    TurnDivider(String),
     Done,
     Failed(String),
 }
 
-fn classify_frame(session_id: &str, frame: &serde_json::Value) -> FrameOutcome {
+/// Reasoning part ids seen this turn. The pin's reducer only applies a delta
+/// to a part it already holds, and the part type is the sole discriminator
+/// between an answer delta and a reasoning delta — both arrive as
+/// `field: "text"` on `message.part.delta`.
+#[derive(Debug, Default)]
+struct PartIndex {
+    reasoning: std::collections::HashSet<String>,
+}
+
+impl PartIndex {
+    fn mark_reasoning(&mut self, part_id: &str) {
+        if self.reasoning.len() < MAX_TRACKED_PARTS {
+            self.reasoning.insert(part_id.to_string());
+        }
+    }
+
+    fn is_reasoning(&self, part_id: &str) -> bool {
+        self.reasoning.contains(part_id)
+    }
+}
+
+fn truncate_chars(value: &str, max: usize) -> String {
+    if value.chars().count() > max {
+        value.chars().take(max).collect()
+    } else {
+        value.to_string()
+    }
+}
+
+/// Bounded, plain-text view of a tool part's `input` record. Only the
+/// serialized form is forwarded; no nested map crosses the boundary.
+fn tool_input_text(part: &serde_json::Value) -> String {
+    let raw = part
+        .get("state")
+        .and_then(|state| state.get("input"))
+        .map(|input| input.to_string())
+        .unwrap_or_default();
+    truncate_chars(&raw, MAX_TOOL_FIELD_CHARS)
+}
+
+fn optional_text(value: Option<&serde_json::Value>, max: usize) -> Option<String> {
+    value
+        .and_then(|value| value.as_str())
+        .map(|text| truncate_chars(text, max))
+}
+
+/// Map one `tool` part onto the boundary shape. The phase is derived from the
+/// declared state status; a status we do not recognise is ignored rather than
+/// guessed.
+fn classify_tool_part(part: &serde_json::Value) -> Option<ToolPartEvent> {
+    let state = part.get("state")?;
+    let status = state.get("status").and_then(|value| value.as_str())?;
+    let phase = match status {
+        "pending" => "called",
+        "running" => "progress",
+        "completed" => "success",
+        "error" => "failed",
+        _ => return None,
+    };
+    Some(ToolPartEvent {
+        phase: phase.to_string(),
+        tool_id: truncate_chars(
+            part.get("id")
+                .and_then(|value| value.as_str())
+                .unwrap_or(""),
+            MAX_NAME_CHARS,
+        ),
+        name: truncate_chars(
+            part.get("tool")
+                .or_else(|| part.get("name"))
+                .and_then(|value| value.as_str())
+                .unwrap_or(""),
+            MAX_NAME_CHARS,
+        ),
+        state: status.to_string(),
+        input: tool_input_text(part),
+        output: optional_text(state.get("output"), MAX_TOOL_FIELD_CHARS),
+        error: optional_text(state.get("error"), MAX_TOOL_FIELD_CHARS),
+        title: optional_text(state.get("title"), MAX_NAME_CHARS),
+    })
+}
+
+/// One `session.diff` entry: `{file, additions, deletions, status}`.
+fn classify_diff_entries(container: &serde_json::Value) -> Vec<FilePartEvent> {
+    let Some(entries) = container.get("diff").and_then(|value| value.as_array()) else {
+        return Vec::new();
+    };
+    entries
+        .iter()
+        .take(MAX_FILE_ENTRIES)
+        .filter_map(|entry| {
+            let path = entry.get("file").and_then(|value| value.as_str())?;
+            if path.is_empty() {
+                return None;
+            }
+            Some(FilePartEvent {
+                path: truncate_chars(path, MAX_FILE_PATH_CHARS),
+                mime: String::new(),
+                status: entry
+                    .get("status")
+                    .and_then(|value| value.as_str())
+                    .filter(|status| matches!(*status, "added" | "modified" | "deleted"))
+                    .unwrap_or("unknown")
+                    .to_string(),
+            })
+        })
+        .collect()
+}
+
+fn classify_frame(
+    session_id: &str,
+    frame: &serde_json::Value,
+    index: &mut PartIndex,
+) -> FrameOutcome {
     let event_type = frame.get("type").and_then(|value| value.as_str());
     let container = frame.get("data").or_else(|| frame.get("properties"));
     let (Some(event_type), Some(container)) = (event_type, container) else {
@@ -503,15 +676,92 @@ fn classify_frame(session_id: &str, frame: &serde_json::Value) -> FrameOutcome {
             if !is_text {
                 return FrameOutcome::Ignored;
             }
+            let part_id = container
+                .get("partID")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            let reasoning = !part_id.is_empty() && index.is_reasoning(part_id);
             match container.get("delta").and_then(|value| value.as_str()) {
                 Some(delta) if !delta.is_empty() => {
-                    let mut text = delta.to_string();
-                    if text.chars().count() > MAX_DELTA_CHARS {
-                        text = text.chars().take(MAX_DELTA_CHARS).collect();
+                    let text = truncate_chars(delta, MAX_DELTA_CHARS);
+                    if reasoning {
+                        FrameOutcome::ReasoningDelta(text)
+                    } else {
+                        FrameOutcome::TextDelta(text)
                     }
-                    FrameOutcome::TextDelta(text)
                 }
                 _ => FrameOutcome::Ignored,
+            }
+        }
+        "message.part.updated" => {
+            let Some(part) = container.get("part") else {
+                return FrameOutcome::Ignored;
+            };
+            match part.get("type").and_then(|value| value.as_str()) {
+                Some("tool") => match classify_tool_part(part) {
+                    Some(tool) => FrameOutcome::Tool(tool),
+                    None => FrameOutcome::Ignored,
+                },
+                Some("reasoning") => {
+                    if let Some(part_id) = part.get("id").and_then(|value| value.as_str()) {
+                        index.mark_reasoning(part_id);
+                    }
+                    FrameOutcome::Ignored
+                }
+                Some("patch") => {
+                    let files = part
+                        .get("files")
+                        .and_then(|value| value.as_array())
+                        .map(|files| {
+                            files
+                                .iter()
+                                .take(MAX_FILE_ENTRIES)
+                                .filter_map(|value| value.as_str())
+                                .filter(|path| !path.is_empty())
+                                .map(|path| FilePartEvent {
+                                    path: truncate_chars(path, MAX_FILE_PATH_CHARS),
+                                    mime: String::new(),
+                                    status: "unknown".to_string(),
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    if files.is_empty() {
+                        FrameOutcome::Ignored
+                    } else {
+                        FrameOutcome::Files(files)
+                    }
+                }
+                Some("file") => {
+                    let path = part
+                        .get("filename")
+                        .or_else(|| part.get("url"))
+                        .and_then(|value| value.as_str())
+                        .filter(|path| !path.is_empty());
+                    match path {
+                        Some(path) => FrameOutcome::Files(vec![FilePartEvent {
+                            path: truncate_chars(path, MAX_FILE_PATH_CHARS),
+                            mime: truncate_chars(
+                                part.get("mime")
+                                    .and_then(|value| value.as_str())
+                                    .unwrap_or(""),
+                                MAX_MIME_CHARS,
+                            ),
+                            status: "unknown".to_string(),
+                        }]),
+                        None => FrameOutcome::Ignored,
+                    }
+                }
+                Some("compaction") => FrameOutcome::TurnDivider("compaction".to_string()),
+                _ => FrameOutcome::Ignored,
+            }
+        }
+        "session.diff" => {
+            let files = classify_diff_entries(container);
+            if files.is_empty() {
+                FrameOutcome::Ignored
+            } else {
+                FrameOutcome::Files(files)
             }
         }
         "session.idle" => FrameOutcome::Done,
@@ -620,6 +870,9 @@ fn run_send_worker(
 
     let reader = std::io::BufReader::new(response.into_body().into_reader());
     let mut streamed_chars = 0usize;
+    let mut reasoning_chars = 0usize;
+    let mut part_events = 0usize;
+    let mut index = PartIndex::default();
     for line in reader.lines() {
         if cancel.load(Ordering::SeqCst) {
             emit_event(
@@ -641,7 +894,7 @@ fn run_send_worker(
             Ok(frame) => frame,
             Err(_) => continue,
         };
-        match classify_frame(&session_id, &frame) {
+        match classify_frame(&session_id, &frame, &mut index) {
             FrameOutcome::Ignored => {}
             FrameOutcome::TextDelta(text) => {
                 streamed_chars += text.chars().count();
@@ -663,6 +916,86 @@ fn run_send_worker(
                     AgentStreamEvent::TextChunk {
                         session: session_id.clone(),
                         text,
+                    },
+                );
+            }
+            FrameOutcome::ReasoningDelta(text) => {
+                reasoning_chars += text.chars().count();
+                if reasoning_chars > MAX_REASONING_CHARS_PER_TURN {
+                    emit_event(
+                        &app,
+                        AgentStreamEvent::Failed {
+                            session: session_id.clone(),
+                            error: host_error(
+                                ErrorCode::ResponseTooLarge,
+                                "The sidecar reasoning exceeded the 256 KiB turn limit.",
+                            ),
+                        },
+                    );
+                    return;
+                }
+                emit_event(
+                    &app,
+                    AgentStreamEvent::ReasoningDelta {
+                        session: session_id.clone(),
+                        text,
+                    },
+                );
+            }
+            FrameOutcome::Tool(tool) => {
+                part_events += 1;
+                if part_events > MAX_PART_EVENTS_PER_TURN {
+                    emit_event(
+                        &app,
+                        AgentStreamEvent::Failed {
+                            session: session_id.clone(),
+                            error: host_error(
+                                ErrorCode::ResponseTooLarge,
+                                "The sidecar sent more than 512 tool or file events in one turn.",
+                            ),
+                        },
+                    );
+                    return;
+                }
+                emit_event(
+                    &app,
+                    AgentStreamEvent::ToolEvent {
+                        session: session_id.clone(),
+                        tool,
+                    },
+                );
+            }
+            FrameOutcome::Files(files) => {
+                part_events += files.len();
+                if part_events > MAX_PART_EVENTS_PER_TURN {
+                    emit_event(
+                        &app,
+                        AgentStreamEvent::Failed {
+                            session: session_id.clone(),
+                            error: host_error(
+                                ErrorCode::ResponseTooLarge,
+                                "The sidecar sent more than 512 tool or file events in one turn.",
+                            ),
+                        },
+                    );
+                    return;
+                }
+                for file in files {
+                    emit_event(
+                        &app,
+                        AgentStreamEvent::FileEvent {
+                            session: session_id.clone(),
+                            file,
+                        },
+                    );
+                }
+            }
+            FrameOutcome::TurnDivider(reason) => {
+                emit_event(
+                    &app,
+                    AgentStreamEvent::TurnDivider {
+                        session: session_id.clone(),
+                        reason,
                     },
                 );
             }
@@ -1491,7 +1824,14 @@ mod deferred {
     }
 
     fn frame(value: serde_json::Value) -> FrameOutcome {
-        classify_frame("ses_abc", &value)
+        let mut index = PartIndex::default();
+        classify_frame("ses_abc", &value, &mut index)
+    }
+
+    /// Same as `frame`, but keeps the part index across frames so reasoning
+    /// attribution can be exercised the way the worker does it.
+    fn frame_with(value: serde_json::Value, index: &mut PartIndex) -> FrameOutcome {
+        classify_frame("ses_abc", &value, index)
     }
 
     #[test]
@@ -1517,12 +1857,15 @@ mod deferred {
                      "partID": "prt_1", "field": "text", "delta": "hi"}
         });
         assert_eq!(frame(foreign), FrameOutcome::Ignored);
-        let reasoning = serde_json::json!({
+        // A `field: "reasoning"` frame is still ignored: the sidecar streams
+        // both kinds as `field: "text"`, and the part type is the only
+        // discriminator (ADR 0017).
+        let reasoning_field = serde_json::json!({
             "id": "evt_4", "type": "message.part.delta",
             "data": {"sessionID": "ses_abc", "messageID": "msg_1",
                      "partID": "prt_2", "field": "reasoning", "delta": "hmm"}
         });
-        assert_eq!(frame(reasoning), FrameOutcome::Ignored);
+        assert_eq!(frame(reasoning_field), FrameOutcome::Ignored);
         let unknown = serde_json::json!({"id": "evt_5", "type": "server.connected"});
         assert_eq!(frame(unknown), FrameOutcome::Ignored);
     }
@@ -1534,6 +1877,267 @@ mod deferred {
             "data": {"sessionID": "ses_abc", "message": "boom"}
         });
         assert_eq!(frame(error), FrameOutcome::Failed("boom".to_string()));
+    }
+
+    // B21-S01 (deferred case IDs B20-U3a-T01..T05): the v2 non-text parts.
+    // Written here, executed at the versioned release gate (ADR 0014).
+
+    #[test]
+    fn part_updated_marks_reasoning_then_attributes_its_delta() {
+        let mut index = PartIndex::default();
+        let updated = serde_json::json!({
+            "id": "evt_7", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": {
+                "id": "prt_r", "sessionID": "ses_abc", "messageID": "msg_1",
+                "type": "reasoning", "text": "", "time": {"start": 1}
+            }}
+        });
+        assert_eq!(frame_with(updated, &mut index), FrameOutcome::Ignored);
+        let delta = serde_json::json!({
+            "id": "evt_8", "type": "message.part.delta",
+            "properties": {"sessionID": "ses_abc", "messageID": "msg_1",
+                "partID": "prt_r", "field": "text", "delta": "thinking"}
+        });
+        assert_eq!(
+            frame_with(delta, &mut index),
+            FrameOutcome::ReasoningDelta("thinking".to_string())
+        );
+        // A text part keeps producing text chunks.
+        let text_delta = serde_json::json!({
+            "id": "evt_9", "type": "message.part.delta",
+            "properties": {"sessionID": "ses_abc", "messageID": "msg_1",
+                "partID": "prt_t", "field": "text", "delta": "answer"}
+        });
+        assert_eq!(
+            frame_with(text_delta, &mut index),
+            FrameOutcome::TextDelta("answer".to_string())
+        );
+    }
+
+    #[test]
+    fn tool_part_maps_every_state_without_inventing_fields() {
+        let running = serde_json::json!({
+            "id": "evt_10", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": {
+                "id": "prt_tool", "type": "tool", "tool": "bash", "callID": "call_1",
+                "state": {"status": "running", "input": {"command": "ls"}, "title": "ls"}
+            }}
+        });
+        match frame(running) {
+            FrameOutcome::Tool(tool) => {
+                assert_eq!(tool.phase, "progress");
+                assert_eq!(tool.name, "bash");
+                assert_eq!(tool.state, "running");
+                assert!(tool.input.contains("ls"));
+                assert_eq!(tool.output, None);
+                assert_eq!(tool.error, None);
+                assert_eq!(tool.title.as_deref(), Some("ls"));
+            }
+            other => panic!("expected a tool event, got {other:?}"),
+        }
+
+        let completed = serde_json::json!({
+            "id": "evt_11", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": {
+                "id": "prt_tool", "type": "tool", "tool": "read", "callID": "call_1",
+                "state": {"status": "completed", "input": {"path": "a.rs"},
+                    "output": "ok", "title": "read", "metadata": {"secret": "sk-x"}}
+            }}
+        });
+        match frame(completed) {
+            FrameOutcome::Tool(tool) => {
+                assert_eq!(tool.phase, "success");
+                assert_eq!(tool.output.as_deref(), Some("ok"));
+                // Arbitrary nested maps never cross the boundary.
+                let json = serde_json::to_string(&tool).unwrap();
+                assert!(!json.contains("sk-x"));
+                assert!(!json.contains("metadata"));
+            }
+            other => panic!("expected a tool event, got {other:?}"),
+        }
+
+        let failed = serde_json::json!({
+            "id": "evt_12", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": {
+                "id": "prt_tool", "type": "tool", "tool": "bash", "callID": "call_1",
+                "state": {"status": "error", "input": {}, "error": "exit 1"}
+            }}
+        });
+        match frame(failed) {
+            FrameOutcome::Tool(tool) => {
+                assert_eq!(tool.phase, "failed");
+                assert_eq!(tool.error.as_deref(), Some("exit 1"));
+            }
+            other => panic!("expected a tool event, got {other:?}"),
+        }
+
+        // An unknown status is ignored rather than guessed (T04).
+        let unknown = serde_json::json!({
+            "id": "evt_13", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": {
+                "id": "prt_tool", "type": "tool", "tool": "bash",
+                "state": {"status": "teleported", "input": {}}
+            }}
+        });
+        assert_eq!(frame(unknown), FrameOutcome::Ignored);
+        let malformed = serde_json::json!({
+            "id": "evt_14", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": "not-an-object"}
+        });
+        assert_eq!(frame(malformed), FrameOutcome::Ignored);
+    }
+
+    #[test]
+    fn session_diff_and_patch_parts_become_bounded_file_events() {
+        let diff = serde_json::json!({
+            "id": "evt_15", "type": "session.diff",
+            "properties": {"sessionID": "ses_abc", "diff": [
+                {"file": "src/a.rs", "additions": 3, "deletions": 1, "status": "modified"},
+                {"file": "src/b.rs", "additions": 0, "deletions": 0},
+                {"file": "", "additions": 0, "deletions": 0, "status": "added"}
+            ]}
+        });
+        match frame(diff) {
+            FrameOutcome::Files(files) => {
+                assert_eq!(files.len(), 2, "the empty path is dropped, not defaulted");
+                assert_eq!(files[0].path, "src/a.rs");
+                assert_eq!(files[0].status, "modified");
+                assert_eq!(files[0].mime, "");
+                assert_eq!(
+                    files[1].status, "unknown",
+                    "an absent status is not guessed"
+                );
+            }
+            other => panic!("expected file events, got {other:?}"),
+        }
+
+        let patch = serde_json::json!({
+            "id": "evt_16", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": {
+                "id": "prt_p", "type": "patch", "hash": "abc", "files": ["x.rs"]
+            }}
+        });
+        match frame(patch) {
+            FrameOutcome::Files(files) => {
+                assert_eq!(files.len(), 1);
+                assert_eq!(files[0].path, "x.rs");
+            }
+            other => panic!("expected file events, got {other:?}"),
+        }
+
+        let file_part = serde_json::json!({
+            "id": "evt_17", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": {
+                "id": "prt_f", "type": "file", "mime": "text/plain", "filename": "notes.txt"
+            }}
+        });
+        match frame(file_part) {
+            FrameOutcome::Files(files) => {
+                assert_eq!(files[0].path, "notes.txt");
+                assert_eq!(files[0].mime, "text/plain");
+                assert_eq!(files[0].status, "unknown");
+            }
+            other => panic!("expected file events, got {other:?}"),
+        }
+
+        // An empty diff list is not a file event (T04).
+        let empty = serde_json::json!({
+            "id": "evt_18", "type": "session.diff",
+            "properties": {"sessionID": "ses_abc", "diff": []}
+        });
+        assert_eq!(frame(empty), FrameOutcome::Ignored);
+        // A file part with neither filename nor url is ignored, not invented.
+        let unnamed = serde_json::json!({
+            "id": "evt_18b", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": {"id": "prt_f", "type": "file", "mime": "text/plain"}}
+        });
+        assert_eq!(frame(unnamed), FrameOutcome::Ignored);
+    }
+
+    #[test]
+    fn compaction_part_is_a_turn_divider() {
+        let compaction = serde_json::json!({
+            "id": "evt_19", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": {
+                "id": "prt_c", "type": "compaction", "auto": true
+            }}
+        });
+        assert_eq!(
+            frame(compaction),
+            FrameOutcome::TurnDivider("compaction".to_string())
+        );
+    }
+
+    #[test]
+    fn foreign_sessions_are_ignored_for_every_new_variant() {
+        for frame_value in [
+            serde_json::json!({"id": "e1", "type": "message.part.updated", "properties": {
+                "sessionID": "ses_other", "part": {"id": "p", "type": "tool", "tool": "bash",
+                "state": {"status": "running", "input": {}}}}}),
+            serde_json::json!({"id": "e2", "type": "session.diff", "properties": {
+                "sessionID": "ses_other", "diff": [{"file": "a.rs"}]}}),
+            serde_json::json!({"id": "e3", "type": "message.part.updated", "properties": {
+                "sessionID": "ses_other", "part": {"id": "p", "type": "compaction"}}}),
+        ] {
+            assert_eq!(frame(frame_value), FrameOutcome::Ignored);
+        }
+    }
+
+    #[test]
+    fn oversized_tool_and_file_fields_truncate_instead_of_rejecting() {
+        let huge = "x".repeat(MAX_TOOL_FIELD_CHARS + 500);
+        let tool = serde_json::json!({
+            "id": "evt_20", "type": "message.part.updated",
+            "properties": {"sessionID": "ses_abc", "part": {
+                "id": "prt_tool", "type": "tool", "tool": "bash",
+                "state": {"status": "completed", "input": {}, "output": huge, "title": "t"}
+            }}
+        });
+        match frame(tool) {
+            FrameOutcome::Tool(tool) => {
+                assert_eq!(tool.output.unwrap().chars().count(), MAX_TOOL_FIELD_CHARS);
+            }
+            other => panic!("expected a tool event, got {other:?}"),
+        }
+
+        let long_path = "p".repeat(MAX_FILE_PATH_CHARS + 10);
+        let diff = serde_json::json!({
+            "id": "evt_21", "type": "session.diff",
+            "properties": {"sessionID": "ses_abc", "diff": [{"file": long_path}]}
+        });
+        match frame(diff) {
+            FrameOutcome::Files(files) => {
+                assert_eq!(files[0].path.chars().count(), MAX_FILE_PATH_CHARS);
+            }
+            other => panic!("expected file events, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn contract_version_two_serializes_without_secret_shaped_fields() {
+        let tool = ToolPartEvent {
+            phase: "success".to_string(),
+            tool_id: "prt_1".to_string(),
+            name: "bash".to_string(),
+            state: "completed".to_string(),
+            input: "{\"command\":\"ls\"}".to_string(),
+            output: Some("ok".to_string()),
+            error: None,
+            title: None,
+        };
+        let envelope = AgentEventEnvelope {
+            contract_version: AGENT_CONTRACT_VERSION,
+            event: AgentStreamEvent::ToolEvent {
+                session: "ses_abc".to_string(),
+                tool,
+            },
+        };
+        let json = serde_json::to_string(&envelope).unwrap();
+        assert!(json.contains("\"contract_version\":2"));
+        assert!(json.contains("\"type\":\"tool_event\""));
+        assert!(json.contains("\"phase\":\"success\""));
+        assert!(!json.contains("password"));
+        assert!(!json.contains("Authorization"));
     }
 
     #[test]
