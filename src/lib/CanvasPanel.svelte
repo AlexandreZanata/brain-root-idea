@@ -1,21 +1,48 @@
 <script lang="ts">
   import Button from "./Button.svelte";
+  import FileTabs from "./FileTabs.svelte";
   import HumanBrowserPanel from "./HumanBrowserPanel.svelte";
   import PreviewPanel from "./PreviewPanel.svelte";
+  import ReviewPanel from "./ReviewPanel.svelte";
+  import SidePanel from "./SidePanel.svelte";
+  import TerminalMirror from "./TerminalMirror.svelte";
+  import {
+    emptyRegistry,
+    fileTabAfterDoubleClick,
+    openPanel,
+    openPanels,
+    type FileTab,
+    type PanelId
+  } from "../panels";
   import { canvasTransition, type CanvasTransition } from "../presentation";
 
-  type CanvasTab = "preview" | "browser";
+  type CanvasTab = PanelId | null;
 
-  const tabs: { id: CanvasTab | null; label: string }[] = [
+  const tabs: { id: CanvasTab; label: string }[] = [
     { id: "preview", label: "Preview" },
     { id: "browser", label: "Browser" },
+    { id: "files", label: "Files" },
+    { id: "review", label: "Review" },
+    { id: "terminal", label: "Terminal" },
     { id: null, label: "Components" },
     { id: null, label: "Logs" },
     { id: null, label: "AI Notes" }
   ];
 
-  let active = $state<CanvasTab>("browser");
+  // The registry is the source of truth for what is mounted (B20-U7). It
+  // opens on the Browser view (the B18 default) and `openPanel` closes
+  // whatever was showing before the destination goes hot or cold. The body
+  // below has exactly one slot, so the released view unmounts — running its
+  // teardown — before the new one mounts (B20-U7-T02).
+  let registry = $state(openPanel(emptyRegistry(), "browser").registry);
+  const shown = $derived(openPanels(registry)[0] ?? null);
   let transition = $state<CanvasTransition | null>(null);
+
+  // Real data only: no workspace listing and no diff source exist yet (the
+  // gaps the U7 spec records), so the file tabs and review diffs stay empty
+  // and those panels show their honest empty states (B20-U7-T05).
+  let fileTabs = $state<FileTab[]>([]);
+  const reviewDiffs: { path: string }[] = [];
 
   // B18-S05 header swipe: dedicated chrome zone only. The page body and the
   // native WebView never see these handlers. Thresholds are fixed so the S07
@@ -31,11 +58,11 @@
   let startY = 0;
   let startT = 0;
 
-  function swipeTarget(dx: number): CanvasTab | null {
+  function swipeTarget(dx: number): CanvasTab {
     if (dx < 0) {
-      return active === "preview" ? "browser" : null;
+      return shown === "preview" ? "browser" : null;
     }
-    return active === "browser" ? "preview" : null;
+    return shown === "browser" ? "preview" : null;
   }
 
   function swipeStartsOnControl(target: EventTarget | null): boolean {
@@ -118,12 +145,24 @@
     releasePointer(swipeZone, event.pointerId);
   }
 
-  function selectTab(tab: CanvasTab) {
-    if (tab === active) {
+  function selectTab(tab: PanelId) {
+    if (tab === shown) {
       return;
     }
-    transition = canvasTransition(tab);
-    active = tab;
+    registry = openPanel(registry, tab).registry;
+    // The transition note only speaks for the heavy views' reload rule
+    // (`canvasTransition` accepts exactly those two destinations); light
+    // panels need no reload note and get none.
+    transition =
+      tab === "preview" || tab === "browser" ? canvasTransition(tab) : null;
+  }
+
+  function closeFileTab(id: string) {
+    fileTabs = fileTabs.filter((tab) => tab.id !== id);
+  }
+
+  function pinFileTab(id: string) {
+    fileTabs = fileTabAfterDoubleClick(fileTabs, id);
   }
 </script>
 
@@ -154,8 +193,8 @@
       {#each tabs as tab (tab.label)}
         <Button
           variant="tab"
-          inactive={tab.id === null || active !== tab.id}
-          current={tab.id === active}
+          inactive={tab.id === null || shown !== tab.id}
+          current={tab.id !== null && tab.id === shown}
           title={tab.id === null ? `${tab.label} — planned for MVP-1` : tab.label}
           onclick={() => {
             if (tab.id) {
@@ -170,10 +209,24 @@
   </div>
 
   <div class="br-panel__body canvas-body">
-    {#if active === "preview"}
+    {#if shown === "preview"}
       <PreviewPanel />
-    {:else if active === "browser"}
+    {:else if shown === "browser"}
       <HumanBrowserPanel />
+    {:else if shown === "files"}
+      <SidePanel label="Files" title="Files">
+        <FileTabs
+          tabs={fileTabs}
+          onclosetab={closeFileTab}
+          onpintab={pinFileTab}
+        />
+      </SidePanel>
+    {:else if shown === "review"}
+      <SidePanel label="Review">
+        <ReviewPanel diffs={reviewDiffs} />
+      </SidePanel>
+    {:else if shown === "terminal"}
+      <TerminalMirror />
     {/if}
   </div>
 </section>
@@ -181,6 +234,16 @@
 <style>
   .canvas {
     height: 100%;
+  }
+
+  /* Eight presets must never break into one character per line: the strip
+     wraps whole tabs instead (B20-U7, scoped so the theme stays untouched). */
+  .br-tabs {
+    flex-wrap: wrap;
+  }
+
+  .br-tabs :global(button) {
+    white-space: nowrap;
   }
 
   .canvas-transition {

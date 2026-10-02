@@ -10,6 +10,33 @@ Batch B01 (measured Linux shell) is tracked by [pull/9](https://github.com/Alexa
 
 No unreleased changes yet.
 
+## 0.0.16
+
+OpenCode visual parity: the BrainRoot shell takes the pinned OpenCode interface (`anomalyco/opencode @ 34aa4274`) surface by surface — tokens, tab strip, composer, model selector, dialogs, and panels — without inventing capabilities the product does not have. Tracked by [pull/137](https://github.com/AlexandreZanata/brain-root-idea/pull/137) and the [Wiki batch page](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B20-Opencode-Parity). The session timeline did not ship: it needs a versioned agent event contract change, re-filed as [#138](https://github.com/AlexandreZanata/brain-root-idea/issues/138).
+
+### Added
+
+- The OpenCode design tokens and typography: one semantic palette in two themes, the pin's type scale on a 13 px floor, 10 px panel and 6 px control radii, and measured contrast with every deviation from the pin named in the stylesheet ([#130](https://github.com/AlexandreZanata/brain-root-idea/issues/130)).
+- A titlebar tab strip with drag reorder, keyboard reorder and traversal, edge fades, and a decorative hover preview that appears only after a deliberate hover ([#131](https://github.com/AlexandreZanata/brain-root-idea/issues/131)).
+- A composer on the pinned shape: a 60→180 px auto-grow editor, a slash palette with the pin's triggers and keys, a `+` menu, an agent switch, and an honest `@` picker that says plainly that no workspace listing exists yet ([#133](https://github.com/AlexandreZanata/brain-root-idea/issues/133)).
+- A searchable model selector on the pinned popover: provider groups, the pin's matching rules, and context length and prices where the catalogs agree — with `?` marks instead of guessed numbers where they do not ([#134](https://github.com/AlexandreZanata/brain-root-idea/issues/134)).
+- One dialog foundation and four screens: a command palette on the pin's matcher and keys, settings where theme is the only writable row and everything else says so, an error screen with technical detail behind a disclosure, and a home view with honest MVP-1 badges ([#135](https://github.com/AlexandreZanata/brain-root-idea/issues/135)).
+- Canvas panels on the pinned shapes: file tabs, a review tab, and a terminal panel that honestly mirrors turn output — named "turn output mirror", with no shell, no PTY, and no fabricated path — behind one panel registry that keeps exactly one heavy view alive at a time ([#136](https://github.com/AlexandreZanata/brain-root-idea/issues/136)).
+
+### Fixed
+
+- The release gate's first execution of the deferred tests found twelve failing cases across two runs, each with a proven cause: most were blind-written test expectations, and one was a real keyboard-navigation defect where the model selector's arrow move skipped the first option from a stale row ([#140](https://github.com/AlexandreZanata/brain-root-idea/issues/140)).
+
+### Performance
+
+- The frontend stays inside its measured budgets at this gate: CSS 9.71 kB gzip and JS 48.95 kB gzip against the 35 kB and 60 kB targets, and the panel registry's 20-cycle soak added 1.39 MiB of JS heap over 100 switches against a ±5 MB bar (all MEASURED on the reference environment).
+
+### Known limitations
+
+- The session timeline waits on the agent event contract extension ([#138](https://github.com/AlexandreZanata/brain-root-idea/issues/138)): the stream carries only text, so tool cards, diffs, and reasoning rows cannot be shown honestly.
+- There is no workspace listing, diff source, or PTY: the file tabs, review tab, and terminal ship their shapes with honest empty states until those exist.
+- The agent runs without a workspace or permission boundary ([ADR 0016](https://github.com/AlexandreZanata/brain-root-idea/blob/main/docs/adr/0016-uncontained-agent-experiment.md)); nothing in this release claims one.
+
 ## 0.0.15
 
 This release carries two recorded deliveries on one branch: batch B19 (foundation, shared controls, shell, and edge) and the maintainer's Lean YAGNI pivot tracked by [#128](https://github.com/AlexandreZanata/brain-root-idea/issues/128). The B19 work is the frontend system phase described by `docs/specs/b19-frontend-system-and-usability-plan.md`; the pivot adds the on-demand coding agent described by `docs/21-lean-yagni-pivot.md`. The pivot's process deviation (no per-microstep issues before coding) is recorded honestly on that issue rather than hidden.

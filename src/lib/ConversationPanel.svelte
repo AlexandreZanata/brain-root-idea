@@ -1,13 +1,11 @@
 <script lang="ts">
   import Badge from "./Badge.svelte";
   import Button from "./Button.svelte";
-  import Icon from "./Icon.svelte";
-  import ModelPicker from "./ModelPicker.svelte";
+  import Composer from "./Composer.svelte";
   import SuggestionItem from "./SuggestionItem.svelte";
-  import TextArea from "./TextArea.svelte";
   import Turn from "./Turn.svelte";
   import WelcomeCard from "./WelcomeCard.svelte";
-  import { composerKeyAction, isPinnedToBottom } from "../presentation";
+  import { isPinnedToBottom } from "../presentation";
   import type {
     AgentMode,
     AgentModelSelection,
@@ -60,12 +58,11 @@
     oncancel: () => void;
   } = $props();
 
-  const profiles: { id: CostProfile; label: string; title: string }[] = [
-    { id: "fast", label: "Fast", title: "Plan + cheapest model" },
-    { id: "balanced", label: "Balanced", title: "Build + cheapest roomy model" },
-    { id: "max", label: "Max", title: "Build + frontier-priced model" }
-  ];
-
+  /**
+   * B20-U4 moved the composer into `Composer.svelte`, including its Enter,
+   * Shift+Enter and Escape handling. This panel keeps the conversation history,
+   * the scroll pin, and the focus helpers that call back into the composer.
+   */
   let composer: { focus: () => void } | undefined;
   let history: HTMLDivElement | undefined;
   let pinned = $state(true);
@@ -90,19 +87,6 @@
     }
     pinned = true;
     composer?.focus();
-  }
-
-  function onComposerKeydown(event: KeyboardEvent) {
-    const action = composerKeyAction(event, event.isComposing);
-    if (action === "submit") {
-      event.preventDefault();
-      pinned = true;
-      onsubmit();
-    } else if (action === "cancel" && isCancellable) {
-      event.preventDefault();
-      oncancel();
-      composer?.focus();
-    }
   }
 
   function chooseSuggestion(text: string) {
@@ -153,70 +137,29 @@
     </div>
   {/if}
 
-  <form
-    class="composer"
-    onsubmit={(event) => {
-      event.preventDefault();
-      pinned = true;
-      onsubmit();
-    }}
-  >
-    <!-- composer label <label for="prompt"> is rendered by TextArea with id="prompt" -->
-    <TextArea
-      id="prompt"
-      name="prompt"
-      label="What do you want to build?"
-      rows={3}
-      placeholder="Describe what you want to build…"
-      bind:value={prompt}
+  <div class="composer-host">
+    <Composer
       bind:this={composer}
-      onkeydown={onComposerKeydown}
+      bind:prompt
+      {canSend}
+      {isCancellable}
+      {statusLabel}
+      {models}
+      {selectedModel}
+      {staleModels}
+      {modelInactive}
+      {agentMode}
+      {profile}
+      {onselectmodel}
+      {onselectagent}
+      {onselectprofile}
+      onsubmit={() => {
+        pinned = true;
+        onsubmit();
+      }}
+      {oncancel}
     />
-    <div class="composer-bar">
-      <div class="agent-toggle" role="group" aria-label="Cost profile">
-        {#each profiles as item (item.id)}
-          <Button
-            variant="secondary"
-            title={item.title}
-            current={profile === item.id}
-            onclick={() => onselectprofile(item.id)}
-          >{item.label}</Button>
-        {/each}
-      </div>
-      <div class="agent-toggle" role="group" aria-label="Agent mode">
-        <Button
-          variant="secondary"
-          title="Plan: read-only exploration, cheaper"
-          current={agentMode === "plan"}
-          onclick={() => onselectagent("plan")}
-        >Plan</Button>
-        <Button
-          variant="secondary"
-          title="Build: edits files"
-          current={agentMode === "build"}
-          onclick={() => onselectagent("build")}
-        >Build</Button>
-      </div>
-      <ModelPicker
-        {models}
-        selected={selectedModel}
-        stale={staleModels}
-        inactive={modelInactive}
-        onselect={onselectmodel}
-      />
-      <span class="composer-state">{statusLabel}</span>
-      <div class="br-btn-group">
-        <Button variant="primary" type="submit" inactive={!canSend}>
-          <span>Send</span>
-          <Icon name="send" size="sm" />
-        </Button>
-        <Button variant="secondary" inactive={!isCancellable} onclick={() => {
-          oncancel();
-          composer?.focus();
-        }}>Cancel</Button>
-      </div>
-    </div>
-  </form>
+  </div>
 </section>
 
 <style>
@@ -251,31 +194,9 @@
     font-size: var(--text-body);
   }
 
-  .composer {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
+  .composer-host {
     padding: var(--space-3) var(--space-4) var(--space-4);
     border-top: 1px solid var(--border);
-  }
-
-  .composer-bar {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-  }
-
-  .agent-toggle {
-    display: flex;
-    gap: var(--space-1);
-  }
-
-  .composer-state {
-    flex: 1;
-    text-align: right;
-    color: var(--text-muted);
-    font-size: var(--text-supporting);
   }
 
   @media (max-width: 1080px) {
@@ -285,18 +206,8 @@
   }
 
   @media (max-width: 640px) {
-    .composer {
-      padding: var(--space-3) var(--space-3) var(--space-3);
-    }
-
-    .composer-bar {
-      flex-wrap: wrap;
-      row-gap: var(--space-2);
-    }
-
-    .composer-state {
-      flex-basis: 100%;
-      text-align: left;
+    .composer-host {
+      padding: var(--space-2) var(--space-2);
     }
   }
 </style>
