@@ -73,6 +73,7 @@
 - **Gate carried unchanged:** `git diff 4ac5e40 77e6de6` is empty; the required check that gated the merge is the `check-full-linux` pass on `4ac5e40` ([run 36448974731](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/36448974731), 7m19s).
 - **Tag and release:** annotated `v0.0.16` pushed on the merge commit; [pre-release announced](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.16) with the environment, MEASURED budgets, limitations, and deviations above.
 - **Artifact cut from the tagged commit** (never from the unmerged branch head): `BrainRoot_0.0.16_amd64.deb`, 3,557,024 bytes, sha256 `ec4fc7a457b813ce0ce34fe5592d09e1574ba1580a46d0480db72e8b6f04a4a7`, Installed-Size 8,125 KiB; packaged `LICENSE`/`NOTICE` verified against the repository files. Not attached and unsigned, as recorded in the release.
+- **Post-merge correction found by rebuilding from the tag:** the `0.0.16` finalization updated `src-tauri/Cargo.toml` but not `Cargo.lock`'s own `brainroot` package version, so the tagged commit's lockfile still said `0.0.15`; `cargo` rewrote it on the next release build. Fixed on `main` after the tag by commit `faab4f6` — the tag is never moved — and the version-consistency check not covering the root package version in `Cargo.lock` is recorded here as the gap that let it through.
 - **Still deferred, named:** the consolidated sanitized side-by-side comparison against the pin (per-surface comparisons live in the stage specs) and the clean-room install/remove probe (requires root).
 
 ## Result and next batch
