@@ -6,13 +6,13 @@
 
 ## Header
 
-- Status: **Gate complete, `CI_PENDING`** — version `0.0.16` set on the finalization commit; PR [#137](https://github.com/AlexandreZanata/brain-root-idea/pull/137) marked Ready on the recorded head; no merge, no tag, no artifact yet (all post-merge work, per `docs/19`)
+- Status: **Merged and released as `v0.0.16`** — PR [#137](https://github.com/AlexandreZanata/brain-root-idea/pull/137) merged as commit [`77e6de6`](https://github.com/AlexandreZanata/brain-root-idea/commit/77e6de679e8a005f5b81fdd8282166c022145b6b) on 2026-10-02; annotated tag `v0.0.16` on the merge commit; [pre-release published](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.16) with the artifact checksum below
 - Objective: give the BrainRoot shell the pinned OpenCode visual and interaction language (`anomalyco/opencode @ 34aa427434b054afcce7184764aa681159b5d769`, read-only) surface by surface — tokens and typography, tab strip, composer, model selector, dialogs and screens, panels and Canvas — under the no-invention rule: where a pin capability has no BrainRoot source (workspace listing, diffs, PTY, permission boundary), the surface ships its shape with an honest empty state and a named follow-up
 - Branch: `batch/b20-opencode-parity`, cut from the B19 merge commit `9e2b51c`; `main` never advanced past it (`git rev-list --count HEAD..origin/main` = 0 at the gate)
 - Target version: `0.0.16` (set once, at this gate; the one-patch-per-batch sequence continues `0.0.14` → `0.0.15`)
 - PR: [#137](https://github.com/AlexandreZanata/brain-root-idea/pull/137) — Draft through the microsteps, Ready at the gate with `CI_PENDING`
 - Wiki batch page: [Batch-B20-Opencode-Parity](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-B20-Opencode-Parity), synchronized at this gate with [Current Status](https://github.com/AlexandreZanata/brain-root-idea/wiki/Current-Status), [Batch Index](https://github.com/AlexandreZanata/brain-root-idea/wiki/Batch-Index)
-- Artifact: none this task. The release build compiles (`pnpm tauri build --no-bundle`, inside the gate); the packaged `.deb` belongs to the post-merge release task so the artifact is cut from the tagged commit and gets its checksum then
+- Artifact: `BrainRoot_0.0.16_amd64.deb`, 3,557,024 bytes, sha256 `ec4fc7a457b813ce0ce34fe5592d09e1574ba1580a46d0480db72e8b6f04a4a7`, Installed-Size 8,125 KiB — built from the tagged merge commit with `sh scripts/package-linux.sh` (Node v26.3.1, pnpm 11.13.0, rustc 1.96.0); `usr/share/doc/brainroot/{LICENSE,NOTICE}` verified inside the package; not attached to the release (v0.0.15 precedent), unsigned
 - Supported test environment: frozen B01 reference environment (Pop!_OS 24.04 LTS, Wayland, WebKitGTK 2.52.6, rustc 1.96.0); browser measurements in Freebuff 0.0.151 / Chromium 130.0.6723.191 / Electron 33.4.11 on Linux x86_64
 
 ## Non-goals
@@ -67,12 +67,20 @@
 - Deferred at this gate, named rather than hidden: the consolidated sanitized side-by-side comparison against the pin (per-surface comparisons live in the seven stage specs and their browser passes), the clean-room `.deb` install/remove probe (needs root, post-merge), and the required approving review (single-maintainer repository; the B17–B19 bypass precedent is recorded, not endorsed).
 - CI: `CI_PENDING` on the submitted head; the PR handoff comment records the SHA. Per `docs/18` §4.3 this task ends without waiting — a later task checks the latest head once and handles merge or remediation. No CI result is claimed here.
 
+## Post-merge completion (2026-10-02)
+
+- **Merge:** PR [#137](https://github.com/AlexandreZanata/brain-root-idea/pull/137) merged into `main` with a merge commit — `77e6de679e8a005f5b81fdd8282166c022145b6b` — preserving the one-commit-per-issue history. The required approving review was bypassed with the admin path: the B17–B19 documented gap (single maintainer identity, self-approval impossible), recorded again in the release deviations rather than hidden. Batch branch `batch/b20-opencode-parity` deleted after the merge.
+- **Gate carried unchanged:** `git diff 4ac5e40 77e6de6` is empty; the required check that gated the merge is the `check-full-linux` pass on `4ac5e40` ([run 36448974731](https://github.com/AlexandreZanata/brain-root-idea/actions/runs/36448974731), 7m19s).
+- **Tag and release:** annotated `v0.0.16` pushed on the merge commit; [pre-release announced](https://github.com/AlexandreZanata/brain-root-idea/releases/tag/v0.0.16) with the environment, MEASURED budgets, limitations, and deviations above.
+- **Artifact cut from the tagged commit** (never from the unmerged branch head): `BrainRoot_0.0.16_amd64.deb`, 3,557,024 bytes, sha256 `ec4fc7a457b813ce0ce34fe5592d09e1574ba1580a46d0480db72e8b6f04a4a7`, Installed-Size 8,125 KiB; packaged `LICENSE`/`NOTICE` verified against the repository files. Not attached and unsigned, as recorded in the release.
+- **Still deferred, named:** the consolidated sanitized side-by-side comparison against the pin (per-surface comparisons live in the stage specs) and the clean-room install/remove probe (requires root).
+
 ## Result and next batch
 
-B20 delivers the OpenCode visual parity slice: the shell now speaks the pin's design language across tokens, tabs, composer, model selector, dialogs, and panels, and every capability that does not exist yet says so on screen instead of pretending. The deferred suite runs green (142 frontend + 172 Rust + 2 e2e + 1 soak) after one honest remediation round, and the measured budgets hold.
+B20 delivers the OpenCode visual parity slice: the shell now speaks the pin's design language across tokens, tabs, composer, model selector, dialogs, and panels, and every capability that does not exist yet says so on screen instead of pretending. The deferred suite runs green (142 frontend + 172 Rust + 2 e2e + 1 soak) after one honest remediation round, and the measured budgets hold. The batch is merged and released as `v0.0.16`; the post-merge evidence is recorded above.
 
 What this batch did **not** do, stated rather than implied: the session timeline (behind #138's contract change), the workspace listing, diffs, a real terminal, and the agent permission boundary — the last one remains the open blocker in `docs/17-open-questions.md` under [ADR 0016](../../adr/0016-uncontained-agent-experiment.md).
 
-Next, in order: (1) a later task checks CI on the submitted head once and merges/releases per `docs/18` §4.3.9–10; (2) the next code batch is [#138](https://github.com/AlexandreZanata/brain-root-idea/issues/138) — the agent event contract extension, which unlocks U3's timeline and, because it touches the agent path, should treat the permission boundary as an acceptance criterion per the B19 follow-up; (3) alternative candidate: the permission boundary itself as its own batch.
+Next, in order: (1) **done** — the later task checked CI once, merged, tagged, released, and cut the artifact; (2) the next code batch is [#138](https://github.com/AlexandreZanata/brain-root-idea/issues/138) — the agent event contract extension, opened as batch B21 on a branch cut from the updated `main`; it unlocks U3's timeline and, because it touches the agent path, should treat the permission boundary as an acceptance criterion per the B19 follow-up; (3) alternative candidate: the permission boundary itself as its own batch.
 
-Rollback: revert the finalization and remediation commits; `main` is untouched and the batch branch holds one commit per issue.
+Rollback: revert the merge commit and the finalization/remediation commits; `main` is at the released content, `v0.0.16` is the recorded release, and every issue's evidence stays in its own commit.
